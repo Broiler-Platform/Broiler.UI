@@ -97,6 +97,14 @@ sequencing and exit gates are in
 
 ## Stabilization and release
 
+- Give `Broiler.Graphics.Windows` secondary-window support so the ADR
+  [0025](adr/0025-host-window-breakout.md) break-out host can be built: an
+  `OwnsMessageLoop` option on `BWindowOptions`, plus `Show`, `Close`,
+  `SetTitle`, and a `Closed` event on `Direct2DWindow`. `BreakoutHostWindow` in
+  `Broiler.UI.Win32.Demo` is written against that surface and does not compile
+  without it, which is why the Win32 sample is excluded from every solution
+  configuration. The break-out contract itself is implemented and covered by
+  `UiWindowBreakOutTests`; only the Windows sample host is blocked.
 - Freeze public names and XML documentation after application consumer review.
 - Run performance, leak, fuzz, accessibility, localization, DPI, IME, and
   long-duration soak gates.

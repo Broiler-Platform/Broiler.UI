@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Xml.Linq;
 
 namespace Broiler.UI.RichEdit.Standard.Tests;
@@ -7,8 +7,8 @@ public sealed class StandardRichEditArchitectureTests
 {
     private static readonly string[] ExpectedReferences =
     [
-        "../../../../../../Broiler.Documents/Broiler.Documents.Model/Broiler.Documents.Model.csproj",
-        "../../../../../../Broiler.Graphics/Broiler.Graphics/Broiler.Graphics.csproj",
+        "../../../../../Broiler.Documents/src/Broiler.Documents.Model/Broiler.Documents.Model.csproj",
+        "../../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
         "../../../../Abstractions/Text/Broiler.UI.RichEdit/Broiler.UI.RichEdit.csproj",
         "../../../../Foundation/Broiler.UI.Standard/Broiler.UI.Standard.csproj",
     ];
@@ -101,16 +101,15 @@ public sealed class StandardRichEditArchitectureTests
         _ => [],
     };
 
+    // The component is its own repository, so the solution file marks the root. Walking up
+    // from the test binary keeps this working from bin/, from the IDE, and from CI.
     private static string FindComponentRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            string candidate = Path.Combine(directory.FullName, "Broiler.UI");
-            if (Directory.Exists(candidate) &&
-                File.Exists(Path.Combine(directory.FullName, ".gitmodules")) &&
-                File.Exists(Path.Combine(directory.FullName, "Directory.Build.props")))
-                return candidate;
+            if (File.Exists(Path.Combine(directory.FullName, "Broiler.UI.slnx")))
+                return directory.FullName;
 
             directory = directory.Parent;
         }

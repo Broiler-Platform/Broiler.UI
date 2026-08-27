@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Xml.Linq;
 using Broiler.UI.Toolbar.Standard;
 
@@ -12,7 +12,7 @@ public sealed class ToolbarArchitectureTests
             "src/Abstractions/Commands/Broiler.UI.Toolbar/Broiler.UI.Toolbar.csproj",
             new[]
             {
-                "../../../../../Broiler.Graphics/Broiler.Graphics/Broiler.Graphics.csproj",
+                "../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
                 "../../../Foundation/Broiler.UI/Broiler.UI.csproj",
             },
         ],
@@ -20,7 +20,7 @@ public sealed class ToolbarArchitectureTests
             "src/Implementations/Standard/Commands/Broiler.UI.Toolbar.Standard/Broiler.UI.Toolbar.Standard.csproj",
             new[]
             {
-                "../../../../../../Broiler.Graphics/Broiler.Graphics/Broiler.Graphics.csproj",
+                "../../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
                 "../../../../Abstractions/Commands/Broiler.UI.Toolbar/Broiler.UI.Toolbar.csproj",
                 "../../../../Foundation/Broiler.UI.Standard/Broiler.UI.Standard.csproj",
             },
@@ -76,16 +76,15 @@ public sealed class ToolbarArchitectureTests
         Assert.Empty(assemblies.SelectMany(static assembly => FindForbiddenSurface(assembly.GetExportedTypes())));
     }
 
+    // The component is its own repository, so the solution file marks the root. Walking up
+    // from the test binary keeps this working from bin/, from the IDE, and from CI.
     private static string FindComponentRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            string candidate = Path.Combine(directory.FullName, "Broiler.UI");
-            if (Directory.Exists(candidate) &&
-                File.Exists(Path.Combine(directory.FullName, ".gitmodules")) &&
-                File.Exists(Path.Combine(directory.FullName, "Directory.Build.props")))
-                return candidate;
+            if (File.Exists(Path.Combine(directory.FullName, "Broiler.UI.slnx")))
+                return directory.FullName;
 
             directory = directory.Parent;
         }

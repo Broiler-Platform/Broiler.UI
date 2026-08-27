@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -16,9 +16,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Broiler.Documents\Broiler.Documents.FormatCodes\Broiler.Documents.FormatCodes.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Documents\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
-    <ProjectReference Include="..\..\..\src\Implementations\Standard\Text\Broiler.UI.FormatCodeView.Standard\Broiler.UI.FormatCodeView.Standard.csproj" />
+    <ProjectReference Include="..\..\..\..\Broiler.Documents\src\Broiler.Documents.FormatCodes\Broiler.Documents.FormatCodes.csproj" />
+    <ProjectReference Include="..\..\..\..\Broiler.Documents\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.FormatCodeView.Standard\Broiler.UI.FormatCodeView.Standard.csproj" />
   </ItemGroup>
 
   <ItemGroup>

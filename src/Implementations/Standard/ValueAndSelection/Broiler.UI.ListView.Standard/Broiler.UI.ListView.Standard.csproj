@@ -15,7 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\Abstractions\ValueAndSelection\Broiler.UI.ListView\Broiler.UI.ListView.csproj" />
     <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
-    <ProjectReference Include="..\..\..\..\..\..\Broiler.Graphics\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="..\..\..\..\..\Broiler.Graphics\src\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
 </Project>

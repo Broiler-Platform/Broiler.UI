@@ -1,0 +1,9 @@
+[submodule "Broiler.Graphics"]
+	path = Broiler.Graphics
+	url = https://github.com/Broiler-Platform/Broiler.Graphics.git
+[submodule "Broiler.Input"]
+	path = Broiler.Input
+	url = https://github.com/Broiler-Platform/Broiler.Input.git
+[submodule "Broiler.Documents"]
+	path = Broiler.Documents
+	url = https://github.com/Broiler-Platform/Broiler.Documents.git
