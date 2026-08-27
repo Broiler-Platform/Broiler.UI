@@ -3,6 +3,7 @@ using Broiler.Input;
 using Broiler.Input.Mouse;
 using Broiler.UI.Dialog;
 using Broiler.UI.Dialog.Standard;
+using Broiler.UI.Tooltip.Standard;
 using Broiler.UI.Window;
 using Broiler.UI.Window.Standard;
 
@@ -20,6 +21,8 @@ public sealed class UiWindowBreakOutTests
         var child = new StandardWindow();
         owner.OpenOwnedWindow(child);
 
+        // Automatic break-out is the default, but a host without the capability leaves the window
+        // logical rather than failing to open it.
         Assert.False(child.CanBreakOut);
         Assert.False(child.BreakOut());
         Assert.False(child.IsBrokenOut);
@@ -39,17 +42,15 @@ public sealed class UiWindowBreakOutTests
     }
 
     [Fact(Timeout = 600000)]
-    public void BreakOut_Reparents_Owned_Window_Into_A_New_Host_Window_Session()
+    public void Owned_Window_Breaks_Out_Automatically_When_The_Host_Supports_It()
     {
         var host = new FakeWindowHost();
         using UiSession session = new StandardUiSessionBuilder().Build(host);
         var owner = new StandardWindow { Title = "Main" };
         session.AddRoot(owner);
         var child = new StandardWindow { Title = "Panel" };
-        owner.OpenOwnedWindow(child, new BRect(10, 10, 200, 150));
 
-        Assert.True(child.CanBreakOut);
-        Assert.True(child.BreakOut());
+        owner.OpenOwnedWindow(child, new BRect(10, 10, 200, 150));
 
         Assert.True(child.IsBrokenOut);
         Assert.Null(child.Owner);
@@ -70,6 +71,56 @@ public sealed class UiWindowBreakOutTests
     }
 
     [Fact(Timeout = 600000)]
+    public void Break_Out_Asks_The_Host_For_Owner_Drawn_Chrome()
+    {
+        var host = new FakeWindowHost();
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+
+        owner.OpenOwnedWindow(new StandardWindow { Title = "Panel" });
+
+        Assert.Equal(UiHostWindowChrome.Owner, Assert.Single(host.Created).Request.Chrome);
+    }
+
+    [Fact(Timeout = 600000)]
+    public void Manual_Mode_Keeps_The_Window_Logical_Until_BreakOut_Is_Called()
+    {
+        var host = new FakeWindowHost();
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+        var child = new StandardWindow { BreakOutMode = UiWindowBreakOutMode.Manual };
+
+        owner.OpenOwnedWindow(child, new BRect(10, 10, 200, 150));
+
+        Assert.False(child.IsBrokenOut);
+        Assert.Empty(host.Created);
+        Assert.Contains(child, owner.OwnedWindows);
+
+        Assert.True(child.CanBreakOut);
+        Assert.True(child.BreakOut());
+        Assert.True(child.IsBrokenOut);
+        Assert.Single(host.Created);
+    }
+
+    [Fact(Timeout = 600000)]
+    public void Tooltips_Never_Break_Out_Automatically()
+    {
+        var host = new FakeWindowHost();
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+        var tooltip = new StandardTooltip { Text = "Hint" };
+
+        owner.OpenOwnedWindow(tooltip, new BRect(0, 0, 1, 1));
+
+        Assert.False(tooltip.IsBrokenOut);
+        Assert.Empty(host.Created);
+        Assert.Contains(tooltip, owner.OwnedWindows);
+    }
+
+    [Fact(Timeout = 600000)]
     public void Broken_Out_Window_Reuses_Origin_Session_Services()
     {
         var host = new FakeWindowHost();
@@ -81,10 +132,8 @@ public sealed class UiWindowBreakOutTests
             .Build(host);
         var owner = new StandardWindow();
         session.AddRoot(owner);
-        var child = new StandardWindow();
-        owner.OpenOwnedWindow(child);
 
-        Assert.True(child.BreakOut());
+        owner.OpenOwnedWindow(new StandardWindow());
 
         UiSession hosted = host.Created[0].BoundSession!;
         Assert.Same(dispatcher, hosted.Dispatcher);
@@ -93,7 +142,7 @@ public sealed class UiWindowBreakOutTests
     }
 
     [Fact(Timeout = 600000)]
-    public void Modal_Dialog_Break_Out_Blocks_Origin_Until_Completed()
+    public void Modal_Dialog_Breaks_Out_And_Blocks_Origin_Until_Completed()
     {
         var host = new FakeWindowHost();
         using UiSession session = new StandardUiSessionBuilder().Build(host);
@@ -102,8 +151,6 @@ public sealed class UiWindowBreakOutTests
 
         var dialog = new StandardDialog { Title = "Modal" };
         Task<UiDialogResult> result = dialog.ShowModal(owner, new BRect(20, 20, 200, 120));
-
-        Assert.True(dialog.BreakOut());
 
         Assert.True(dialog.IsBrokenOut);
         Assert.True(host.Created[0].IsModal);
@@ -130,10 +177,25 @@ public sealed class UiWindowBreakOutTests
         var dialog = new StandardDialog { Title = "Modeless" };
         _ = dialog.ShowModeless(owner, new BRect(20, 20, 200, 120));
 
-        Assert.True(dialog.BreakOut());
-
+        Assert.True(dialog.IsBrokenOut);
         Assert.False(host.Created[0].IsModal);
         Assert.False(session.IsBlockedByExternalModal);
+    }
+
+    [Fact(Timeout = 600000)]
+    public void Modal_Dialog_Stays_Logical_In_Manual_Mode()
+    {
+        var host = new FakeWindowHost();
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+
+        var dialog = new StandardDialog { Title = "Modal", BreakOutMode = UiWindowBreakOutMode.Manual };
+        _ = dialog.ShowModal(owner, new BRect(20, 20, 200, 120));
+
+        Assert.False(dialog.IsBrokenOut);
+        Assert.Empty(host.Created);
+        Assert.Contains(dialog, session.ModalElements);
     }
 
     [Fact(Timeout = 600000)]
@@ -145,7 +207,7 @@ public sealed class UiWindowBreakOutTests
         session.AddRoot(owner);
         var dialog = new StandardDialog();
         _ = dialog.ShowModal(owner, new BRect(20, 20, 200, 120));
-        Assert.True(dialog.BreakOut());
+        Assert.True(dialog.IsBrokenOut);
 
         FakeHostWindow created = host.Created[0];
         UiSession hosted = created.BoundSession!;
@@ -168,7 +230,7 @@ public sealed class UiWindowBreakOutTests
         session.AddRoot(owner);
         var child = new StandardWindow();
         owner.OpenOwnedWindow(child);
-        Assert.True(child.BreakOut());
+        Assert.True(child.IsBrokenOut);
 
         FakeHostWindow created = host.Created[0];
         UiSession hosted = created.BoundSession!;
@@ -212,9 +274,12 @@ public sealed class UiWindowBreakOutTests
         }
     }
 
-    private sealed class FakeWindowHost : IUiHost, IUiWindowHost
+    internal sealed class FakeWindowHost : IUiHost, IUiWindowHost
     {
         public List<FakeHostWindow> Created { get; } = [];
+
+        /// <summary>Stands in for a platform that cannot suppress its own window frame.</summary>
+        public UiHostWindowChrome? ChromeOverride { get; set; }
 
         public BSize ViewportSize => new(800, 600);
 
@@ -232,20 +297,24 @@ public sealed class UiWindowBreakOutTests
 
         public IUiHostWindow CreateHostWindow(UiHostWindowRequest request)
         {
-            var window = new FakeHostWindow(request);
+            var window = new FakeHostWindow(request) { Chrome = ChromeOverride ?? request.Chrome };
             Created.Add(window);
             return window;
         }
     }
 
-    private sealed class FakeHostWindow : IUiHostWindow
+    internal sealed class FakeHostWindow : IUiHostWindow, IUiWindowChromeHost
     {
         public FakeHostWindow(UiHostWindowRequest request)
         {
+            Request = request;
             Title = request.Title;
             Placement = request.Placement;
             IsModal = request.IsModal;
+            Chrome = request.Chrome;
         }
+
+        public UiHostWindowRequest Request { get; }
 
         public string Title { get; private set; }
 
@@ -261,11 +330,27 @@ public sealed class UiWindowBreakOutTests
 
         public int DisposeCount { get; private set; }
 
+        public BPixelBuffer? Icon { get; private set; }
+
+        public List<UiWindowEdge> ResizeDrags { get; } = [];
+
+        public int MoveDrags { get; private set; }
+
+        public int CloseRequests { get; private set; }
+
         public event EventHandler? CloseRequested;
+
+        public event EventHandler? WindowStateChanged;
 
         public BSize ViewportSize => new(400, 300);
 
         public double Scale => 1.0;
+
+        public UiHostWindowChrome Chrome { get; set; }
+
+        public bool IsResizable { get; set; } = true;
+
+        public UiHostWindowState WindowState { get; private set; }
 
         public BRenderList CreateRenderList(int capacity = 0) => new(capacity);
 
@@ -281,7 +366,35 @@ public sealed class UiWindowBreakOutTests
 
         public void SetTitle(string title) => Title = title;
 
+        public void SetIcon(BPixelBuffer? icon) => Icon = icon;
+
         public void Activate() => Activated = true;
+
+        public void SetWindowState(UiHostWindowState state)
+        {
+            if (WindowState == state)
+                return;
+
+            WindowState = state;
+            WindowStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>Simulates the window manager changing the state behind the framework's back.</summary>
+        public void RaiseExternalWindowState(UiHostWindowState state)
+        {
+            WindowState = state;
+            WindowStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void RequestClose()
+        {
+            CloseRequests++;
+            RaiseCloseRequested();
+        }
+
+        public void BeginMoveDrag() => MoveDrags++;
+
+        public void BeginResizeDrag(UiWindowEdge edge) => ResizeDrags.Add(edge);
 
         public void RaiseCloseRequested() => CloseRequested?.Invoke(this, EventArgs.Empty);
 

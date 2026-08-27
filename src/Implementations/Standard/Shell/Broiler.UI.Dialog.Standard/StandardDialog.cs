@@ -9,11 +9,19 @@ namespace Broiler.UI.Dialog.Standard;
 
 public sealed class StandardDialog : UiDialog, IStandardThemedControl
 {
+    private readonly UiWindowChromeController _chrome;
+
+    public StandardDialog()
+    {
+        _chrome = new UiWindowChromeController(this) { Metrics = UiWindowChromeMetrics.Compact };
+    }
+
     public void ApplyTheme(StandardThemeTokens theme)
     {
         Background = theme.Surface;
         TitleBarBackground = theme.SurfaceAlt;
         TitleForeground = theme.Text;
+        InactiveTitleForeground = theme.TextMuted;
         BorderColor = theme.Border;
         ActiveBorderColor = theme.Accent;
     }
@@ -24,6 +32,8 @@ public sealed class StandardDialog : UiDialog, IStandardThemedControl
 
     public BColor TitleForeground { get; set; } = StandardControlPaint.Text;
 
+    public BColor InactiveTitleForeground { get; set; } = StandardControlPaint.TextMuted;
+
     public BColor BorderColor { get; set; } = StandardControlPaint.Border;
 
     public BColor ActiveBorderColor { get; set; } = StandardControlPaint.Accent;
@@ -32,17 +42,39 @@ public sealed class StandardDialog : UiDialog, IStandardThemedControl
 
     public BSize PreferredSize { get; set; } = new(320, 180);
 
-    public double TitleBarHeight { get; set; } = 30;
+    public double TitleBarHeight
+    {
+        get => _chrome.Metrics.TitleBarHeight;
+        set => _chrome.Metrics = _chrome.Metrics with { TitleBarHeight = Math.Max(0, value) };
+    }
+
+    /// <summary>Width of one system button in the owner-drawn title bar.</summary>
+    public double SystemButtonWidth
+    {
+        get => _chrome.Metrics.ButtonWidth;
+        set => _chrome.Metrics = _chrome.Metrics with { ButtonWidth = Math.Max(0, value) };
+    }
 
     public double Padding { get; set; } = 12;
 
     public double CornerRadius { get; set; } = 8;
 
+    /// <summary>Where the owner-drawn chrome currently sits, after the last arrange pass.</summary>
+    public UiWindowChromeLayout ChromeLayout => _chrome.Layout;
+
+    /// <summary>
+    /// The title-bar height actually reserved. Zero once the dialog has broken out into a native
+    /// window whose window manager draws the title bar itself, so the content is not pushed down
+    /// by a strip that is no longer drawn.
+    /// </summary>
+    private double EffectiveTitleBarHeight => IsTitleBarVisible ? TitleBarHeight : 0;
+
     protected override BSize MeasureCore(BSize availableSize)
     {
+        double titleBarHeight = EffectiveTitleBarHeight;
         BSize contentAvailable = new(
             Math.Max(0, availableSize.Width - (Padding * 2)),
-            Math.Max(0, availableSize.Height - TitleBarHeight - (Padding * 2)));
+            Math.Max(0, availableSize.Height - titleBarHeight - (Padding * 2)));
         BSize contentDesired = BSize.Empty;
 
         foreach (UiElement child in Children)
@@ -60,7 +92,7 @@ public sealed class StandardDialog : UiDialog, IStandardThemedControl
         }
 
         double width = Math.Max(PreferredSize.Width, contentDesired.Width + (Padding * 2));
-        double height = Math.Max(PreferredSize.Height, contentDesired.Height + TitleBarHeight + (Padding * 2));
+        double height = Math.Max(PreferredSize.Height, contentDesired.Height + titleBarHeight + (Padding * 2));
         return new BSize(ClampDesired(width, availableSize.Width), ClampDesired(height, availableSize.Height));
     }
 
@@ -69,7 +101,7 @@ public sealed class StandardDialog : UiDialog, IStandardThemedControl
         if (Session is not null)
             BindViewport(new UiViewportBinding(finalRect.Size, Session.Host.Scale));
 
-        BRect client = GetClientBounds(finalRect);
+        BRect client = StandardControlPaint.Inset(_chrome.UpdateLayout(finalRect).Content, Padding);
         foreach (UiElement child in Children)
         {
             if (child.Visibility == UiVisibility.Collapsed)
@@ -87,17 +119,23 @@ public sealed class StandardDialog : UiDialog, IStandardThemedControl
 
     protected override void RenderCore(UiRenderContext context)
     {
-        StandardControlPaint.FillRounded(context.RenderList, Bounds, Background, CornerRadius);
-        StandardControlPaint.FillRounded(context.RenderList, new BRect(Bounds.Left, Bounds.Top, Bounds.Width, Math.Min(TitleBarHeight, Bounds.Height)), TitleBarBackground, CornerRadius);
-        if (!string.IsNullOrWhiteSpace(Title))
-            context.RenderList.DrawText(new BTextRun(Title, TitleFont, TitleForeground), new BPoint(Bounds.Left + Padding, Bounds.Top + 7));
+        // A broken-out dialog fills its own native window, which has square corners; only a
+        // logical subwindow floats above its owner and wants a rounded card.
+        double radius = IsBrokenOut ? 0 : CornerRadius;
+        StandardControlPaint.FillRounded(context.RenderList, Bounds, Background, radius);
+        RenderChrome(context, radius);
 
         base.RenderCore(context);
-        StandardControlPaint.StrokeRounded(context.RenderList, Bounds, IsActive ? ActiveBorderColor : BorderColor, CornerRadius, IsActive ? 2 : 1);
+        StandardControlPaint.StrokeRounded(context.RenderList, Bounds, IsActive ? ActiveBorderColor : BorderColor, radius, IsActive ? 2 : 1);
     }
 
     protected override bool OnInput(UiInputEvent input)
     {
+        // The chrome runs first so a press on the close button is never taken for a title-bar
+        // drag, and so a broken-out dialog moves its native window instead of its placement.
+        if (_chrome.HandleInput(input))
+            return true;
+
         if (base.OnInput(input))
             return true;
 
@@ -110,7 +148,45 @@ public sealed class StandardDialog : UiDialog, IStandardThemedControl
     }
 
     protected override bool HitTestMoveGrip(BPoint position) =>
-        new BRect(Bounds.Left, Bounds.Top, Bounds.Width, Math.Min(TitleBarHeight, Bounds.Height)).Contains(position);
+        _chrome.Layout.HitTest(position) == UiWindowChromePart.TitleBar;
+
+    private void RenderChrome(UiRenderContext context, double cornerRadius)
+    {
+        UiWindowChromeLayout layout = _chrome.Layout;
+        if (!layout.IsVisible)
+            return;
+
+        BRenderList renderList = context.RenderList;
+        StandardWindowChromePaint.FillTitleBar(renderList, layout.TitleBar, TitleBarBackground, cornerRadius);
+        if (Icon is not null)
+            StandardWindowChromePaint.DrawIcon(renderList, layout.Icon, Icon.Image);
+
+        BColor titleColor = IsActive ? TitleForeground : InactiveTitleForeground;
+        StandardWindowChromePaint.DrawTitleText(renderList, layout.Title, Title, TitleFont, titleColor);
+
+        DrawSystemButton(renderList, layout.MinimizeButton, StandardWindowChromeGlyph.Minimize, UiWindowChromePart.Minimize, titleColor);
+        DrawSystemButton(
+            renderList,
+            layout.MaximizeButton,
+            State == UiWindowState.Maximized ? StandardWindowChromeGlyph.Restore : StandardWindowChromeGlyph.Maximize,
+            UiWindowChromePart.Maximize,
+            titleColor);
+        DrawSystemButton(renderList, layout.CloseButton, StandardWindowChromeGlyph.Close, UiWindowChromePart.Close, titleColor);
+    }
+
+    private void DrawSystemButton(
+        BRenderList renderList,
+        BRect bounds,
+        StandardWindowChromeGlyph glyph,
+        UiWindowChromePart part,
+        BColor glyphColor) =>
+        StandardWindowChromePaint.DrawButton(
+            renderList,
+            bounds,
+            glyph,
+            _chrome.HotPart == part,
+            _chrome.PressedPart == part,
+            glyphColor);
 
     private bool HandlePointerButton(UiInputEvent input)
     {
@@ -148,13 +224,6 @@ public sealed class StandardDialog : UiDialog, IStandardThemedControl
 
         return false;
     }
-
-    private BRect GetClientBounds(BRect bounds) =>
-        new(
-            bounds.Left + Padding,
-            bounds.Top + TitleBarHeight + Padding,
-            Math.Max(0, bounds.Width - (Padding * 2)),
-            Math.Max(0, bounds.Height - TitleBarHeight - (Padding * 2)));
 
     private static BRect GetOwnedWindowBounds(UiWindow window, BRect ownerBounds)
     {

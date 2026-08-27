@@ -39,6 +39,7 @@ using Broiler.UI.ToggleButton;
 using Broiler.UI.ToggleButton.Standard;
 using Broiler.UI.Tooltip.Standard;
 using Broiler.UI.Toolbar.Standard;
+using Broiler.UI.Window;
 using Broiler.UI.Window.Standard;
 
 namespace Broiler.UI.Win32.Demo;
@@ -84,6 +85,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
     private MicrophoneInputDevice? _microphonePreviewDevice;
     private BImageHandle _demoImage;
     private BImageHandle _cameraPreviewImage;
+    private BImageHandle _windowIcon;
     private bool _tooltipArmed;
     private bool _cameraPreviewWaitingStatusShown;
     private int _commitCount;
@@ -104,6 +106,10 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             ClientHeight = 900,
             ClearColor = DemoColors.Canvas,
             RenderOptions = new BRenderOptions(Antialias: true, VSync: true, SubpixelText: true),
+
+            // Windows draws no caption: the StandardWindow root paints the title bar, icon, and
+            // system buttons itself, exactly as a broken-out window does.
+            Chrome = BWindowChrome.Owner,
         })
     {
         _host = new DemoUiHost(this);
@@ -136,6 +142,10 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         _session.AddRoot(_rootWindow);
         _session.SetFocus(_input);
 
+        // Closing the root window closes the native one through IUiWindowChromeHost.RequestClose;
+        // this only forwards native state changes back the other way.
+        StateChanged += (_, _) => _host.RaiseWindowStateChanged();
+
         _animations = new StandardAnimationScheduler(_session);
         _animationRegistration = _animations.Register(TimeSpan.FromMilliseconds(33), OnAnimationFrame);
         RefreshMediaDevices();
@@ -150,6 +160,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
     {
         _host.Update(clientSize, DpiScale);
         EnsureDemoImage();
+        EnsureWindowIcon();
         return _session.RenderFrame();
     }
 
@@ -221,6 +232,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             StopCameraPreview();
             _host.DisposeHostWindows();
             _animationRegistration.Dispose();
+            ReleaseWindowIcon();
             ReleaseDemoImage();
             _session.Dispose();
         }
@@ -539,11 +551,13 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         dispatcher.Add(new StandardCommand("commit", CommitInput));
         dispatcher.Add(new StandardCommand("reset", ResetDemo));
         dispatcher.Add(new StandardCommand("dialog", ShowDialog));
+        dispatcher.Add(new StandardCommand("logical-dialog", ShowLogicalDialog));
 
         var file = new UiMenuItem("file", "File");
         file.Children.Add(new UiMenuItem("commit", "Commit") { CommandName = "commit", AccessKey = 'C' });
         file.Children.Add(new UiMenuItem("reset", "Reset") { CommandName = "reset", AccessKey = 'R' });
         file.Children.Add(new UiMenuItem("show-dialog", "Show dialog") { CommandName = "dialog", AccessKey = 'D' });
+        file.Children.Add(new UiMenuItem("show-logical-dialog", "Show logical dialog") { CommandName = "logical-dialog", AccessKey = 'L' });
 
         var view = new UiMenuItem("view", "View");
         view.Children.Add(new UiMenuItem("progress", "Animate progress") { IsCheckable = true, IsChecked = true });
@@ -738,7 +752,8 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         };
         body.AddChild(new StandardLabel
         {
-            Text = "This dialog is an owned logical window. Enter accepts, Escape cancels.",
+            Text = "Dialogs break out into their own OS window by default - drag this one onto "
+                + "another monitor. Enter accepts, Escape cancels.",
             Wrapping = UiTextWrapping.Wrap,
             Font = new BFontStyle("Segoe UI", 14),
             Foreground = DemoColors.Text,
@@ -751,16 +766,10 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         };
         var ok = new StandardButton { Text = "Accept", IsDefault = true, PreferredSize = new BSize(90, 32) };
         var cancel = new StandardButton { Text = "Cancel", IsCancel = true, PreferredSize = new BSize(90, 32) };
-        var breakOut = new StandardButton { Text = "Break out", PreferredSize = new BSize(104, 32) };
         ok.Clicked += (_, _) => dialog.Accept("button");
         cancel.Clicked += (_, _) => dialog.Cancel();
-        breakOut.Clicked += (_, _) =>
-            SetStatus(dialog.BreakOut()
-                ? "Dialog broke out into its own window. Close it to dismiss the dialog."
-                : "Break out unavailable (host window support required).");
         row.AddChild(ok);
         row.AddChild(cancel);
-        row.AddChild(breakOut);
         body.AddChild(row);
         dialog.AddChild(body);
         dialog.ResultCompleted += (_, e) => SetStatus("Dialog result: " + e.Result.Kind);
@@ -775,6 +784,58 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             height);
 
         _ = dialog.ShowModal(_rootWindow, placement);
+        SetStatus(dialog.IsBrokenOut
+            ? "Dialog opened in its own OS window. Close it to dismiss the dialog."
+            : "Dialog opened as a logical subwindow (no host window support).");
+        Invalidate();
+    }
+
+    /// <summary>
+    /// The other half of the story: opting a dialog out of break-out keeps it a logical subwindow
+    /// rendered inside the main window, the pre-ADR-0025 behaviour.
+    /// </summary>
+    private void ShowLogicalDialog()
+    {
+        if (_rootWindow.IsDisposed || _rootWindow.IsClosed)
+            return;
+
+        var dialog = new StandardDialog
+        {
+            Title = "Logical dialog",
+            BreakOutMode = UiWindowBreakOutMode.Manual,
+            PreferredSize = new BSize(390, 170),
+            TitleFont = new BFontStyle("Segoe UI", 14, BFontWeight.SemiBold),
+        };
+
+        var body = new StandardPanel
+        {
+            LayoutMode = UiPanelLayoutMode.Stack,
+            Spacing = 10,
+            Background = BColor.Transparent,
+        };
+        body.AddChild(new StandardLabel
+        {
+            Text = "BreakOutMode.Manual keeps this dialog inside the main window. Drag its title "
+                + "bar to move it; the close button dismisses it.",
+            Wrapping = UiTextWrapping.Wrap,
+            Font = new BFontStyle("Segoe UI", 14),
+            Foreground = DemoColors.Text,
+        });
+        var close = new StandardButton { Text = "Close", IsCancel = true, PreferredSize = new BSize(90, 32) };
+        close.Clicked += (_, _) => dialog.Cancel();
+        body.AddChild(close);
+        dialog.AddChild(body);
+
+        BSize viewport = _host.ViewportSize;
+        double width = Math.Min(390, Math.Max(260, viewport.Width - 80));
+        var placement = new BRect(
+            Math.Max(24, (viewport.Width - width) / 2),
+            Math.Max(50, (viewport.Height - 170) / 2),
+            width,
+            170);
+
+        _ = dialog.ShowModeless(_rootWindow, placement);
+        SetStatus("Logical dialog opened inside the main window.");
         Invalidate();
     }
 
@@ -1669,6 +1730,64 @@ internal sealed class Win32DemoWindow : Direct2DWindow
     private static byte ClampToByte(int value) =>
         value <= 0 ? (byte)0 : value >= 255 ? (byte)255 : (byte)value;
 
+    /// <summary>
+    /// Publishes the window icon once the renderer exists: the drawable handle for the owner-drawn
+    /// title bar, and the CPU pixels the host needs for the taskbar and Alt+Tab entry.
+    /// </summary>
+    private void EnsureWindowIcon()
+    {
+        if (_windowIcon.IsValid || Direct2DRenderer is null)
+            return;
+
+        BPixelBuffer pixels = CreateAppIcon(32);
+        _windowIcon = Direct2DRenderer.CreateImage(pixels);
+        _rootWindow.Icon = new UiWindowIcon(_windowIcon, pixels);
+    }
+
+    private void ReleaseWindowIcon()
+    {
+        if (!_windowIcon.IsValid)
+            return;
+
+        if (!_rootWindow.IsDisposed)
+            _rootWindow.Icon = null;
+        Direct2DRenderer?.ReleaseImage(_windowIcon);
+        _windowIcon = BImageHandle.Invalid;
+    }
+
+    /// <summary>A rounded accent tile with a lighter notch — enough to read as an app icon.</summary>
+    private static BPixelBuffer CreateAppIcon(int size)
+    {
+        byte[] rgba = new byte[size * size * 4];
+        double radius = size * 0.22;
+        BColor accent = DemoColors.Accent;
+
+        int i = 0;
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            bool inside = IsInsideRoundedSquare(x, y, size, radius);
+            bool notch = inside && x >= size * 0.28 && x < size * 0.72 && y >= size * 0.44 && y < size * 0.60;
+
+            rgba[i++] = notch ? (byte)0xFF : accent.R;
+            rgba[i++] = notch ? (byte)0xFF : accent.G;
+            rgba[i++] = notch ? (byte)0xFF : accent.B;
+            rgba[i++] = inside ? (byte)0xFF : (byte)0x00;
+        }
+
+        return new BPixelBuffer(size, size, rgba);
+    }
+
+    private static bool IsInsideRoundedSquare(int x, int y, int size, double radius)
+    {
+        double dx = Math.Max(radius - x, x - (size - 1 - radius));
+        double dy = Math.Max(radius - y, y - (size - 1 - radius));
+        if (dx <= 0 || dy <= 0)
+            return true;
+
+        return (dx * dx) + (dy * dy) <= radius * radius;
+    }
+
     private static BPixelBuffer CreateDemoImage(int width, int height)
     {
         byte[] rgba = new byte[width * height * 4];
@@ -1686,7 +1805,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         return new BPixelBuffer(width, height, rgba);
     }
 
-    private sealed class DemoUiHost : IUiHost, IUiClipboardHost, IUiTextInputHost, IUiWindowHost
+    private sealed class DemoUiHost : IUiHost, IUiClipboardHost, IUiTextInputHost, IUiWindowHost, IUiWindowChromeHost
     {
         private readonly Win32DemoWindow _window;
         private readonly List<BreakoutHostWindow> _hostWindows = [];
@@ -1734,6 +1853,37 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             window.Show();
             return window;
         }
+
+        // IUiWindowChromeHost: the main window is frameless too, so its StandardWindow root draws
+        // the title bar and drives minimize/maximize/move through here.
+        public event EventHandler? WindowStateChanged;
+
+        public UiHostWindowChrome Chrome =>
+            _window.Options.Chrome == BWindowChrome.Owner ? UiHostWindowChrome.Owner : UiHostWindowChrome.System;
+
+        public bool IsResizable => _window.Options.Resizable;
+
+        public UiHostWindowState WindowState => BreakoutHostWindow.ToHostState(_window.WindowState);
+
+        public void SetWindowState(UiHostWindowState state) => _window.SetWindowState(state switch
+        {
+            UiHostWindowState.Minimized => BWindowState.Minimized,
+            UiHostWindowState.Maximized => BWindowState.Maximized,
+            _ => BWindowState.Normal,
+        });
+
+        public void SetTitle(string title) => _window.SetTitle(title);
+
+        public void SetIcon(BPixelBuffer? icon) => _window.SetIcon(icon);
+
+        public void RequestClose() => _window.Close();
+
+        public void BeginMoveDrag() => _window.BeginMoveDrag();
+
+        public void BeginResizeDrag(UiWindowEdge edge) =>
+            _window.BeginResizeDrag(BreakoutHostWindow.ToWindowEdge(edge));
+
+        public void RaiseWindowStateChanged() => WindowStateChanged?.Invoke(this, EventArgs.Empty);
 
         public void DisposeHostWindows()
         {

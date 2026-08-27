@@ -13,11 +13,18 @@ public abstract class UiWindow : UiElement
     private UiViewportBinding _viewportBinding;
     private IUiHostWindow? _hostWindow;
     private UiSession? _hostedSession;
+    private IUiWindowChromeHost? _subscribedChromeHost;
+    private UiWindowIcon? _icon;
+    private UiWindowChrome _chrome = UiWindowChrome.Auto;
+    private bool _canMinimize = true;
+    private bool _canMaximize = true;
+    private bool _canClose = true;
     private bool _isActive;
     private bool _isClosed;
     private bool _isBrokenOut;
     private bool _isReparenting;
     private bool _isTearingDownBreakOut;
+    private bool _isSyncingHostState;
 
     public event EventHandler? Activated;
 
@@ -38,9 +45,100 @@ public abstract class UiWindow : UiElement
                 return;
 
             _title = value;
+            ChromeHost?.SetTitle(value);
             Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
     }
+
+    /// <summary>
+    /// The window icon: drawn in owner-drawn chrome, and — when it carries native pixels — used
+    /// for the taskbar and Alt+Tab entry of the native window this one is hosted in.
+    /// </summary>
+    public UiWindowIcon? Icon
+    {
+        get => _icon;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_icon, value))
+                return;
+
+            _icon = value;
+            ChromeHost?.SetIcon(value?.NativePixels);
+            Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// Who draws this window's title bar and system buttons. <see cref="UiWindowChrome.Auto"/>
+    /// resolves per host, so the same window renders one title bar whether it is a logical
+    /// subwindow, broken out into a frameless native window, or hosted by a window manager that
+    /// insists on drawing its own.
+    /// </summary>
+    public UiWindowChrome Chrome
+    {
+        get => _chrome;
+        set
+        {
+            ThrowIfDisposed();
+            if (_chrome == value)
+                return;
+
+            _chrome = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// Whether this window draws its own title bar. False when the platform draws one, so a
+    /// broken-out window never stacks an owner-drawn bar on top of a native one.
+    /// </summary>
+    public bool IsTitleBarVisible => _chrome switch
+    {
+        UiWindowChrome.None => false,
+        UiWindowChrome.Owner => true,
+        // A logical subwindow is drawn entirely by the framework, so it always owns its chrome.
+        // A root window only does when its host says the platform frame is suppressed.
+        _ => Parent is not null || ChromeHost?.Chrome == UiHostWindowChrome.Owner,
+    };
+
+    /// <summary>Whether the window offers a minimize button. Only meaningful with a native host.</summary>
+    public bool CanMinimize
+    {
+        get => _canMinimize;
+        set => SetChromeFlag(ref _canMinimize, value);
+    }
+
+    /// <summary>Whether the window offers a maximize/restore button.</summary>
+    public bool CanMaximize
+    {
+        get => _canMaximize;
+        set => SetChromeFlag(ref _canMaximize, value);
+    }
+
+    /// <summary>Whether the window offers a close button.</summary>
+    public bool CanClose
+    {
+        get => _canClose;
+        set => SetChromeFlag(ref _canClose, value);
+    }
+
+    /// <summary>Whether owner-drawn chrome should paint a minimize button.</summary>
+    public bool ShowsMinimizeButton => IsTitleBarVisible && _canMinimize && ChromeHost is not null;
+
+    /// <summary>Whether owner-drawn chrome should paint a maximize/restore button.</summary>
+    public bool ShowsMaximizeButton => IsTitleBarVisible && _canMaximize && ChromeHost is { IsResizable: true };
+
+    /// <summary>Whether owner-drawn chrome should paint a close button.</summary>
+    public bool ShowsCloseButton => IsTitleBarVisible && _canClose;
+
+    /// <summary>
+    /// The host capability that drives the native window behind this one, when this window is the
+    /// root of a session bound to a chrome-capable host. Null for a logical subwindow, which the
+    /// framework moves and closes itself.
+    /// </summary>
+    protected IUiWindowChromeHost? ChromeHost =>
+        Parent is null && !IsDisposed && Session?.Host is IUiWindowChromeHost chrome ? chrome : null;
 
     public UiWindowKind Kind { get; private set; } = UiWindowKind.TopLevel;
 
@@ -54,6 +152,8 @@ public abstract class UiWindow : UiElement
                 return;
 
             _state = value;
+            if (!_isSyncingHostState)
+                ChromeHost?.SetWindowState(ToHostState(value));
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
     }
@@ -86,6 +186,14 @@ public abstract class UiWindow : UiElement
     /// <see cref="BreakOut"/>. Break-out is one-way for the window's lifetime.
     /// </summary>
     public bool IsBrokenOut => _isBrokenOut;
+
+    /// <summary>
+    /// Whether this window promotes itself into its own native window as soon as it opens.
+    /// Defaults to <see cref="UiWindowBreakOutMode.Automatic"/>: an owned window or dialog is a
+    /// real OS window wherever the host supports it, and stays a logical subwindow where it does
+    /// not. Set <see cref="UiWindowBreakOutMode.Manual"/> to keep a window inside its owner.
+    /// </summary>
+    public UiWindowBreakOutMode BreakOutMode { get; set; } = UiWindowBreakOutMode.Automatic;
 
     /// <summary>
     /// True when this window can break out into its own native top-level host window: it is an
@@ -124,7 +232,8 @@ public abstract class UiWindow : UiElement
         _isReparenting = true;
         owner.RemoveChild(this);
 
-        IUiHostWindow hostWindow = windowHost.CreateHostWindow(new UiHostWindowRequest(title, requested, isModal));
+        IUiHostWindow hostWindow = windowHost.CreateHostWindow(
+            new UiHostWindowRequest(title, requested, isModal, ResolveRequestedChrome(), _canMaximize));
         var hosted = new UiSession(hostWindow, origin.Dispatcher, origin.Clock, origin.Factories);
 
         _hostWindow = hostWindow;
@@ -137,11 +246,39 @@ public abstract class UiWindow : UiElement
         hosted.AddRoot(this);
         _isReparenting = false;
         hostWindow.Bind(hosted);
+        if (_icon?.NativePixels is not null && hostWindow is IUiWindowChromeHost chrome)
+            chrome.SetIcon(_icon.NativePixels);
         OnBrokenOut(origin, hosted);
         hostWindow.Activate();
         Activate();
         return true;
     }
+
+    /// <summary>
+    /// Breaks out when <see cref="BreakOutMode"/> allows it and the host supports it. Popups,
+    /// menus, and tooltips never do: they are transient overlays positioned against their owner,
+    /// and a native window for each would flash on screen and steal activation.
+    /// </summary>
+    protected bool TryBreakOutAutomatically()
+    {
+        if (BreakOutMode != UiWindowBreakOutMode.Automatic)
+            return false;
+        if (Kind is UiWindowKind.Popup or UiWindowKind.Tooltip)
+            return false;
+
+        return CanBreakOut && BreakOut();
+    }
+
+    /// <summary>
+    /// Called once this window has been attached to an owner and activated. The base
+    /// implementation breaks it out into its own native window (see
+    /// <see cref="TryBreakOutAutomatically"/>); a subclass that finishes its own presentation
+    /// first overrides this and breaks out at the end of that.
+    /// </summary>
+    protected virtual void OnOpened() => TryBreakOutAutomatically();
+
+    private UiHostWindowChrome ResolveRequestedChrome() =>
+        _chrome == UiWindowChrome.None ? UiHostWindowChrome.System : UiHostWindowChrome.Owner;
 
     /// <summary>
     /// Whether a break-out of this window is application-modal to its origin window. The base
@@ -215,6 +352,56 @@ public abstract class UiWindow : UiElement
         Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    /// <summary>Minimizes the window. Requires a chrome-capable host; otherwise a no-op.</summary>
+    public bool Minimize() => ApplyWindowState(UiWindowState.Minimized);
+
+    /// <summary>Maximizes the window. Requires a chrome-capable host; otherwise a no-op.</summary>
+    public bool Maximize() => ApplyWindowState(UiWindowState.Maximized);
+
+    /// <summary>Restores the window from minimized or maximized.</summary>
+    public bool Restore() => ApplyWindowState(UiWindowState.Normal);
+
+    /// <summary>Maximizes a normal window and restores a maximized one — the title-bar double-click.</summary>
+    public bool ToggleMaximize() =>
+        ApplyWindowState(_state == UiWindowState.Maximized ? UiWindowState.Normal : UiWindowState.Maximized);
+
+    /// <summary>
+    /// Hands an in-progress pointer press to the window manager as a window move. Returns false
+    /// for a logical subwindow, which has no native window and moves itself by placement instead.
+    /// </summary>
+    public bool BeginMoveDrag()
+    {
+        ThrowIfDisposed();
+        IUiWindowChromeHost? host = ChromeHost;
+        if (host is null)
+            return false;
+
+        // Dragging a maximized window restores it first, the way a native title bar does.
+        if (_state == UiWindowState.Maximized)
+            Restore();
+
+        host.BeginMoveDrag();
+        return true;
+    }
+
+    /// <summary>
+    /// Hands an in-progress pointer press to the window manager as a resize of
+    /// <paramref name="edge"/>. Returns false without a chrome-capable host.
+    /// </summary>
+    public bool BeginResizeDrag(UiWindowEdge edge)
+    {
+        ThrowIfDisposed();
+        if (edge == UiWindowEdge.None || !_canMaximize)
+            return false;
+
+        IUiWindowChromeHost? host = ChromeHost;
+        if (host is null || !host.IsResizable)
+            return false;
+
+        host.BeginResizeDrag(edge);
+        return true;
+    }
+
     public void OpenOwnedWindow(UiWindow window) =>
         OpenOwnedWindow(window, BRect.Empty, UiWindowKind.Owned);
 
@@ -246,6 +433,7 @@ public abstract class UiWindow : UiElement
         }
 
         window.Activate();
+        window.OnOpened();
     }
 
     public void BringToFront()
@@ -295,9 +483,15 @@ public abstract class UiWindow : UiElement
         foreach (UiWindow ownedWindow in _ownedWindows.ToArray())
             ownedWindow.Close(UiWindowCloseReason.OwnerClosed);
 
+        // A broken-out window tears its own host window down from the Closed handler; any other
+        // window backed by a native one has to ask the host to close it, or the logical window
+        // would go away while its OS window stayed on screen.
+        IUiWindowChromeHost? chromeHost = _isBrokenOut ? null : ChromeHost;
+
         _isClosed = true;
         DeactivateInternal();
         Closed?.Invoke(this, new UiWindowClosedEventArgs(reason));
+        chromeHost?.RequestClose();
         Dispose();
         return true;
     }
@@ -316,6 +510,18 @@ public abstract class UiWindow : UiElement
             CreateSemanticState(),
             CreateChildSemanticNodes());
 
+    protected override void OnAttached()
+    {
+        base.OnAttached();
+        SubscribeToChromeHost();
+    }
+
+    protected override void OnDetached()
+    {
+        UnsubscribeFromChromeHost();
+        base.OnDetached();
+    }
+
     protected override void OnChildRemoved(UiElement child)
     {
         if (child is UiWindow window && ReferenceEquals(window.Owner, this))
@@ -329,12 +535,16 @@ public abstract class UiWindow : UiElement
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && !_isClosed)
+        if (disposing)
         {
-            _isClosed = true;
-            foreach (UiWindow ownedWindow in _ownedWindows.ToArray())
-                ownedWindow.Close(UiWindowCloseReason.OwnerClosed);
-            DeactivateInternal();
+            UnsubscribeFromChromeHost();
+            if (!_isClosed)
+            {
+                _isClosed = true;
+                foreach (UiWindow ownedWindow in _ownedWindows.ToArray())
+                    ownedWindow.Close(UiWindowCloseReason.OwnerClosed);
+                DeactivateInternal();
+            }
         }
 
         base.Dispose(disposing);
@@ -372,6 +582,92 @@ public abstract class UiWindow : UiElement
         Deactivated?.Invoke(this, EventArgs.Empty);
         Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
+
+    private void SetChromeFlag(ref bool field, bool value)
+    {
+        ThrowIfDisposed();
+        if (field == value)
+            return;
+
+        field = value;
+        Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+    }
+
+    private bool ApplyWindowState(UiWindowState state)
+    {
+        ThrowIfDisposed();
+        if (_isClosed)
+            return false;
+
+        State = state;
+        return ChromeHost is not null;
+    }
+
+    private void SubscribeToChromeHost()
+    {
+        IUiWindowChromeHost? host = ChromeHost;
+        if (host is null || ReferenceEquals(host, _subscribedChromeHost))
+            return;
+
+        UnsubscribeFromChromeHost();
+        _subscribedChromeHost = host;
+        host.WindowStateChanged += HandleHostWindowStateChanged;
+
+        // Adopt whatever the native window already is, then push what this window already knows.
+        SyncStateFromHost(host);
+        host.SetTitle(_title);
+        if (_icon?.NativePixels is not null)
+            host.SetIcon(_icon.NativePixels);
+    }
+
+    private void UnsubscribeFromChromeHost()
+    {
+        if (_subscribedChromeHost is null)
+            return;
+
+        _subscribedChromeHost.WindowStateChanged -= HandleHostWindowStateChanged;
+        _subscribedChromeHost = null;
+    }
+
+    private void HandleHostWindowStateChanged(object? sender, EventArgs e)
+    {
+        if (sender is IUiWindowChromeHost host)
+            SyncStateFromHost(host);
+    }
+
+    /// <summary>
+    /// Adopts the native show state without echoing it back to the host — the user snapping or
+    /// minimizing from the taskbar must not turn into a redundant command.
+    /// </summary>
+    private void SyncStateFromHost(IUiWindowChromeHost host)
+    {
+        if (IsDisposed)
+            return;
+
+        _isSyncingHostState = true;
+        try
+        {
+            State = FromHostState(host.WindowState);
+        }
+        finally
+        {
+            _isSyncingHostState = false;
+        }
+    }
+
+    private static UiHostWindowState ToHostState(UiWindowState state) => state switch
+    {
+        UiWindowState.Minimized => UiHostWindowState.Minimized,
+        UiWindowState.Maximized => UiHostWindowState.Maximized,
+        _ => UiHostWindowState.Normal,
+    };
+
+    private static UiWindowState FromHostState(UiHostWindowState state) => state switch
+    {
+        UiHostWindowState.Minimized => UiWindowState.Minimized,
+        UiHostWindowState.Maximized => UiWindowState.Maximized,
+        _ => UiWindowState.Normal,
+    };
 
     private static void DeactivateWindows(IEnumerable<UiElement> elements, UiWindow except)
     {

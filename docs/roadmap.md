@@ -26,7 +26,14 @@ that is still open.
   top-level windows.~~ Decided: they may *break out* into their own native
   top-level window via the `IUiWindowHost` host capability (one-way, modality
   preserved), without exposing a native handle. See ADR
-  [0025](adr/0025-host-window-breakout.md).
+  [0025](adr/0025-host-window-breakout.md). ADR
+  [0026](adr/0026-owner-drawn-window-chrome.md) makes that the default and moves
+  the title bar, icon, and system buttons into the UI through
+  `IUiWindowChromeHost`.
+- Give the Linux and WebAssembly hosts the `IUiWindowChromeHost` capability, so
+  owner-drawn chrome and break-out behave the same there as on Win32. Both hosts
+  work unchanged without it — the window simply keeps whatever chrome the
+  platform draws.
 - Replace the pending Phase-0-era human review with a review of a named current
   revision before expanding the preview claim.
 
@@ -97,14 +104,13 @@ sequencing and exit gates are in
 
 ## Stabilization and release
 
-- Give `Broiler.Graphics.Windows` secondary-window support so the ADR
-  [0025](adr/0025-host-window-breakout.md) break-out host can be built: an
-  `OwnsMessageLoop` option on `BWindowOptions`, plus `Show`, `Close`,
-  `SetTitle`, and a `Closed` event on `Direct2DWindow`. `BreakoutHostWindow` in
-  `Broiler.UI.Win32.Demo` is written against that surface and does not compile
-  without it, which is why the Win32 sample is excluded from every solution
-  configuration. The break-out contract itself is implemented and covered by
-  `UiWindowBreakOutTests`; only the Windows sample host is blocked.
+- ~~Give `Broiler.Graphics.Windows` secondary-window support so the ADR
+  [0025](adr/0025-host-window-breakout.md) break-out host can be built.~~ Done:
+  `BWindowOptions` carries `OwnsMessageLoop`, `Chrome`, `Resizable`, and a
+  requested position, and `BWindow` carries `Show`, `Close`, `SetTitle`,
+  `SetIcon`, `SetWindowState`, `BeginMoveDrag`, `BeginResizeDrag`, and the
+  `CloseRequested`, `Closed`, and `StateChanged` events. `Broiler.UI.Win32.Demo`
+  builds again and is back in the Windows solution configurations.
 - Freeze public names and XML documentation after application consumer review.
 - Run performance, leak, fuzz, accessibility, localization, DPI, IME, and
   long-duration soak gates.

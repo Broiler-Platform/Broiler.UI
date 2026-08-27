@@ -116,6 +116,52 @@ This is enforced, not just documented: `Broiler.UI.Tests` walks every project in
 and fails the build on a platform-specific reference, a project in the wrong directory,
 an implementation reference from an abstraction, or a native handle on a public surface.
 
+## Windows, dialogs, and chrome
+
+An owned window or a dialog **breaks out into its own native top-level window by
+default** — it is a real OS window the user can move onto another monitor and manage from
+the taskbar (ADR [0025](docs/adr/0025-host-window-breakout.md),
+[0026](docs/adr/0026-owner-drawn-window-chrome.md)):
+
+```csharp
+var dialog = new StandardDialog { Title = "Options" };
+await dialog.ShowModal(mainWindow);            // its own OS window where the host allows it
+```
+
+Break-out needs the optional `IUiWindowHost` host capability. A host that does not
+implement it is unaffected: the window stays a logical subwindow rendered inside its
+owner, exactly as before. Per window, `BreakOutMode` opts back out:
+
+```csharp
+var inspector = new StandardDialog { BreakOutMode = UiWindowBreakOutMode.Manual };
+```
+
+Popups, menus, and tooltips never break out automatically.
+
+Broiler.UI also draws the title bar itself — title, icon, and the minimize, maximize, and
+close buttons — so a window looks the same wherever it is hosted and a broken-out window
+never ends up with two stacked title bars:
+
+```csharp
+window.Title = "Broiler";
+window.Icon = new UiWindowIcon(iconHandle, iconPixels);   // pixels are for the taskbar icon
+window.CanMinimize = true;
+```
+
+Who actually draws the frame is resolved per host through `UiWindow.Chrome`, which
+defaults to `UiWindowChrome.Auto`: owner-drawn for a logical subwindow, and for a
+top-level window only when its host reports `UiHostWindowChrome.Owner` from the optional
+`IUiWindowChromeHost` capability. A host that keeps its platform title bar gets no second
+one painted underneath. `UiWindowChrome.Owner` and `UiWindowChrome.None` force it either
+way.
+
+A host implements `IUiWindowChromeHost` to suppress its platform frame and let the UI run
+the window: it reports the chrome mode and window state, and the framework calls
+`SetWindowState`, `SetTitle`, `SetIcon`, `BeginMoveDrag`, and `BeginResizeDrag` on it.
+Moves and resizes are handed to the window manager rather than simulated, so snapping and
+the drag loop stay native. No native handle crosses the boundary.
+`Broiler.UI.Win32.Demo` shows the whole arrangement on Direct2D.
+
 ## Repository layout
 
 ```text
@@ -206,12 +252,16 @@ dotnet run --project src/samples/RichEdit.Win32/Broiler.UI.RichEdit.Win32.Demo -
 `Broiler.UI.RichEdit.Win32.Demo` hosts the rich-text editor on Direct2D and builds under
 the `-Windows` configurations.
 
-`Broiler.UI.Win32.Demo` is the one exception: it is **excluded from every configuration**
-and does not currently build. Its ADR 0025 break-out host needs secondary-window support
-from `Broiler.Graphics.Windows` — an `OwnsMessageLoop` window option plus `Show`, `Close`,
-`SetTitle`, and a `Closed` event on `Direct2DWindow` — which that backend does not expose
-yet. No package depends on it, so the published set is unaffected, and the exclusion
-carries its reason as a comment in `Broiler.UI.slnx`.
+```bash
+dotnet run --project src/samples/Win32/Broiler.UI.Win32.Demo -c Release-Windows
+```
+
+`Broiler.UI.Win32.Demo` is the control gallery, and the reference host for owner-drawn
+window chrome: its main window is frameless, so the title bar, icon, and minimize,
+maximize, and close buttons you see are drawn by Broiler.UI, not by Windows. Opening a
+dialog from it shows the other half of ADR 0026 — the dialog becomes its own OS window,
+with the same single owner-drawn title bar. **File > Show logical dialog** opens one that
+opts out and stays inside the main window.
 
 ## Packaging
 
