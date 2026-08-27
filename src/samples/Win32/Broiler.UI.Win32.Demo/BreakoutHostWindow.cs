@@ -54,6 +54,8 @@ internal sealed class BreakoutHostWindow : Direct2DWindow, IUiHostWindow, IUiCli
     }
 
     // IUiHostWindow
+    public event EventHandler? CloseRequested;
+
     public void Bind(UiSession session)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -102,6 +104,15 @@ internal sealed class BreakoutHostWindow : Direct2DWindow, IUiHostWindow, IUiCli
     protected override void OnKeyUp(BKeyEventArgs e) => Dispatch(_legacyInput.FromKey(e, KeyboardKeyTransition.Up));
 
     protected override void OnTextInput(BTextInputEventArgs e) => Dispatch(_legacyInput.FromText(e));
+
+    // The native window is going away because the user asked for it (close button, Alt+F4).
+    // Tell the framework so it closes the broken-out logical window, which disposes this host
+    // window in turn; the re-entrant Close() below is a no-op once teardown has begun.
+    protected override void OnClosing()
+    {
+        base.OnClosing();
+        CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
 
     protected override void Dispose(bool disposing)
     {

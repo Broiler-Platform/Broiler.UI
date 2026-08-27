@@ -13,8 +13,8 @@ public sealed class FormatCodeViewArchitectureTests
 
         Assert.Equal(
         [
-            "../../../../../Broiler.Documents/Broiler.Documents.FormatCodes/Broiler.Documents.FormatCodes.csproj",
-            "../../../../../Broiler.Graphics/Broiler.Graphics/Broiler.Graphics.csproj",
+            "../../../../Broiler.Documents/src/Broiler.Documents.FormatCodes/Broiler.Documents.FormatCodes.csproj",
+            "../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
             "../../../Foundation/Broiler.UI/Broiler.UI.csproj",
         ],
             references);
@@ -33,16 +33,16 @@ public sealed class FormatCodeViewArchitectureTests
         .OrderBy(reference => reference, StringComparer.Ordinal)
         .ToArray();
 
+    // The component is its own repository, so the solution file marks the root. Walking up
+    // from the test binary keeps this working from bin/, from the IDE, and from CI.
     internal static string ProjectPath(params string[] parts)
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            string root = Path.Combine(directory.FullName, "Broiler.UI");
-            if (Directory.Exists(root) &&
-                File.Exists(Path.Combine(directory.FullName, ".gitmodules")) &&
-                File.Exists(Path.Combine(directory.FullName, "Directory.Build.props")))
-                return Path.Combine([root, .. parts]);
+            if (File.Exists(Path.Combine(directory.FullName, "Broiler.UI.slnx")))
+                return Path.Combine([directory.FullName, .. parts]);
+
             directory = directory.Parent;
         }
 

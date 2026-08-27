@@ -14,12 +14,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Broiler.UI\Broiler.UI.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Graphics\Broiler.Graphics\Broiler.Graphics.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\Broiler.Input.Pen\Broiler.Input.Pen.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\Broiler.Input.Text\Broiler.Input.Text.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\Broiler.Input.Touch\Broiler.Input.Touch.csproj" />
+    <ProjectReference Include="..\..\..\Broiler.Graphics\src\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
+    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
+    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Pen\Broiler.Input.Pen.csproj" />
+    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Text\Broiler.Input.Text.csproj" />
+    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Touch\Broiler.Input.Touch.csproj" />
   </ItemGroup>
 
 </Project>

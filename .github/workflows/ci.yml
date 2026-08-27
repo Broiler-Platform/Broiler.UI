@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.configuration }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Every packable assembly and every test runner. This is the
+          # configuration the published packages come from, so it also packs.
+          - os: ubuntu-latest
+            configuration: Release
+            pack: true
+          # Adds the Linux sample host and selects the linux-x64 runtime
+          # identifier for it.
+          - os: ubuntu-latest
+            configuration: Release-Linux
+            pack: false
+          # The neutral set plus the RichEdit Win32 sample host, which targets
+          # net10.0-windows. Adds no packable project - the other Win32 sample
+          # stays excluded from the solution until Broiler.Graphics.Windows
+          # grows secondary-window support - but it is where that one returns.
+          - os: windows-latest
+            configuration: Release-Windows
+            pack: false
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      # Broiler.Graphics, Broiler.Input, and Broiler.Documents are consumed as
+      # project references, so nothing builds without them. Each of the two
+      # Graphics checkouts needs its own Broiler.Media for the image
+      # abstraction. Naming the nested submodules explicitly rather than using
+      # --recursive keeps the Media -> Graphics cycle from being walked, and
+      # leaves Broiler.Documents' unused Broiler.DOM submodule unfetched.
+      #
+      # All three lines are load-bearing: a missing project reference is only a
+      # restore *warning*, and the build then fails on the missing types.
+      - name: Initialise nested submodules
+        run: |
+          git -C Broiler.Graphics submodule update --init Broiler.Media
+          git -C Broiler.Documents submodule update --init Broiler.Graphics
+          git -C Broiler.Documents/Broiler.Graphics submodule update --init Broiler.Media
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build Broiler.UI.slnx -c ${{ matrix.configuration }} --nologo
+
+      - name: Test
+        run: dotnet test Broiler.UI.slnx -c ${{ matrix.configuration }} --no-build --nologo
+
+      # Proves the packages still build from this commit. Every Broiler.UI
+      # package is a plain net10.0 library, so one configuration covers the
+      # whole set. Publishing is a separate, deliberate action - see
+      # .github/workflows/publish.yml.
+      - name: Pack
+        if: matrix.pack
+        run: |
+          dotnet pack Broiler.UI.slnx -c Release --no-build --nologo -o ./artifacts
+          echo "Packed:"
+          ls -1 ./artifacts
+
+      - name: Upload packages
+        if: matrix.pack
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuget-packages
+          path: artifacts/*
+          if-no-files-found: error

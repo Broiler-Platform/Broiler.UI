@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Xml.Linq;
 
 namespace Broiler.UI.Tests;
@@ -7,13 +7,13 @@ public sealed class UiArchitectureTests
 {
     private static readonly string[] ExpectedUiReferences =
     [
-        "../../../../Broiler.Graphics/Broiler.Graphics/Broiler.Graphics.csproj",
-        "../../../../Broiler.Input/Broiler.Input.Keyboard/Broiler.Input.Keyboard.csproj",
-        "../../../../Broiler.Input/Broiler.Input.Mouse/Broiler.Input.Mouse.csproj",
-        "../../../../Broiler.Input/Broiler.Input.Pen/Broiler.Input.Pen.csproj",
-        "../../../../Broiler.Input/Broiler.Input.Text/Broiler.Input.Text.csproj",
-        "../../../../Broiler.Input/Broiler.Input.Touch/Broiler.Input.Touch.csproj",
-        "../../../../Broiler.Input/Broiler.Input/Broiler.Input.csproj",
+        "../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
+        "../../../Broiler.Input/src/Broiler.Input.Keyboard/Broiler.Input.Keyboard.csproj",
+        "../../../Broiler.Input/src/Broiler.Input.Mouse/Broiler.Input.Mouse.csproj",
+        "../../../Broiler.Input/src/Broiler.Input.Pen/Broiler.Input.Pen.csproj",
+        "../../../Broiler.Input/src/Broiler.Input.Text/Broiler.Input.Text.csproj",
+        "../../../Broiler.Input/src/Broiler.Input.Touch/Broiler.Input.Touch.csproj",
+        "../../../Broiler.Input/src/Broiler.Input/Broiler.Input.csproj",
     ];
 
     [Fact(Timeout = 600000)]
@@ -92,16 +92,15 @@ public sealed class UiArchitectureTests
         _ => [],
     };
 
+    // The component is its own repository, so the solution file marks the root. Walking up
+    // from the test binary keeps this working from bin/, from the IDE, and from CI.
     private static string FindComponentRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            string candidate = Path.Combine(directory.FullName, "Broiler.UI");
-            if (Directory.Exists(candidate) &&
-                File.Exists(Path.Combine(directory.FullName, ".gitmodules")) &&
-                File.Exists(Path.Combine(directory.FullName, "Directory.Build.props")))
-                return candidate;
+            if (File.Exists(Path.Combine(directory.FullName, "Broiler.UI.slnx")))
+                return directory.FullName;
 
             directory = directory.Parent;
         }

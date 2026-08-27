@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Foundation\Broiler.UI\Broiler.UI.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\Broiler.Input.Testing\Broiler.Input.Testing.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Broiler.UI\Broiler.UI.csproj" />
+    <ProjectReference Include="..\..\..\..\Broiler.Input\src\tests\Broiler.Input.Testing\Broiler.Input.Testing.csproj" />
   </ItemGroup>
 
   <ItemGroup>
