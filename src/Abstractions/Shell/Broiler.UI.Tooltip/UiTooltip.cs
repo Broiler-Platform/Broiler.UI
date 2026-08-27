@@ -14,6 +14,14 @@ public abstract class UiTooltip : UiWindow
     private bool _isTooltipOpen;
     private BRect _tooltipBounds = BRect.Empty;
 
+    protected UiTooltip()
+    {
+        // A tooltip is a transient overlay positioned against its target, not a window the user
+        // manages: it never breaks out into an OS window and never draws a title bar.
+        BreakOutMode = UiWindowBreakOutMode.Manual;
+        Chrome = UiWindowChrome.None;
+    }
+
     public string Text
     {
         get => _text;

@@ -1,6 +1,6 @@
 # ADR 0025 - Host-Window Break-Out for Secondary Windows
 
-**Status:** Approved
+**Status:** Approved, amended by [0026](0026-owner-drawn-window-chrome.md)
 **Date:** 2026-08-24
 
 ## Context
@@ -52,3 +52,11 @@ native handle.
 - The Win32 host realizes break-out with a second `Direct2DWindow` that does not
   own the message loop (`BWindowOptions.OwnsMessageLoop = false`), so closing it
   does not quit the application.
+
+## Amendment
+
+ADR [0026](0026-owner-drawn-window-chrome.md) makes break-out the **default** rather
+than an explicit call (`UiWindow.BreakOutMode`), and gives the broken-out window
+owner-drawn chrome so it does not gain a second, native title bar. Everything else
+recorded here — the capability shape, the one-way reparent, and modality across
+windows — still holds.

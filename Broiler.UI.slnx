@@ -488,14 +488,13 @@
       <BuildType Project="Debug" Solution="Debug-Windows|*" />
       <BuildType Project="Release" Solution="Release-Windows|*" />
     </Project>
-    <!-- Blocked: the ADR 0025 break-out host needs secondary-window support (OwnsMessageLoop, Show, Close, SetTitle, Closed) that Broiler.Graphics.Windows does not expose yet. -->
     <Project Path="src/samples/Win32/Broiler.UI.Win32.Demo/Broiler.UI.Win32.Demo.csproj">
+      <BuildType Project="Debug" Solution="Debug-Linux|*" />
+      <BuildType Project="Release" Solution="Release-Linux|*" />
       <Build Project="false" Solution="Debug|*" />
       <Build Project="false" Solution="Release|*" />
       <Build Project="false" Solution="Debug-Linux|*" />
       <Build Project="false" Solution="Release-Linux|*" />
-      <Build Project="false" Solution="Debug-Windows|*" />
-      <Build Project="false" Solution="Release-Windows|*" />
     </Project>
   </Folder>
 </Solution>

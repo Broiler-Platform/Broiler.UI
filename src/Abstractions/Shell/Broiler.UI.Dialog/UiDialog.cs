@@ -22,6 +22,10 @@ public abstract class UiDialog : UiWindow
 
     protected UiDialog()
     {
+        // A dialog is sized to its content and dismissed, not parked on the taskbar, so its
+        // chrome carries a close button only. An app that wants more can opt back in.
+        CanMinimize = false;
+        CanMaximize = false;
         Closed += HandleClosed;
     }
 
@@ -67,6 +71,15 @@ public abstract class UiDialog : UiWindow
     }
 
     protected override bool BreakOutIsModal => PresentationMode == UiDialogPresentationMode.Modal;
+
+    /// <summary>
+    /// A dialog breaks out at the end of <see cref="ShowModal"/>/<see cref="ShowModeless"/> rather
+    /// than when it is attached: modality and focus have to be established in the origin session
+    /// first, so that <see cref="OnBrokenOut"/> has something to migrate.
+    /// </summary>
+    protected override void OnOpened()
+    {
+    }
 
     protected override void OnBrokenOut(UiSession originSession, UiSession hostedSession)
     {
@@ -148,6 +161,11 @@ public abstract class UiDialog : UiWindow
             if (mode == UiDialogPresentationMode.Modal)
                 Session.PushModalElement(this);
         }
+
+        // Break out into a real OS window by default (ADR 0025), so a dialog can be moved out of
+        // its owner and onto another monitor. Falls back to a logical subwindow on a host without
+        // the capability, and is skipped when BreakOutMode is Manual.
+        TryBreakOutAutomatically();
 
         return _resultSource.Task;
     }
