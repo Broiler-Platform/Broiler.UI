@@ -189,8 +189,7 @@ public abstract class UiDialog : UiWindow
             if (!HitTestMoveGrip(input.Position))
                 return false;
 
-            BeginMove(input.Position);
-            return true;
+            return BeginMove(input.Position);
         }
 
         if (input.MouseButtonTransition == MouseButtonTransition.Up && _isMoving)
@@ -202,14 +201,31 @@ public abstract class UiDialog : UiWindow
         return false;
     }
 
-    private void BeginMove(BPoint pointer)
+    /// <summary>
+    /// Starts a title-bar drag, natively where there is a native window to drag.
+    ///
+    /// A broken-out dialog is a real top-level window whose owner has been detached, so the
+    /// placement this used to nudge belongs to nothing and moving it is a no-op — the window sits
+    /// still under the pointer. Hand the press to the window manager instead, which is also what
+    /// makes snapping, shake, and the drag loop behave the way they do for every other window.
+    /// <see cref="UiWindow.BeginMoveDrag"/> reports false for a logical subwindow, which has no
+    /// native window and does still move itself by placement inside its owner.
+    /// </summary>
+    private bool BeginMove(BPoint pointer)
     {
         Activate();
         Session?.SetFocus(this);
+
+        // The window manager runs the drag from here; no pointer events follow, so nothing may
+        // capture input or arm the simulated move.
+        if (BeginMoveDrag())
+            return true;
+
         Session?.CaptureInput(this);
         _isMoving = true;
         _moveStartPointer = pointer;
         _moveStartPlacement = ResolveCurrentPlacement();
+        return true;
     }
 
     private void MoveTo(BPoint pointer)
