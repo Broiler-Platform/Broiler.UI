@@ -408,9 +408,11 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
             InlineStyle style = Document.Paragraphs[line.ParagraphIndex].StyleAt(0);
             BColor color = IsEnabled && !style.Foreground.IsEmpty ? style.Foreground : fallback;
+            // The marker travels with the text it introduces, so a centered or
+            // right-aligned item keeps its bullet against the item, not the margin.
             renderList.DrawText(
                 new BTextRun(decoration.Marker, decoration.Font, color),
-                new BPoint(ContentLeft + decoration.MarkerIndent, y));
+                new BPoint(ContentLeft + decoration.MarkerIndent + line.AlignmentOffset, y));
         }
     }
 
@@ -1396,8 +1398,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private ParagraphDecoration Decoration(int paragraphIndex) =>
         (uint)paragraphIndex < (uint)_decorations.Count ? _decorations[paragraphIndex] : ParagraphDecoration.None;
 
-    /// <summary>Where a line of text starts: past its paragraph's indent and list gutter.</summary>
-    private double LineLeft(VisualLine line) => ContentLeft + Decoration(line.ParagraphIndex).TextIndent;
+    /// <summary>
+    /// Where a line of text starts: past its paragraph's indent and list gutter,
+    /// then along by whatever its alignment pushes it.
+    /// </summary>
+    private double LineLeft(VisualLine line) =>
+        ContentLeft + Decoration(line.ParagraphIndex).TextIndent + line.AlignmentOffset;
 
     public bool HasVerticalScrollbar => VerticalScrollPolicy == RichEditScrollPolicy.Always ||
                                         (VerticalScrollPolicy == RichEditScrollPolicy.Auto && MaxScroll > 0);
@@ -1543,7 +1549,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             {
                 if (segmentStart == segmentEnd)
                 {
-                    _lines.Add(new VisualLine(paragraphIndex, segmentStart, segmentEnd, y, defaultLineHeight));
+                    _lines.Add(new VisualLine(
+                        paragraphIndex, segmentStart, segmentEnd, y, defaultLineHeight,
+                        AlignmentOffset(paragraph, segmentStart, segmentEnd, available)));
                     y += defaultLineHeight;
                     continue;
                 }
@@ -1553,7 +1561,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 {
                     int end = MeasureWrap(paragraph, i, segmentEnd, available);
                     double lineHeight = MeasureLineHeight(paragraph, i, end, defaultLineHeight);
-                    _lines.Add(new VisualLine(paragraphIndex, i, end, y, lineHeight));
+                    _lines.Add(new VisualLine(
+                        paragraphIndex, i, end, y, lineHeight,
+                        AlignmentOffset(paragraph, i, end, available)));
                     y += lineHeight;
                     i = end;
                 }
@@ -1562,7 +1572,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
         if (_lines.Count == 0)
         {
-            _lines.Add(new VisualLine(0, 0, 0, 0, defaultLineHeight));
+            _lines.Add(new VisualLine(0, 0, 0, 0, defaultLineHeight, 0));
             y = defaultLineHeight;
         }
 
@@ -1739,6 +1749,32 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         return j;
     }
 
+    /// <summary>
+    /// How far a visual line is pushed right by its paragraph's alignment: the
+    /// slack left over on the line, halved for centered text and taken whole for
+    /// right-aligned text. Trailing whitespace does not count toward the line's
+    /// width, so a centered line does not drift left by the space it wrapped on,
+    /// and the offset never goes negative, so a line too wide for its column still
+    /// starts at the margin. This is the arithmetic the PDF writer places a line
+    /// with, so the screen and the printed page agree.
+    /// </summary>
+    private double AlignmentOffset(RichTextParagraph paragraph, int start, int end, double available)
+    {
+        TextAlignment alignment = paragraph.Style.Alignment;
+        if (alignment == TextAlignment.Left)
+            return 0;
+
+        string text = paragraph.Text;
+        while (end > start && char.IsWhiteSpace(text[end - 1]))
+            end--;
+
+        double slack = available - MeasureAdvance(paragraph, start, end);
+        if (slack <= 0)
+            return 0;
+
+        return alignment == TextAlignment.Center ? slack / 2 : slack;
+    }
+
     private double MeasureLineHeight(RichTextParagraph paragraph, int start, int end, double fallback)
     {
         if (start >= end || paragraph.Runs.Count == 0)
@@ -1825,7 +1861,19 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private static double ClampDesired(double desired, double available) =>
         double.IsInfinity(available) ? desired : Math.Min(desired, Math.Max(0, available));
 
-    private readonly record struct VisualLine(int ParagraphIndex, int Start, int End, double Top, double Height);
+    /// <summary>
+    /// One laid-out line. Its alignment offset is what the paragraph's alignment
+    /// adds to the line's left origin, resolved at layout time because it depends
+    /// only on what layout already knows: the document, the content width, and
+    /// the font.
+    /// </summary>
+    private readonly record struct VisualLine(
+        int ParagraphIndex,
+        int Start,
+        int End,
+        double Top,
+        double Height,
+        double AlignmentOffset);
 
     /// <summary>
     /// What a paragraph's list and indent add to it: the marker drawn in the
