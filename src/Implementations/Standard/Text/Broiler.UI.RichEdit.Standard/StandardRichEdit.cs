@@ -35,6 +35,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     }
 
     private readonly List<VisualLine> _lines = [];
+    private readonly List<ParagraphDecoration> _decorations = [];
     private readonly Dictionary<InlineImage, BImageHandle> _imageHandles = new(ReferenceEqualityComparer.Instance);
     private RichTextDocument? _layoutDocument;
     private BFontStyle? _layoutFont;
@@ -60,6 +61,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     /// <summary>Space left around an inline image so it does not touch the text above and below it.</summary>
     private const double ImageMargin = 2;
+
+    /// <summary>The glyph a bulleted paragraph is marked with, the one the DOCX and PDF writers emit.</summary>
+    private const string BulletMarker = "\u2022";
+
+    /// <summary>Space kept between a list marker and the text it introduces.</summary>
+    private const double MarkerGap = 4;
 
     public BColor Background { get; set; } = StandardControlPaint.Surface;
 
@@ -90,6 +97,13 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     public double PaddingX { get; set; } = 8;
 
     public double PaddingY { get; set; } = 6;
+
+    /// <summary>
+    /// The width of one indent level, and the smallest gutter a list marker is
+    /// drawn in. It is the indent the PDF writer lays out with, so an indented or
+    /// listed paragraph prints where it sits on screen.
+    /// </summary>
+    public double IndentWidth { get; set; } = 24;
 
     public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
 
@@ -192,6 +206,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             DrawRunBackgrounds(renderList, inner);
             DrawRange(renderList, inner, SecondarySelection, SecondarySelectionBackground);
             DrawSelection(renderList, inner);
+            DrawListMarkers(renderList, inner);
             DrawText(renderList, inner);
             DrawComposition(renderList, inner, focused);
         }
@@ -287,8 +302,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 subEnd = line.End;
 
             RichTextParagraph paragraph = Document.Paragraphs[line.ParagraphIndex];
-            double x1 = ContentLeft + MeasureAdvance(paragraph, line.Start, subStart);
-            double x2 = ContentLeft + MeasureAdvance(paragraph, line.Start, subEnd);
+            double x1 = LineLeft(line) + MeasureAdvance(paragraph, line.Start, subStart);
+            double x2 = LineLeft(line) + MeasureAdvance(paragraph, line.Start, subEnd);
             double width = x2 - x1;
             if (width <= 0)
             {
@@ -341,6 +356,40 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 renderList.DrawText(new BTextRun(segment.Text, segment.Font, color), new BPoint(segment.X, y));
                 DrawDecorations(renderList, segment, y, line.Height, color);
             }
+        }
+    }
+
+    /// <summary>
+    /// Draws each list paragraph's bullet or number in the gutter its text is
+    /// indented for. A marker belongs to the paragraph rather than to a line, so it
+    /// is drawn once, on the paragraph's first visual line, and the wrapped lines
+    /// below it keep clear of it. It takes the font and color of the paragraph's
+    /// first run, the way a word processor draws the marker in the formatting of
+    /// the item it introduces.
+    /// </summary>
+    private void DrawListMarkers(BRenderList renderList, BRect inner)
+    {
+        BColor fallback = IsEnabled ? Foreground : PlaceholderForeground;
+        int drawnParagraph = -1;
+        foreach (VisualLine line in _lines)
+        {
+            if (line.ParagraphIndex == drawnParagraph)
+                continue;
+
+            drawnParagraph = line.ParagraphIndex;
+            ParagraphDecoration decoration = Decoration(line.ParagraphIndex);
+            if (decoration.Marker.Length == 0)
+                continue;
+
+            double y = ContentTop + line.Top - _scrollY;
+            if (y + line.Height < inner.Top || y > inner.Bottom)
+                continue;
+
+            InlineStyle style = Document.Paragraphs[line.ParagraphIndex].StyleAt(0);
+            BColor color = IsEnabled && !style.Foreground.IsEmpty ? style.Foreground : fallback;
+            renderList.DrawText(
+                new BTextRun(decoration.Marker, decoration.Font, color),
+                new BPoint(ContentLeft + decoration.MarkerIndent, y));
         }
     }
 
@@ -420,7 +469,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private IEnumerable<LineSegment> LineSegments(VisualLine line)
     {
         RichTextParagraph paragraph = Document.Paragraphs[line.ParagraphIndex];
-        double x = ContentLeft;
+        double x = LineLeft(line);
         int pos = 0;
         foreach (StyleRun run in paragraph.Runs)
         {
@@ -1158,7 +1207,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     private RichTextPosition PositionInLineAtX(VisualLine line, double x)
     {
-        int offset = OffsetAtX(line, x - ContentLeft);
+        int offset = OffsetAtX(line, x - LineLeft(line));
         return new RichTextPosition(line.ParagraphIndex, line.Start + offset);
     }
 
@@ -1183,7 +1232,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     {
         VisualLine line = LineForPosition(position).Line;
         int end = Math.Clamp(position.Offset, line.Start, line.End);
-        return ContentLeft + MeasureAdvance(Document.Paragraphs[line.ParagraphIndex], line.Start, end);
+        return LineLeft(line) + MeasureAdvance(Document.Paragraphs[line.ParagraphIndex], line.Start, end);
     }
 
     private BRect CaretRect(RichTextPosition position)
@@ -1235,6 +1284,13 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private double ContentWidth => Math.Max(0, Bounds.Width - (PaddingX * 2));
 
     private double ContentHeight => Math.Max(0, Bounds.Height - (PaddingY * 2));
+
+    /// <summary>The indent and list decoration of a paragraph layout has seen, else none.</summary>
+    private ParagraphDecoration Decoration(int paragraphIndex) =>
+        (uint)paragraphIndex < (uint)_decorations.Count ? _decorations[paragraphIndex] : ParagraphDecoration.None;
+
+    /// <summary>Where a line of text starts: past its paragraph's indent and list gutter.</summary>
+    private double LineLeft(VisualLine line) => ContentLeft + Decoration(line.ParagraphIndex).TextIndent;
 
     public bool HasVerticalScrollbar => VerticalScrollPolicy == RichEditScrollPolicy.Always ||
                                         (VerticalScrollPolicy == RichEditScrollPolicy.Auto && MaxScroll > 0);
@@ -1328,11 +1384,13 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         double defaultLineHeight = DefaultLineHeight;
         double y = 0;
         RichTextDocument document = Document;
+        BuildDecorations(document, contentWidth);
 
         for (int paragraphIndex = 0; paragraphIndex < document.ParagraphCount; paragraphIndex++)
         {
             RichTextParagraph paragraph = document.Paragraphs[paragraphIndex];
             string text = paragraph.Text;
+            double available = contentWidth - Decoration(paragraphIndex).TextIndent;
             foreach ((int segmentStart, int segmentEnd) in HardSegments(text))
             {
                 if (segmentStart == segmentEnd)
@@ -1345,7 +1403,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 int i = segmentStart;
                 while (i < segmentEnd)
                 {
-                    int end = MeasureWrap(paragraph, i, segmentEnd, contentWidth);
+                    int end = MeasureWrap(paragraph, i, segmentEnd, available);
                     double lineHeight = MeasureLineHeight(paragraph, i, end, defaultLineHeight);
                     _lines.Add(new VisualLine(paragraphIndex, i, end, y, lineHeight));
                     y += lineHeight;
@@ -1362,6 +1420,91 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
         _contentHeight = y;
         ReleaseImagesNotIn(document);
+    }
+
+    /// <summary>
+    /// Works out every paragraph's list marker and left offsets, once per layout.
+    /// Numbering runs on while consecutive paragraphs stay numbered and restarts
+    /// otherwise, which is how the PDF writer numbers the same document. An indent
+    /// is capped at half the content width, so a deeply indented paragraph keeps a
+    /// usable line to wrap into instead of one character per line.
+    /// </summary>
+    private void BuildDecorations(RichTextDocument document, double contentWidth)
+    {
+        _decorations.Clear();
+        int number = 0;
+        ListKind previous = ListKind.None;
+
+        for (int i = 0; i < document.ParagraphCount; i++)
+        {
+            RichTextParagraph paragraph = document.Paragraphs[i];
+            ParagraphStyle style = paragraph.Style;
+            number = style.ListKind == ListKind.Numbered && previous == ListKind.Numbered ? number + 1 : 1;
+            previous = style.ListKind;
+
+            string marker = style.ListKind switch
+            {
+                ListKind.Bullet => BulletMarker,
+                ListKind.Numbered => string.Create(CultureInfo.InvariantCulture, $"{number}."),
+                _ => string.Empty,
+            };
+
+            double indent = Math.Max(0, style.IndentLevel) * IndentWidth;
+            _decorations.Add(new ParagraphDecoration(marker, RunFont(paragraph.StyleAt(0)), indent, indent));
+        }
+
+        ApplyMarkerGutters(document);
+
+        double limit = contentWidth > 0 ? contentWidth / 2 : double.MaxValue;
+        for (int i = 0; i < _decorations.Count; i++)
+        {
+            ParagraphDecoration decoration = _decorations[i];
+            if (decoration.TextIndent <= limit)
+                continue;
+
+            _decorations[i] = decoration with
+            {
+                MarkerIndent = Math.Min(decoration.MarkerIndent, limit),
+                TextIndent = limit,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Indents the text of each list item past a gutter wide enough for the widest
+    /// marker in its own list, so the items stay lined up with each other where a
+    /// list runs from item 9 into item 10. A run of items ends at the first
+    /// paragraph that is not a list item at the same level, which is also where
+    /// numbering restarts.
+    /// </summary>
+    private void ApplyMarkerGutters(RichTextDocument document)
+    {
+        int start = 0;
+        while (start < _decorations.Count)
+        {
+            if (_decorations[start].Marker.Length == 0)
+            {
+                start++;
+                continue;
+            }
+
+            int level = document.Paragraphs[start].Style.IndentLevel;
+            double gutter = IndentWidth;
+            int end = start;
+            while (end < _decorations.Count &&
+                   _decorations[end].Marker.Length > 0 &&
+                   document.Paragraphs[end].Style.IndentLevel == level)
+            {
+                ParagraphDecoration decoration = _decorations[end];
+                gutter = Math.Max(gutter, BTextMeasurer.MeasureAdvance(decoration.Marker, decoration.Font) + MarkerGap);
+                end++;
+            }
+
+            for (int i = start; i < end; i++)
+                _decorations[i] = _decorations[i] with { TextIndent = _decorations[i].MarkerIndent + gutter };
+
+            start = end;
+        }
     }
 
     /// <summary>
@@ -1523,6 +1666,22 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         double.IsInfinity(available) ? desired : Math.Min(desired, Math.Max(0, available));
 
     private readonly record struct VisualLine(int ParagraphIndex, int Start, int End, double Top, double Height);
+
+    /// <summary>
+    /// What a paragraph's list and indent add to it: the marker drawn in the
+    /// gutter — empty when the paragraph is not a list item — the font that marker
+    /// is drawn with, and the left offsets of the marker and of the text. Both
+    /// offsets are relative to <see cref="ContentLeft"/>, so scrolling the document
+    /// or moving the control does not invalidate them.
+    /// </summary>
+    private readonly record struct ParagraphDecoration(
+        string Marker,
+        BFontStyle Font,
+        double MarkerIndent,
+        double TextIndent)
+    {
+        public static ParagraphDecoration None => new(string.Empty, BFontStyle.Default, 0, 0);
+    }
 
     /// <summary>
     /// A stretch of a visual line as it is drawn. <see cref="Image"/> is set only
