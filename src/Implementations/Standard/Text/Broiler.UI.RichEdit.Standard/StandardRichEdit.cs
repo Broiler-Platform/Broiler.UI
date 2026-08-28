@@ -15,7 +15,8 @@ namespace Broiler.UI.RichEdit.Standard;
 /// The Broiler-drawn standard <see cref="UiRichEdit"/>. It lays out the document
 /// into wrapped visual lines, renders per-run styled text (family, size, bold,
 /// italic, underline, strike, foreground, and background), the selection, caret, and placeholder,
-/// supports vertical scrolling, and hit-tests points to positions. Keyboard, text,
+/// resolves tabs against the paragraph's tab stops, supports vertical scrolling,
+/// and hit-tests points to positions. Keyboard, text,
 /// and IME input drive caret/selection navigation plus editing and formatting
 /// through the <see cref="UiRichEdit"/> command surface and its single undo model.
 /// No native control or OS API is used.
@@ -68,6 +69,13 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// <summary>Space kept between a list marker and the text it introduces.</summary>
     private const double MarkerGap = 4;
 
+    /// <summary>
+    /// The default distance between tab stops: half an inch at 96 dpi, which is
+    /// the tab every word processor starts a document with, and twice the default
+    /// <see cref="IndentWidth"/> so tabs and indent levels share a grid.
+    /// </summary>
+    private const double DefaultTabStopWidth = 48;
+
     public BColor Background { get; set; } = StandardControlPaint.Surface;
 
     public BColor Foreground { get; set; } = StandardControlPaint.Text;
@@ -104,6 +112,15 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// listed paragraph prints where it sits on screen.
     /// </summary>
     public double IndentWidth { get; set; } = 24;
+
+    /// <summary>
+    /// The distance between the default tab stops a tab character advances to,
+    /// measured from where the paragraph's text starts rather than from the
+    /// control, so a tab lines up the same way in an indented or listed paragraph
+    /// as in a plain one. It is the tab stop the PDF writer lays out with, so a
+    /// tabbed paragraph prints where it sits on screen.
+    /// </summary>
+    public double TabStopWidth { get; set; } = DefaultTabStopWidth;
 
     public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
 
@@ -353,7 +370,11 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                     continue;
                 }
 
-                renderList.DrawText(new BTextRun(segment.Text, segment.Font, color), new BPoint(segment.X, y));
+                // A tab has width but no glyphs; its underline and strike still run
+                // across the gap, the way a word processor rules a tabbed line.
+                if (segment.Text.Length > 0)
+                    renderList.DrawText(new BTextRun(segment.Text, segment.Font, color), new BPoint(segment.X, y));
+
                 DrawDecorations(renderList, segment, y, line.Height, color);
             }
         }
@@ -464,12 +485,15 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     /// <summary>
     /// Splits a visual line into contiguous styled segments, each carrying its
-    /// resolved font, on-screen x origin, and advance.
+    /// resolved font, on-screen x origin, and advance. A tab yields a segment with
+    /// no glyphs whose advance reaches the next tab stop, so the run background and
+    /// underline it carries are still drawn across the gap it opens.
     /// </summary>
     private IEnumerable<LineSegment> LineSegments(VisualLine line)
     {
         RichTextParagraph paragraph = Document.Paragraphs[line.ParagraphIndex];
-        double x = LineLeft(line);
+        double left = LineLeft(line);
+        double x = left;
         int pos = 0;
         foreach (StyleRun run in paragraph.Runs)
         {
@@ -507,11 +531,22 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 continue;
             }
 
-            foreach (ShapedPiece piece in ShapePieces(text, run.Style, RunFont(run.Style)))
+            foreach ((string piece, bool isTab) in SplitTabs(paragraph.Text, segStart, segEnd))
             {
-                double advance = BTextMeasurer.MeasureAdvance(piece.Text, piece.Font);
-                yield return new LineSegment(piece.Text, run.Style, piece.Font, x, advance);
-                x += advance;
+                if (isTab)
+                {
+                    double stop = left + NextTabStop(x - left);
+                    yield return LineSegment.ForTab(run.Style, RunFont(run.Style), x, stop - x);
+                    x = stop;
+                    continue;
+                }
+
+                foreach (ShapedPiece shaped in ShapePieces(piece, run.Style, RunFont(run.Style)))
+                {
+                    double advance = BTextMeasurer.MeasureAdvance(shaped.Text, shaped.Font);
+                    yield return new LineSegment(shaped.Text, run.Style, shaped.Font, x, advance);
+                    x += advance;
+                }
             }
         }
     }
@@ -893,6 +928,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         if (control && HandleControlChord(input))
             return true;
 
+        // Ctrl+Tab and Alt+Tab belong to the application and the desktop, not to
+        // the text, so only a plain or shifted Tab is the editor's to answer.
+        bool alt = input.KeyModifiers.HasFlag(KeyboardModifierState.Alt);
+        if (!control && !alt && IsKey(input, BVirtualKey.Tab, "Tab"))
+            return HandleTab(shift);
+
         if (IsKey(input, BVirtualKey.Enter, "Enter"))
         {
             if (shift)
@@ -960,6 +1001,66 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     }
 
     /// <summary>
+    /// Handles the Tab key. In running text it types a tab, and the text after it
+    /// is laid out at the next tab stop. Where a tab sets the level of a paragraph
+    /// rather than the position of a word — a list item whose text the caret sits
+    /// in front of, or a selection covering more than one paragraph — Tab demotes
+    /// and Shift+Tab promotes, which is what Tab does in a word processor's lists.
+    /// Shift+Tab in running text takes back the tab in front of the caret, and
+    /// outdents the paragraph when there is no tab to take back.
+    /// </summary>
+    /// <remarks>
+    /// The key is answered here rather than through the tab that some platforms
+    /// also deliver as text input: <see cref="SanitizeCommittedText"/> drops that
+    /// one, so a single press types a single tab on every head.
+    /// </remarks>
+    private bool HandleTab(bool shift)
+    {
+        if (TabSetsParagraphLevel())
+            return RunCommand(shift ? RichEditCommand.Outdent : RichEditCommand.Indent);
+
+        if (!shift)
+            return RunCommand(RichEditCommand.InsertText, "\t");
+
+        if (Selection.IsEmpty && IsTabBeforeCaret())
+        {
+            if (DeleteBackward())
+                EnsureCaretVisible();
+            return true;
+        }
+
+        if (CaretParagraph.Style.IndentLevel > 0)
+            return RunCommand(RichEditCommand.Outdent);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Whether Tab should change paragraph levels instead of typing a tab: the
+    /// selection covers more than one paragraph, or the caret sits in front of the
+    /// text of a list item, where a word processor demotes the item.
+    /// </summary>
+    private bool TabSetsParagraphLevel()
+    {
+        RichTextRange selection = Selection;
+        if (selection.Start.ParagraphIndex != selection.End.ParagraphIndex)
+            return true;
+
+        return selection.IsEmpty &&
+               CaretParagraph.Style.ListKind != ListKind.None &&
+               Document.ClampPosition(selection.Focus).Offset == 0;
+    }
+
+    private bool IsTabBeforeCaret()
+    {
+        RichTextPosition caret = Document.ClampPosition(Selection.Focus);
+        return caret.Offset > 0 && CaretParagraph.Text[caret.Offset - 1] == '\t';
+    }
+
+    private RichTextParagraph CaretParagraph =>
+        Document.Paragraphs[Document.ClampPosition(Selection.Focus).ParagraphIndex];
+
+    /// <summary>
     /// Handles the Ctrl-modified editing, clipboard, history, and inline-format
     /// shortcuts. Ctrl with a navigation key (arrows, Home, End) is left to the
     /// navigation handlers. Returns true when the chord was recognized.
@@ -1023,6 +1124,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         return changed;
     }
 
+    /// <summary>
+    /// Drops the control characters from text a platform commits. Tab is one of
+    /// them on purpose: Windows and Android deliver a pressed Tab as a key event
+    /// and again as committed text, and <see cref="HandleTab"/> already answered
+    /// the key, so keeping it here would type two tabs for one press.
+    /// </summary>
     private static string SanitizeCommittedText(string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -1218,7 +1325,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         int index = line.Start;
         while (index < line.End)
         {
-            double charAdvance = CharAdvance(paragraph, index, out int step);
+            double charAdvance = CharAdvance(paragraph, index, advance, out int step);
             if (localX < advance + (charAdvance / 2))
                 break;
             advance += charAdvance;
@@ -1332,6 +1439,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private string LineText(VisualLine line) =>
         Document.Paragraphs[line.ParagraphIndex].Text.Substring(line.Start, line.End - line.Start);
 
+    /// <summary>
+    /// The advance from the start of a visual line to <paramref name="end"/>.
+    /// <paramref name="start"/> is the line's first offset, not an arbitrary one:
+    /// a tab advances to the next tab stop, so its width is only defined once the
+    /// distance from the line's text origin is known.
+    /// </summary>
     private double MeasureAdvance(RichTextParagraph paragraph, int start, int end)
     {
         start = Math.Clamp(start, 0, paragraph.Length);
@@ -1352,11 +1465,46 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             if (segmentEnd <= segmentStart)
                 continue;
 
-            string text = paragraph.Text.Substring(segmentStart, segmentEnd - segmentStart);
-            advance += MeasureRunText(text, run.Style);
+            foreach ((string text, bool isTab) in SplitTabs(paragraph.Text, segmentStart, segmentEnd))
+                advance = isTab ? NextTabStop(advance) : advance + MeasureRunText(text, run.Style);
         }
 
         return advance;
+    }
+
+    /// <summary>
+    /// Splits a stretch of a paragraph into the pieces between its tab characters
+    /// and the tabs themselves, so each piece is measured and drawn as one string
+    /// and each tab is resolved against the tab stops instead.
+    /// </summary>
+    private static IEnumerable<(string Text, bool IsTab)> SplitTabs(string text, int start, int end)
+    {
+        int pieceStart = start;
+        for (int i = start; i < end; i++)
+        {
+            if (text[i] != '\t')
+                continue;
+
+            if (i > pieceStart)
+                yield return (text[pieceStart..i], false);
+
+            yield return ("\t", true);
+            pieceStart = i + 1;
+        }
+
+        if (pieceStart < end)
+            yield return (text[pieceStart..end], false);
+    }
+
+    /// <summary>
+    /// The advance a tab reaching <paramref name="advance"/> lands on: the first
+    /// tab stop strictly past it, so a tab always moves the text along even when
+    /// it starts exactly on a stop.
+    /// </summary>
+    private double NextTabStop(double advance)
+    {
+        double width = TabStopWidth > 0 ? TabStopWidth : DefaultTabStopWidth;
+        return (Math.Floor(Math.Max(0, advance) / width) + 1) * width;
     }
 
     private void EnsureLayout()
@@ -1574,7 +1722,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         int j = start;
         while (j < segmentEnd)
         {
-            double advance = CharAdvance(paragraph, j, out int step);
+            double advance = CharAdvance(paragraph, j, width, out int step);
             if (width + advance > contentWidth && j > start)
                 break;
 
@@ -1616,9 +1764,21 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         return height;
     }
 
-    private double CharAdvance(RichTextParagraph paragraph, int index, out int step)
+    /// <summary>
+    /// The advance of the character at <paramref name="index"/>, given the
+    /// <paramref name="advance"/> already used on its visual line. Only a tab needs
+    /// that context, and it needs it: what a tab is worth is the distance to the
+    /// stop it lands on.
+    /// </summary>
+    private double CharAdvance(RichTextParagraph paragraph, int index, double advance, out int step)
     {
         string text = paragraph.Text;
+        if (text[index] == '\t')
+        {
+            step = 1;
+            return NextTabStop(advance) - advance;
+        }
+
         InlineStyle style = paragraph.StyleAt(index);
         BFontStyle font = RunFont(style);
         if (text[index] == InlineImage.Placeholder && style.Image is InlineImage image)
@@ -1686,7 +1846,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// <summary>
     /// A stretch of a visual line as it is drawn. <see cref="Image"/> is set only
     /// for a picture, and then <see cref="Text"/> is the placeholder character it
-    /// occupies rather than anything to draw as glyphs.
+    /// occupies rather than anything to draw as glyphs. <see cref="Text"/> is empty
+    /// for a tab: it carries width and style but has nothing to draw.
     /// </summary>
     private readonly record struct LineSegment(
         string Text,
@@ -1698,5 +1859,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     {
         public static LineSegment ForImage(InlineImage image, InlineStyle style, double x, double width) =>
             new(InlineImage.PlaceholderText, style, BFontStyle.Default, x, width, image);
+
+        public static LineSegment ForTab(InlineStyle style, BFontStyle font, double x, double width) =>
+            new(string.Empty, style, font, x, width);
     }
 }
