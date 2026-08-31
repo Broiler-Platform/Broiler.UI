@@ -204,4 +204,18 @@ public sealed class UiRichEditCommandTests
 
         Assert.Equal(new[] { "Submitted" }, edit.Events);
     }
+
+    [Fact(Timeout = 600000)]
+    public void AlignJustify_Toggles_Exclusively_Like_The_Other_Alignments()
+    {
+        var edit = new FakeRichEdit();
+        edit.ExecuteCommand(RichEditCommand.InsertText, "line");
+
+        edit.ExecuteCommand(RichEditCommand.AlignJustify);
+
+        Assert.True(edit.GetCommandState(RichEditCommand.AlignJustify).IsToggled);
+        Assert.False(edit.GetCommandState(RichEditCommand.AlignLeft).IsToggled);
+        Assert.False(edit.GetCommandState(RichEditCommand.AlignRight).IsToggled);
+        Assert.Equal(TextAlignment.Justify, edit.Document.Paragraphs[0].Style.Alignment);
+    }
 }

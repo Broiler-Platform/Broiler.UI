@@ -319,8 +319,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 subEnd = line.End;
 
             RichTextParagraph paragraph = Document.Paragraphs[line.ParagraphIndex];
-            double x1 = LineLeft(line) + MeasureAdvance(paragraph, line.Start, subStart);
-            double x2 = LineLeft(line) + MeasureAdvance(paragraph, line.Start, subEnd);
+            double x1 = LineLeft(line) + AdvanceInLine(line, paragraph, subStart);
+            double x2 = LineLeft(line) + AdvanceInLine(line, paragraph, subEnd);
             double width = x2 - x1;
             if (width <= 0)
             {
@@ -545,9 +545,19 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
                 foreach (ShapedPiece shaped in ShapePieces(piece, run.Style, RunFont(run.Style)))
                 {
-                    double advance = BTextMeasurer.MeasureAdvance(shaped.Text, shaped.Font);
-                    yield return new LineSegment(shaped.Text, run.Style, shaped.Font, x, advance);
-                    x += advance;
+                    // A justified line is drawn a word at a time. Widening a
+                    // segment's advance alone would move only what comes after it,
+                    // and a line drawn as one string has nothing after it - the
+                    // backend would set it with its own spacing and the line would
+                    // stay ragged. Each chunk carrying its own origin is what makes
+                    // the gap real.
+                    foreach (string chunk in StretchChunks(shaped.Text, line.WordSpacing))
+                    {
+                        double advance = BTextMeasurer.MeasureAdvance(chunk, shaped.Font) +
+                                         (CountSpaces(chunk, 0, chunk.Length) * line.WordSpacing);
+                        yield return new LineSegment(chunk, run.Style, shaped.Font, x, advance);
+                        x += advance;
+                    }
                 }
             }
         }
@@ -1328,6 +1338,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         while (index < line.End)
         {
             double charAdvance = CharAdvance(paragraph, index, advance, out int step);
+            if (paragraph.Text[index] == ' ')
+                charAdvance += line.WordSpacing;
             if (localX < advance + (charAdvance / 2))
                 break;
             advance += charAdvance;
@@ -1341,7 +1353,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     {
         VisualLine line = LineForPosition(position).Line;
         int end = Math.Clamp(position.Offset, line.Start, line.End);
-        return LineLeft(line) + MeasureAdvance(Document.Paragraphs[line.ParagraphIndex], line.Start, end);
+        return LineLeft(line) + AdvanceInLine(line, Document.Paragraphs[line.ParagraphIndex], end);
     }
 
     private BRect CaretRect(RichTextPosition position)
@@ -1551,7 +1563,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 {
                     _lines.Add(new VisualLine(
                         paragraphIndex, segmentStart, segmentEnd, y, defaultLineHeight,
-                        AlignmentOffset(paragraph, segmentStart, segmentEnd, available)));
+                        AlignmentOffset(paragraph, segmentStart, segmentEnd, available),
+                        LineWordSpacing(paragraph, segmentStart, segmentEnd, available)));
                     y += defaultLineHeight;
                     continue;
                 }
@@ -1563,7 +1576,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                     double lineHeight = MeasureLineHeight(paragraph, i, end, defaultLineHeight);
                     _lines.Add(new VisualLine(
                         paragraphIndex, i, end, y, lineHeight,
-                        AlignmentOffset(paragraph, i, end, available)));
+                        AlignmentOffset(paragraph, i, end, available),
+                        LineWordSpacing(paragraph, i, end, available)));
                     y += lineHeight;
                     i = end;
                 }
@@ -1758,10 +1772,104 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// starts at the margin. This is the arithmetic the PDF writer places a line
     /// with, so the screen and the printed page agree.
     /// </summary>
+    /// <summary>
+    /// The extra width every space on a line is given so the line fills its
+    /// column. Justification spends a line's slack inside the line instead of
+    /// moving the line, which is what separates it from the other alignments.
+    /// </summary>
+    /// <remarks>
+    /// A paragraph's last line is never stretched: its slack is only where the
+    /// text happened to stop, and pulling a short closing line across the column
+    /// is the one thing no typesetter does. Neither is a line with no spaces to
+    /// spend the slack on, which would otherwise have its glyphs prised apart.
+    /// This is the rule PdfPageLayout justifies with, so the editor and the
+    /// printed page agree.
+    /// </remarks>
+    private double LineWordSpacing(RichTextParagraph paragraph, int start, int end, double available)
+    {
+        if (paragraph.Style.Alignment != TextAlignment.Justify || end >= paragraph.Text.Length)
+            return 0;
+
+        // Trailing whitespace does not count toward the line's width, so the
+        // space a line wrapped on is not one of the gaps that gets widened.
+        string text = paragraph.Text;
+        int trimmed = end;
+        while (trimmed > start && char.IsWhiteSpace(text[trimmed - 1]))
+            trimmed--;
+
+        int spaces = CountSpaces(text, start, trimmed);
+        if (spaces == 0)
+            return 0;
+
+        double slack = available - MeasureAdvance(paragraph, start, trimmed);
+        return slack > 0 ? slack / spaces : 0;
+    }
+
+    /// <summary>
+    /// How far into a line an offset sits, counting the extra width word spacing
+    /// gave the spaces before it. Everything that has to land on the same pixel
+    /// as the drawn glyphs — the caret, the selection, a click — measures here.
+    /// </summary>
+    private double AdvanceInLine(VisualLine line, RichTextParagraph paragraph, int offset)
+    {
+        double advance = MeasureAdvance(paragraph, line.Start, offset);
+        if (line.WordSpacing == 0)
+            return advance;
+
+        int end = Math.Clamp(offset, line.Start, line.End);
+        return advance + (CountSpaces(paragraph.Text, line.Start, end) * line.WordSpacing);
+    }
+
+    /// <summary>
+    /// Splits a piece so a justified line can be drawn one word at a time. Each
+    /// chunk keeps the spaces that follow it, and the next chunk starts past the
+    /// width those spaces were widened by, so the space glyph is still drawn at
+    /// its own width. A line that is not justified yields its piece whole, so
+    /// nothing about how it is drawn changes.
+    /// </summary>
+    private static IEnumerable<string> StretchChunks(string text, double wordSpacing)
+    {
+        if (wordSpacing == 0 || text.Length == 0)
+        {
+            yield return text;
+            yield break;
+        }
+
+        int start = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] != ' ')
+                continue;
+
+            while (i + 1 < text.Length && text[i + 1] == ' ')
+                i++;
+
+            yield return text.Substring(start, i - start + 1);
+            start = i + 1;
+        }
+
+        if (start < text.Length)
+            yield return text.Substring(start);
+    }
+
+    private static int CountSpaces(string text, int start, int end)
+    {
+        int spaces = 0;
+        for (int i = start; i < end; i++)
+        {
+            if (text[i] == ' ')
+                spaces++;
+        }
+
+        return spaces;
+    }
+
     private double AlignmentOffset(RichTextParagraph paragraph, int start, int end, double available)
     {
         TextAlignment alignment = paragraph.Style.Alignment;
-        if (alignment == TextAlignment.Left)
+        // Justification starts at the margin like Left and spends its slack in
+        // the line's own gaps; only Center and Right move the line as a whole.
+        if (alignment is TextAlignment.Left or TextAlignment.Justify)
             return 0;
 
         string text = paragraph.Text;
@@ -1873,7 +1981,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         int End,
         double Top,
         double Height,
-        double AlignmentOffset);
+        double AlignmentOffset,
+        double WordSpacing = 0);
 
     /// <summary>
     /// What a paragraph's list and indent add to it: the marker drawn in the
