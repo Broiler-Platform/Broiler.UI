@@ -12,7 +12,7 @@ public sealed class ToolbarArchitectureTests
             "src/Abstractions/Commands/Broiler.UI.Toolbar/Broiler.UI.Toolbar.csproj",
             new[]
             {
-                "../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
+                "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
                 "../../../Foundation/Broiler.UI/Broiler.UI.csproj",
             },
         ],
@@ -20,7 +20,7 @@ public sealed class ToolbarArchitectureTests
             "src/Implementations/Standard/Commands/Broiler.UI.Toolbar.Standard/Broiler.UI.Toolbar.Standard.csproj",
             new[]
             {
-                "../../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
+                "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
                 "../../../../Abstractions/Commands/Broiler.UI.Toolbar/Broiler.UI.Toolbar.csproj",
                 "../../../../Foundation/Broiler.UI.Standard/Broiler.UI.Standard.csproj",
             },

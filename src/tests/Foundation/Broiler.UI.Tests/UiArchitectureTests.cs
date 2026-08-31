@@ -7,13 +7,13 @@ public sealed class UiArchitectureTests
 {
     private static readonly string[] ExpectedUiReferences =
     [
-        "../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
-        "../../../Broiler.Input/src/Broiler.Input.Keyboard/Broiler.Input.Keyboard.csproj",
-        "../../../Broiler.Input/src/Broiler.Input.Mouse/Broiler.Input.Mouse.csproj",
-        "../../../Broiler.Input/src/Broiler.Input.Pen/Broiler.Input.Pen.csproj",
-        "../../../Broiler.Input/src/Broiler.Input.Text/Broiler.Input.Text.csproj",
-        "../../../Broiler.Input/src/Broiler.Input.Touch/Broiler.Input.Touch.csproj",
-        "../../../Broiler.Input/src/Broiler.Input/Broiler.Input.csproj",
+        "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
+        "$(BroilerInputRoot)/src/Broiler.Input.Keyboard/Broiler.Input.Keyboard.csproj",
+        "$(BroilerInputRoot)/src/Broiler.Input.Mouse/Broiler.Input.Mouse.csproj",
+        "$(BroilerInputRoot)/src/Broiler.Input.Pen/Broiler.Input.Pen.csproj",
+        "$(BroilerInputRoot)/src/Broiler.Input.Text/Broiler.Input.Text.csproj",
+        "$(BroilerInputRoot)/src/Broiler.Input.Touch/Broiler.Input.Touch.csproj",
+        "$(BroilerInputRoot)/src/Broiler.Input/Broiler.Input.csproj",
     ];
 
     [Fact(Timeout = 600000)]

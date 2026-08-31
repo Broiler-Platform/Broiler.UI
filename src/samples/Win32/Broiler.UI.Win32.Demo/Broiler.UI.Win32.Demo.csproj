@@ -16,14 +16,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Broiler.Graphics\src\Broiler.Graphics.Windows\Broiler.Graphics.Direct2D.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Camera.Windows\Broiler.Input.Camera.Windows.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Camera\Broiler.Input.Camera.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Microphone.Windows\Broiler.Input.Microphone.Windows.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Microphone\Broiler.Input.Microphone.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input\Broiler.Input.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
+    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics.Windows\Broiler.Graphics.Direct2D.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Camera.Windows\Broiler.Input.Camera.Windows.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Camera\Broiler.Input.Camera.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Microphone.Windows\Broiler.Input.Microphone.Windows.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Microphone\Broiler.Input.Microphone.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input\Broiler.Input.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Window.Standard\Broiler.UI.Window.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Layout\Broiler.UI.Panel.Standard\Broiler.UI.Panel.Standard.csproj" />

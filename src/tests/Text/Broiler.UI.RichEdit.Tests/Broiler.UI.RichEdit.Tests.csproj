@@ -19,7 +19,7 @@
     <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.RichEdit\Broiler.UI.RichEdit.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI\Broiler.UI.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Graphics\src\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
   <ItemGroup>

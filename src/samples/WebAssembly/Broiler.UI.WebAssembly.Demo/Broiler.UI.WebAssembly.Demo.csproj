@@ -14,12 +14,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Broiler.Graphics\src\Broiler.Graphics.WebAssembly\Broiler.Graphics.WebAssembly.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Graphics\src\Broiler.Graphics\Broiler.Graphics.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input\Broiler.Input.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\Broiler.Input.Text\Broiler.Input.Text.csproj" />
+    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics.WebAssembly\Broiler.Graphics.WebAssembly.csproj" />
+    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input\Broiler.Input.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Text\Broiler.Input.Text.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Window.Standard\Broiler.UI.Window.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Layout\Broiler.UI.Panel.Standard\Broiler.UI.Panel.Standard.csproj" />
@@ -53,7 +53,7 @@
   <!-- Vendor the canonical Canvas 2D replay module from the backend into this sample's wwwroot
        so it publishes as a stable static asset. The backend project owns the source of truth. -->
   <Target Name="SyncCanvasReplayModule" BeforeTargets="BeforeBuild;BeforePublish">
-    <Copy SourceFiles="..\..\..\..\Broiler.Graphics\src\Broiler.Graphics.WebAssembly\wwwroot\broiler.graphics.webassembly.js" DestinationFolder="$(MSBuildProjectDirectory)\wwwroot" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(BroilerGraphicsRoot)\src\Broiler.Graphics.WebAssembly\wwwroot\broiler.graphics.webassembly.js" DestinationFolder="$(MSBuildProjectDirectory)\wwwroot" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

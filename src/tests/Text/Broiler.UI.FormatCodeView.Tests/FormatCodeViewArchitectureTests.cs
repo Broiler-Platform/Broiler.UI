@@ -14,7 +14,7 @@ public sealed class FormatCodeViewArchitectureTests
         Assert.Equal(
         [
             "$(BroilerDocumentsRoot)/src/Broiler.Documents.FormatCodes/Broiler.Documents.FormatCodes.csproj",
-            "../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
+            "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
             "../../../Foundation/Broiler.UI/Broiler.UI.csproj",
         ],
             references);
