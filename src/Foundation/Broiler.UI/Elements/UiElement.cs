@@ -128,6 +128,21 @@ public abstract class UiElement : IDisposable
         RenderCore(context);
     }
 
+    /// <summary>
+    /// Ground the element answers for beyond its own box, while it is showing
+    /// something outside itself - a drop-down, a popup, a flyout. Empty for the
+    /// elements that show nothing, which is nearly all of them.
+    /// </summary>
+    /// <remarks>
+    /// An element's box is where it is; this is where it currently reaches. A
+    /// parent routing input to its children has to be able to tell a press meant
+    /// for a child's open list from a press meant to dismiss, and the two are
+    /// told apart by which of them the point falls in - not by what kind of
+    /// control the child happens to be, which the parent has no business
+    /// knowing.
+    /// </remarks>
+    public virtual BRect OverlayBounds => BRect.Empty;
+
     public bool DispatchInput(UiInputEvent input)
     {
         ThrowIfDisposed();

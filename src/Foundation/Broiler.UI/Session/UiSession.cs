@@ -261,9 +261,30 @@ public sealed class UiSession : IDisposable
             ? FocusedElement ?? HitTest(input.Position)
             : HitTest(input.Position) ?? FocusedElement;
 
+    /// <summary>
+    /// The element under a point, overlays first.
+    /// </summary>
+    /// <remarks>
+    /// An element's box is where it is; its <see cref="UiElement.OverlayBounds"/>
+    /// is where it currently reaches - the drop-down it is showing outside
+    /// itself. Those are drawn after everything else in the frame, so they are
+    /// what a point over them belongs to, whatever the boxes underneath say. A
+    /// tree walk finds the deepest one, because a list opened from inside another
+    /// list is drawn over it and answers first.
+    /// </remarks>
     public UiElement? HitTest(BPoint point)
     {
         ThrowIfDisposed();
+        for (int index = _roots.Count - 1; index >= 0; index--)
+        {
+            UiElement root = _roots[index];
+            if (root.Visibility != UiVisibility.Visible)
+                continue;
+
+            if (HitTestOverlay(root, point) is UiElement showing)
+                return HitTest(showing, point) ?? showing;
+        }
+
         for (int index = _roots.Count - 1; index >= 0; index--)
         {
             UiElement root = _roots[index];
@@ -377,6 +398,23 @@ public sealed class UiSession : IDisposable
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// The deepest, last-drawn element showing an overlay over <paramref name="point"/>.
+    /// </summary>
+    private static UiElement? HitTestOverlay(UiElement element, BPoint point)
+    {
+        if (element.Visibility != UiVisibility.Visible)
+            return null;
+
+        for (int index = element.Children.Count - 1; index >= 0; index--)
+        {
+            if (HitTestOverlay(element.Children[index], point) is UiElement showing)
+                return showing;
+        }
+
+        return element.OverlayBounds.Contains(point) ? element : null;
     }
 
     private static UiElement? HitTest(UiElement element, BPoint point)

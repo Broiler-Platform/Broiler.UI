@@ -10,6 +10,8 @@ public abstract class UiToolbar : UiElement
     private readonly HashSet<UiElement> _separatorBefore = [];
     private string _title = string.Empty;
     private UiToolbarOrientation _orientation;
+    private UiToolbarOverflow _overflow;
+    private bool _isOverflowOpen;
     private bool _isEnabled = true;
     private double _spacing = 6;
     private double _padding = 6;
@@ -44,6 +46,67 @@ public abstract class UiToolbar : UiElement
         }
     }
 
+    /// <summary>
+    /// What becomes of the items that do not fit. The default is
+    /// <see cref="UiToolbarOverflow.Menu"/>: they move into a drop-down opened
+    /// from a chevron at the end of the bar, so a narrow bar hides no command.
+    /// </summary>
+    public UiToolbarOverflow Overflow
+    {
+        get => _overflow;
+        set
+        {
+            ThrowIfDisposed();
+            if (_overflow == value)
+                return;
+
+            _overflow = value;
+            if (value != UiToolbarOverflow.Menu)
+                CloseOverflow();
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>Whether the overflow drop-down is showing.</summary>
+    public bool IsOverflowOpen
+    {
+        get => _isOverflowOpen;
+        protected set
+        {
+            if (_isOverflowOpen == value)
+                return;
+
+            _isOverflowOpen = value;
+            Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// Shows the overflow drop-down. False when the bar is not in
+    /// <see cref="UiToolbarOverflow.Menu"/> mode, or is already showing it. An
+    /// implementation refuses as well when nothing has overflowed, which it is
+    /// the one that knows.
+    /// </summary>
+    public virtual bool OpenOverflow()
+    {
+        ThrowIfDisposed();
+        if (!IsEnabled || _overflow != UiToolbarOverflow.Menu || _isOverflowOpen)
+            return false;
+
+        IsOverflowOpen = true;
+        return true;
+    }
+
+    public bool CloseOverflow()
+    {
+        ThrowIfDisposed();
+        if (!_isOverflowOpen)
+            return false;
+
+        IsOverflowOpen = false;
+        return true;
+    }
+
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -54,6 +117,8 @@ public abstract class UiToolbar : UiElement
                 return;
 
             _isEnabled = value;
+            if (!value)
+                CloseOverflow();
             Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
     }

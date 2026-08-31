@@ -20,6 +20,8 @@
     <ProjectReference Include="..\..\..\Implementations\Standard\Commands\Broiler.UI.Button.Standard\Broiler.UI.Button.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Commands\Broiler.UI.ToggleButton.Standard\Broiler.UI.ToggleButton.Standard.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\Commands\Broiler.UI.ToggleButton\Broiler.UI.ToggleButton.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.ComboBox.Standard\Broiler.UI.ComboBox.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.ComboBox\Broiler.UI.ComboBox.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
   </ItemGroup>
 
