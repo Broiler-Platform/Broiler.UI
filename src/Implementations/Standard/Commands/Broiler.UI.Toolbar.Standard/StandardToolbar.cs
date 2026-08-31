@@ -342,15 +342,28 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
             return HandlePointerButton(input);
         }
 
-        if (input.Kind == UiInputEventKind.KeyboardKey && input.KeyTransition == KeyboardKeyTransition.Down)
+        if (input.Kind == UiInputEventKind.KeyboardKey)
         {
-            if (IsOverflowOpen && IsKey(input, BVirtualKey.Escape, "Escape"))
+            bool pressed = input.KeyTransition == KeyboardKeyTransition.Down;
+            if (IsOverflowOpen && pressed && IsKey(input, BVirtualKey.Escape, "Escape"))
             {
                 CloseManagedOverflow();
                 return true;
             }
 
-            return HandleKeyboard(input);
+            // The bar holds the input while its drop-down is down, so a key meant
+            // for the item that has focus in there has to be handed on. What the
+            // item does not answer - the arrows - falls through to the bar's own
+            // navigation, which is what moves focus off it again.
+            if (IsOverflowOpen &&
+                Session?.FocusedElement is UiElement focused &&
+                _isOverflowed.Contains(focused) &&
+                focused.DispatchInput(input))
+            {
+                return true;
+            }
+
+            return pressed && HandleKeyboard(input);
         }
 
         return false;
@@ -382,7 +395,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
             if (IsOverflowOpen)
                 CloseManagedOverflow();
             else
-                OpenManagedOverflow(capture: true);
+                OpenManagedOverflow();
             return true;
         }
 
@@ -502,21 +515,18 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
     }
 
     /// <summary>
-    /// Shows the drop-down. A pointer opens it with the session's capture, so a
-    /// press anywhere dismisses it; the keyboard opens it without, because the
-    /// item that is about to take focus has to be able to hear Enter.
+    /// Shows the drop-down and takes the session's input with it, however it was
+    /// opened, so a press anywhere else dismisses it and a drop-down opened from
+    /// the keyboard answers a mouse exactly as one opened by a mouse does. The
+    /// keys an item in there is owed are handed on rather than swallowed.
     /// </summary>
-    private bool OpenManagedOverflow(bool capture)
+    private bool OpenManagedOverflow()
     {
         if (!OpenOverflow())
             return false;
 
-        if (capture)
-        {
-            Session?.SetFocus(this);
-            Session?.CaptureInput(this);
-        }
-
+        Session?.SetFocus(this);
+        Session?.CaptureInput(this);
         return true;
     }
 
@@ -601,7 +611,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
             // Laid out again straight away: an item in a shut drop-down has no
             // box, and focus that lands on a box-less control is focus the user
             // cannot see.
-            if (OpenManagedOverflow(capture: false))
+            if (OpenManagedOverflow())
                 Arrange(Bounds);
         }
         else if (IsOverflowOpen)

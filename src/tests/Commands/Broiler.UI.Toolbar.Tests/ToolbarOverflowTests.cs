@@ -278,6 +278,44 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
+    [Fact(Timeout = 600000)]
+    public void An_Item_Focused_In_The_Drop_Down_Hears_Its_Own_Keys()
+    {
+        Bar bar = Create();
+        bar.Session.RenderFrame();
+        bar.Session.SetFocus(bar.Toolbar);
+        bar.Route.Dispatch(Key("End", BVirtualKey.End));
+        var focused = (StandardButton)bar.Session.FocusedElement!;
+        Assert.Contains(focused, bar.Toolbar.OverflowItems);
+        int clicks = 0;
+        focused.Clicked += (_, _) => clicks++;
+
+        bar.Route.Dispatch(Key("Enter", BVirtualKey.Enter));
+        bar.Route.Dispatch(Key("Enter", BVirtualKey.Enter, KeyboardKeyTransition.Up));
+
+        Assert.Equal(1, clicks);
+        bar.Session.Dispose();
+    }
+
+    [Fact(Timeout = 600000)]
+    public void A_Drop_Down_Opened_From_The_Keyboard_Answers_A_Mouse_The_Same_Way()
+    {
+        Bar bar = Create();
+        bar.Session.RenderFrame();
+        bar.Session.SetFocus(bar.Toolbar);
+        bar.Route.Dispatch(Key("End", BVirtualKey.End));
+        Assert.True(bar.Toolbar.IsOverflowOpen);
+        var item = (StandardButton)bar.Toolbar.OverflowItems[0];
+        int clicks = 0;
+        item.Clicked += (_, _) => clicks++;
+
+        Click(bar, Middle(item.Bounds));
+
+        Assert.Equal(1, clicks);
+        Assert.False(bar.Toolbar.IsOverflowOpen);
+        bar.Session.Dispose();
+    }
+
     // --- Where it is drawn -------------------------------------------------
 
     [Fact(Timeout = 600000)]
@@ -376,14 +414,17 @@ public sealed class ToolbarOverflowTests
             transition,
             InputEventSource.Synthetic);
 
-    private static KeyboardKeyEvent Key(string name, int nativeKeyCode) =>
+    private static KeyboardKeyEvent Key(
+        string name,
+        int nativeKeyCode,
+        KeyboardKeyTransition transition = KeyboardKeyTransition.Down) =>
         new(
             new InputEventHeader(
                 InputDeviceId.FromOpaqueValue("keyboard:overflow"),
                 new InputTimestamp(1, TimeSpan.TicksPerSecond, "toolbar-overflow"),
                 1),
             KeyboardKey.FromName(name),
-            KeyboardKeyTransition.Down,
+            transition,
             KeyboardModifierState.None,
             nativeKeyCode,
             0,
