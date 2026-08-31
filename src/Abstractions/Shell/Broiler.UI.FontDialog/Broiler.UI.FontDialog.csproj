@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Broiler.UI.Dialog\Broiler.UI.Dialog.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Graphics\src\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
 </Project>

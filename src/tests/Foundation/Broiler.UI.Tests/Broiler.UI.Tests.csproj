@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI\Broiler.UI.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Input\src\tests\Broiler.Input.Testing\Broiler.Input.Testing.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\tests\Broiler.Input.Testing\Broiler.Input.Testing.csproj" />
   </ItemGroup>
 
   <ItemGroup>
