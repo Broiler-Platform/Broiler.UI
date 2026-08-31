@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Broiler.Documents\src\Broiler.Documents.FormatCodes\Broiler.Documents.FormatCodes.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Documents\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
+    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.FormatCodes\Broiler.Documents.FormatCodes.csproj" />
+    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.FormatCodeView.Standard\Broiler.UI.FormatCodeView.Standard.csproj" />
   </ItemGroup>
 

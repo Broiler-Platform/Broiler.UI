@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\Broiler.Documents\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
+    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
     <ProjectReference Include="..\..\..\..\Abstractions\Text\Broiler.UI.RichEdit\Broiler.UI.RichEdit.csproj" />
     <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
     <ProjectReference Include="..\..\..\..\..\Broiler.Graphics\src\Broiler.Graphics\Broiler.Graphics.csproj" />

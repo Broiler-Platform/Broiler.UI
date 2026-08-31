@@ -13,7 +13,7 @@ public sealed class FormatCodeViewArchitectureTests
 
         Assert.Equal(
         [
-            "../../../../Broiler.Documents/src/Broiler.Documents.FormatCodes/Broiler.Documents.FormatCodes.csproj",
+            "$(BroilerDocumentsRoot)/src/Broiler.Documents.FormatCodes/Broiler.Documents.FormatCodes.csproj",
             "../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
             "../../../Foundation/Broiler.UI/Broiler.UI.csproj",
         ],

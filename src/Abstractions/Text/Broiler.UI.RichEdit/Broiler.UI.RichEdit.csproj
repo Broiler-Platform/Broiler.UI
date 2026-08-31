@@ -20,7 +20,7 @@
     input, or platform dependency.
   -->
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Broiler.Documents\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
+    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI\Broiler.UI.csproj" />
     <ProjectReference Include="..\..\..\..\Broiler.Graphics\src\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>

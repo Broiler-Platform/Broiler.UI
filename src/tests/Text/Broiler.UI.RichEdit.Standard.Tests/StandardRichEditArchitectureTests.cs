@@ -7,7 +7,7 @@ public sealed class StandardRichEditArchitectureTests
 {
     private static readonly string[] ExpectedReferences =
     [
-        "../../../../../Broiler.Documents/src/Broiler.Documents.Model/Broiler.Documents.Model.csproj",
+        "$(BroilerDocumentsRoot)/src/Broiler.Documents.Model/Broiler.Documents.Model.csproj",
         "../../../../../Broiler.Graphics/src/Broiler.Graphics/Broiler.Graphics.csproj",
         "../../../../Abstractions/Text/Broiler.UI.RichEdit/Broiler.UI.RichEdit.csproj",
         "../../../../Foundation/Broiler.UI.Standard/Broiler.UI.Standard.csproj",
