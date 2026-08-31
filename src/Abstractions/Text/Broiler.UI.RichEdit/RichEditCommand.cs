@@ -41,6 +41,7 @@ public enum RichEditCommand
     AlignLeft,
     AlignCenter,
     AlignRight,
+    AlignJustify,
     BulletList,
     NumberedList,
     Indent,
