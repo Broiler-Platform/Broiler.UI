@@ -22,9 +22,9 @@
     <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.RichEdit\Broiler.UI.RichEdit.csproj" />
     <!-- Resolve cross-component edges here so this project's references remain
          stable when consumed transitively by the Broiler.UI.All meta-project. -->
-    <ProjectReference Include="..\..\..\..\Broiler.Documents\src\Broiler.Documents\Broiler.Documents.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Documents\src\Broiler.Documents.Rtf\Broiler.Documents.Rtf.csproj" />
-    <ProjectReference Include="..\..\..\..\Broiler.Documents\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
+    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents\Broiler.Documents.csproj" />
+    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.Rtf\Broiler.Documents.Rtf.csproj" />
+    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
   </ItemGroup>
 
   <ItemGroup>
