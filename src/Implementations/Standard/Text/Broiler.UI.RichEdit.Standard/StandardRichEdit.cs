@@ -104,6 +104,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     public double PaddingX { get; set; } = 8;
 
+    /// <summary>The desk the sheet lies on, so the paper reads as paper.</summary>
+    public BColor PageSurround { get; set; } = BColor.FromArgb(0xFF, 0xE8, 0xEA, 0xEE);
+
     public double PaddingY { get; set; } = 6;
 
     /// <summary>
@@ -214,6 +217,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         StandardControlPaint.StrokeRounded(renderList, Bounds, focused ? FocusRing : BorderColor, CornerRadius, focused ? 2 : 1);
 
         renderList.PushClip(inner);
+        DrawPage(renderList, inner);
         if (Document.PlainText.Length == 0 && _compositionText.Length == 0 && PlaceholderText.Length > 0)
         {
             renderList.DrawText(new BTextRun(PlaceholderText, Font, PlaceholderForeground), new BPoint(ContentLeft, ContentTop - _scrollY));
@@ -344,6 +348,34 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// is banded because the render list fills rectangles and has no gradient of
     /// its own.
     /// </remarks>
+    /// <summary>
+    /// Draws the sheet the document is written on, when it states one.
+    /// </summary>
+    /// <remarks>
+    /// The surround is painted first so the paper reads as paper: without a
+    /// different colour behind it the margins are indistinguishable from the
+    /// control, and a page that cannot be told from its background is not worth
+    /// laying out. A document that states no page paints neither, and looks
+    /// exactly as it did.
+    /// </remarks>
+    private void DrawPage(BRenderList renderList, BRect inner)
+    {
+        if (Page is not PageGeometry page)
+            return;
+
+        renderList.FillRect(inner, IsEnabled ? PageSurround : StandardControlPaint.SurfaceDisabled);
+
+        double top = Bounds.Top + PaddingY - _scrollY;
+        // A sheet is at least a page tall, and taller when the text runs past the
+        // bottom - this surface flows rather than paginating, so the paper grows
+        // instead of a second sheet starting.
+        double height = Math.Max(page.Height, _contentHeight + page.MarginTop + page.MarginBottom);
+        var sheet = new BRect(PageLeft, top, page.Width, height);
+
+        renderList.FillRect(sheet, IsEnabled ? Background : StandardControlPaint.SurfaceDisabled);
+        renderList.StrokeRect(sheet, BorderColor, 1);
+    }
+
     private void DrawShapes(BRenderList renderList, BRect inner)
     {
         foreach (DocumentShape shape in Document.Shapes)
@@ -1555,7 +1587,27 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         Math.Max(0, Bounds.Width - (PaddingX * 2)),
         Math.Max(0, Bounds.Height - (PaddingY * 2)));
 
-    private double ContentLeft => Bounds.Left + PaddingX + ShapeGutter;
+    /// <summary>
+    /// The page this document is written for, when it says. A document that says
+    /// nothing is laid out to the width of the control, as it always was.
+    /// </summary>
+    private PageGeometry? Page =>
+        Document.PageGeometry is PageGeometry geometry && geometry.IsUsable ? geometry : null;
+
+    /// <summary>
+    /// Where the sheet starts. It is centred in whatever width the control has,
+    /// and never left of the padding - a window narrower than the paper shows the
+    /// left of the sheet rather than centring half of it out of view.
+    /// </summary>
+    private double PageLeft =>
+        Page is PageGeometry page
+            ? Bounds.Left + Math.Max(PaddingX, (Bounds.Width - page.Width) / 2)
+            : Bounds.Left + PaddingX;
+
+    private double ContentLeft =>
+        Page is PageGeometry page
+            ? PageLeft + page.MarginLeft
+            : Bounds.Left + PaddingX + ShapeGutter;
 
     /// <summary>
     /// How far left of the text column the document's shapes reach, which the
@@ -1584,9 +1636,13 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         }
     }
 
-    private double ContentTop => Bounds.Top + PaddingY;
+    private double ContentTop =>
+        Bounds.Top + PaddingY + (Page is PageGeometry page ? page.MarginTop : 0);
 
-    private double ContentWidth => Math.Max(0, Bounds.Width - (PaddingX * 2) - ShapeGutter);
+    private double ContentWidth =>
+        Page is PageGeometry page
+            ? page.ContentWidth
+            : Math.Max(0, Bounds.Width - (PaddingX * 2) - ShapeGutter);
 
     private double ContentHeight => Math.Max(0, Bounds.Height - (PaddingY * 2));
 
@@ -1774,7 +1830,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             y = defaultLineHeight;
         }
 
-        _contentHeight = y;
+        // The margins are part of what scrolls: a page's last line sits a bottom
+        // margin above the end of the paper, not at it.
+        _contentHeight = Page is PageGeometry page ? y + page.MarginTop + page.MarginBottom : y;
         ReleaseImagesNotIn(document);
     }
 
