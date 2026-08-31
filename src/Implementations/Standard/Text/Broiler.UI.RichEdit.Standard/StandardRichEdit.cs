@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Broiler.Documents.Model;
@@ -37,6 +37,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     private readonly List<VisualLine> _lines = [];
     private readonly List<ParagraphDecoration> _decorations = [];
+    private readonly List<CellFrame> _frames = [];
+    private readonly List<CellBox> _cells = [];
     private readonly Dictionary<InlineImage, BImageHandle> _imageHandles = new(ReferenceEqualityComparer.Instance);
     private RichTextDocument? _layoutDocument;
     private BFontStyle? _layoutFont;
@@ -275,6 +277,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         else
         {
             DrawShapes(renderList, inner);
+            DrawCells(renderList, inner);
             DrawRunBackgrounds(renderList, inner);
             DrawRange(renderList, inner, SecondarySelection, SecondarySelectionBackground);
             DrawSelection(renderList, inner);
@@ -447,10 +450,102 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             if (shape.Fill is ShapeFill fill)
                 FillShape(renderList, bounds, fill);
 
+            // Over the fill and under the outline, so a framed picture keeps its
+            // frame.
+            if (shape.Image is InlineImage image)
+                DrawShapeImage(renderList, image, bounds);
+
             if (!shape.Outline.IsEmpty && shape.Outline.A > 0)
                 renderList.StrokeRect(bounds, shape.Outline, 1);
 
             DrawShapeText(renderList, shape, bounds);
+        }
+    }
+
+    /// <summary>
+    /// Draws a floating picture into its box. The box is the size the document
+    /// stated for the frame, so unlike an inline picture there is nothing to
+    /// measure: it fills what it was given.
+    /// </summary>
+    private void DrawShapeImage(BRenderList renderList, InlineImage image, BRect bounds)
+    {
+        BImageHandle handle = ResolveImage(image);
+        if (!handle.IsValid)
+        {
+            // Same as an inline picture the backend could not decode: show where
+            // it is rather than leaving a hole the reader cannot see.
+            StandardControlPaint.StrokeRounded(
+                renderList,
+                bounds,
+                IsEnabled ? Foreground : PlaceholderForeground,
+                StandardControlPaint.ControlRadius,
+                1);
+            return;
+        }
+
+        renderList.DrawImage(
+            handle,
+            new BRect(0, 0, handle.PixelSize.Width, handle.PixelSize.Height),
+            bounds,
+            IsEnabled ? 1.0 : 0.5);
+    }
+
+    /// <summary>
+    /// Paints the table cells: their backgrounds, then the edges they state.
+    /// Under the text and over the shapes, so a shaded cell sits on a letterhead's
+    /// stripe rather than under it.
+    /// </summary>
+    private void DrawCells(BRenderList renderList, BRect inner)
+    {
+        foreach (CellBox cell in _cells)
+        {
+            var bounds = new BRect(
+                ContentLeft + cell.Bounds.Left,
+                ContentTop + cell.Bounds.Top - _scrollY,
+                cell.Bounds.Width,
+                cell.Bounds.Height);
+            if (bounds.Width <= 0 || bounds.Height <= 0 ||
+                bounds.Bottom < inner.Top || bounds.Top > inner.Bottom)
+            {
+                continue;
+            }
+
+            if (!cell.Shading.IsEmpty && cell.Shading.A > 0)
+                renderList.FillRect(bounds, cell.Shading);
+
+            DrawCellBorders(renderList, bounds, cell.Borders);
+        }
+    }
+
+    /// <summary>
+    /// Draws a cell's four edges as filled rectangles. A cell states its sides
+    /// separately and any of them may be turned off, so a stroked box would draw
+    /// edges the document asked not to have.
+    /// </summary>
+    private static void DrawCellBorders(BRenderList renderList, BRect bounds, CellBorders borders)
+    {
+        if (borders.Top.IsVisible)
+            renderList.FillRect(new BRect(bounds.Left, bounds.Top, bounds.Width, borders.Top.Width), borders.Top.Color);
+
+        if (borders.Bottom.IsVisible)
+        {
+            renderList.FillRect(
+                new BRect(bounds.Left, bounds.Bottom - borders.Bottom.Width, bounds.Width, borders.Bottom.Width),
+                borders.Bottom.Color);
+        }
+
+        if (borders.Left.IsVisible)
+        {
+            renderList.FillRect(
+                new BRect(bounds.Left, bounds.Top, borders.Left.Width, bounds.Height),
+                borders.Left.Color);
+        }
+
+        if (borders.Right.IsVisible)
+        {
+            renderList.FillRect(
+                new BRect(bounds.Right - borders.Right.Width, bounds.Top, borders.Right.Width, bounds.Height),
+                borders.Right.Color);
         }
     }
 
@@ -1747,7 +1842,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// then along by whatever its alignment pushes it.
     /// </summary>
     private double LineLeft(VisualLine line) =>
-        ContentLeft + Decoration(line.ParagraphIndex).TextIndent + line.AlignmentOffset;
+        ContentLeft + Frame(line.ParagraphIndex).Left +
+        Decoration(line.ParagraphIndex).TextIndent + line.AlignmentOffset;
 
     public bool HasVerticalScrollbar => VerticalScrollPolicy == RichEditScrollPolicy.Always ||
                                         (VerticalScrollPolicy == RichEditScrollPolicy.Auto && MaxScroll > 0);
@@ -1881,47 +1977,23 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private void BuildLayout(double contentWidth)
     {
         _lines.Clear();
-        double defaultLineHeight = DefaultLineHeight;
-        double y = 0;
+        _cells.Clear();
         RichTextDocument document = Document;
+        BuildFrames(document, contentWidth);
         BuildDecorations(document, contentWidth);
 
-        for (int paragraphIndex = 0; paragraphIndex < document.ParagraphCount; paragraphIndex++)
-        {
-            RichTextParagraph paragraph = document.Paragraphs[paragraphIndex];
-            string text = paragraph.Text;
-            double available = contentWidth - Decoration(paragraphIndex).TextIndent;
-            foreach ((int segmentStart, int segmentEnd) in HardSegments(text))
-            {
-                if (segmentStart == segmentEnd)
-                {
-                    _lines.Add(new VisualLine(
-                        paragraphIndex, segmentStart, segmentEnd, y, defaultLineHeight,
-                        AlignmentOffset(paragraph, segmentStart, segmentEnd, available),
-                        LineWordSpacing(paragraph, segmentStart, segmentEnd, available)));
-                    y += defaultLineHeight;
-                    continue;
-                }
-
-                int i = segmentStart;
-                while (i < segmentEnd)
-                {
-                    int end = MeasureWrap(paragraph, i, segmentEnd, available);
-                    double lineHeight = MeasureLineHeight(paragraph, i, end, defaultLineHeight);
-                    _lines.Add(new VisualLine(
-                        paragraphIndex, i, end, y, lineHeight,
-                        AlignmentOffset(paragraph, i, end, available),
-                        LineWordSpacing(paragraph, i, end, available)));
-                    y += lineHeight;
-                    i = end;
-                }
-            }
-        }
+        double y = LayoutBlocks(
+            document,
+            document.Tables,
+            0,
+            document.ParagraphCount,
+            0,
+            new CellFrame(0, Math.Max(1, contentWidth)));
 
         if (_lines.Count == 0)
         {
-            _lines.Add(new VisualLine(0, 0, 0, 0, defaultLineHeight, 0));
-            y = defaultLineHeight;
+            _lines.Add(new VisualLine(0, 0, 0, 0, DefaultLineHeight, 0));
+            y = DefaultLineHeight;
         }
 
         // The margins are part of what scrolls: a page's last line sits a bottom
@@ -1929,6 +2001,243 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         _contentHeight = Page is PageGeometry page ? y + page.MarginTop + page.MarginBottom : y;
         ReleaseImagesNotIn(document);
     }
+
+    /// <summary>
+    /// Lays out a range of block content from <paramref name="y"/> down, and
+    /// returns where it ends. A table goes through <see cref="LayoutTable"/>,
+    /// which comes back here for each of its cells - so a table inside a cell
+    /// costs nothing but the recursion.
+    /// </summary>
+    private double LayoutBlocks(
+        RichTextDocument document,
+        IReadOnlyList<DocumentTable> tables,
+        int from,
+        int to,
+        double y,
+        CellFrame frame)
+    {
+        int index = Math.Max(0, from);
+        int end = Math.Min(to, document.ParagraphCount);
+        while (index < end)
+        {
+            if (DocumentTable.StartingAt(tables, index) is DocumentTable table)
+            {
+                y = LayoutTable(document, table, y, frame);
+                index = table.ParagraphEnd;
+                continue;
+            }
+
+            y = LayoutParagraph(document, index, y);
+            index++;
+        }
+
+        return y;
+    }
+
+    /// <summary>Wraps one paragraph into visual lines from <paramref name="y"/> down.</summary>
+    private double LayoutParagraph(RichTextDocument document, int paragraphIndex, double y)
+    {
+        RichTextParagraph paragraph = document.Paragraphs[paragraphIndex];
+        double defaultLineHeight = DefaultLineHeight;
+        double available = Math.Max(1, Frame(paragraphIndex).Width - Decoration(paragraphIndex).TextIndent);
+
+        foreach ((int segmentStart, int segmentEnd) in HardSegments(paragraph.Text))
+        {
+            if (segmentStart == segmentEnd)
+            {
+                _lines.Add(new VisualLine(
+                    paragraphIndex, segmentStart, segmentEnd, y, defaultLineHeight,
+                    AlignmentOffset(paragraph, segmentStart, segmentEnd, available),
+                    LineWordSpacing(paragraph, segmentStart, segmentEnd, available)));
+                y += defaultLineHeight;
+                continue;
+            }
+
+            int i = segmentStart;
+            while (i < segmentEnd)
+            {
+                int lineEnd = MeasureWrap(paragraph, i, segmentEnd, available);
+                double lineHeight = MeasureLineHeight(paragraph, i, lineEnd, defaultLineHeight);
+                _lines.Add(new VisualLine(
+                    paragraphIndex, i, lineEnd, y, lineHeight,
+                    AlignmentOffset(paragraph, i, lineEnd, available),
+                    LineWordSpacing(paragraph, i, lineEnd, available)));
+                y += lineHeight;
+                i = lineEnd;
+            }
+        }
+
+        return y;
+    }
+
+    /// <summary>
+    /// Lays a table out row by row: every cell of a row starts at the row's top,
+    /// and the tallest of them says where the next row starts.
+    /// </summary>
+    /// <remarks>
+    /// The boxes are recorded as the rows are measured and then grown, because a
+    /// cell that spans rows only knows how tall it is once the rows below it have
+    /// been laid out.
+    /// </remarks>
+    private double LayoutTable(RichTextDocument document, DocumentTable table, double top, CellFrame frame)
+    {
+        double[] edges = ColumnEdges(table, frame);
+        double padding = table.CellPadding * _zoom;
+        double defaultLineHeight = DefaultLineHeight;
+        var heights = new List<double>(table.Rows.Count);
+        var spans = new List<(int Row, int Index, int RowSpan)>();
+        double y = top;
+
+        foreach (TableRow row in table.Rows)
+        {
+            double bottom = y;
+            foreach (TableCell cell in row.Cells)
+            {
+                (double left, double width) = ColumnSpanBox(edges, cell);
+                bottom = Math.Max(
+                    bottom,
+                    LayoutBlocks(
+                        document,
+                        cell.Tables,
+                        cell.ParagraphIndex,
+                        cell.ParagraphEnd,
+                        y,
+                        new CellFrame(left + padding, Math.Max(1, width - (padding * 2)))));
+
+                if (cell.IsRowSpanContinuation)
+                    continue;
+
+                spans.Add((heights.Count, _cells.Count, cell.RowSpan));
+                _cells.Add(new CellBox(new BRect(left, y, width, 0), cell.Shading, cell.Borders));
+            }
+
+            // A row is never shorter than a line, so an empty one is still a row.
+            heights.Add(Math.Max(bottom - y, defaultLineHeight));
+            y += heights[^1];
+        }
+
+        foreach ((int row, int index, int rowSpan) in spans)
+        {
+            double height = 0;
+            for (int r = row; r < Math.Min(heights.Count, row + Math.Max(1, rowSpan)); r++)
+                height += heights[r];
+
+            CellBox box = _cells[index];
+            _cells[index] = box with
+            {
+                Bounds = new BRect(box.Bounds.Left, box.Bounds.Top, box.Bounds.Width, height),
+            };
+        }
+
+        return y;
+    }
+
+    /// <summary>
+    /// Works out the box every paragraph is laid out in: the content column for
+    /// an ordinary paragraph, and the cell it sits in for one inside a table.
+    /// </summary>
+    /// <remarks>
+    /// This runs before wrapping because wrapping needs the width, and before the
+    /// list decorations because an indent is capped against the box it is in - a
+    /// list inside a narrow cell would otherwise be capped against the page.
+    /// </remarks>
+    private void BuildFrames(RichTextDocument document, double contentWidth)
+    {
+        _frames.Clear();
+        var full = new CellFrame(0, Math.Max(1, contentWidth));
+        for (int i = 0; i < document.ParagraphCount; i++)
+            _frames.Add(full);
+
+        FrameBlocks(document, document.Tables, 0, document.ParagraphCount, full);
+    }
+
+    private void FrameBlocks(
+        RichTextDocument document,
+        IReadOnlyList<DocumentTable> tables,
+        int from,
+        int to,
+        CellFrame frame)
+    {
+        int index = Math.Max(0, from);
+        int end = Math.Min(to, _frames.Count);
+        while (index < end)
+        {
+            if (DocumentTable.StartingAt(tables, index) is DocumentTable table)
+            {
+                double[] edges = ColumnEdges(table, frame);
+                foreach (TableRow row in table.Rows)
+                {
+                    foreach (TableCell cell in row.Cells)
+                    {
+                        (double left, double width) = ColumnSpanBox(edges, cell);
+                        double padding = table.CellPadding * _zoom;
+                        var inner = new CellFrame(left + padding, Math.Max(1, width - (padding * 2)));
+
+                        for (int i = cell.ParagraphIndex; i < Math.Min(cell.ParagraphEnd, _frames.Count); i++)
+                            _frames[i] = inner;
+
+                        FrameBlocks(document, cell.Tables, cell.ParagraphIndex, cell.ParagraphEnd, inner);
+                    }
+                }
+
+                index = table.ParagraphEnd;
+                continue;
+            }
+
+            index++;
+        }
+    }
+
+    /// <summary>
+    /// The x of every column boundary within <paramref name="frame"/>, left to
+    /// right. A grid wider than the box it is in is scaled to fit rather than
+    /// drawn off the edge, and one that states no widths divides the box evenly.
+    /// </summary>
+    private double[] ColumnEdges(DocumentTable table, CellFrame frame)
+    {
+        int columns = ColumnCount(table);
+        var edges = new double[columns + 1];
+        double total = table.TotalWidth * _zoom;
+        double scale = total > 0 && total > frame.Width ? frame.Width / total : 1.0;
+
+        double x = frame.Left;
+        edges[0] = x;
+        for (int i = 0; i < columns; i++)
+        {
+            x += i < table.ColumnWidths.Count && table.ColumnWidths[i] > 0
+                ? table.ColumnWidths[i] * _zoom * scale
+                : frame.Width / columns;
+            edges[i + 1] = x;
+        }
+
+        return edges;
+    }
+
+    /// <summary>How many columns the grid has: what it states, or what its widest row uses.</summary>
+    private static int ColumnCount(DocumentTable table)
+    {
+        int columns = table.ColumnWidths.Count;
+        foreach (TableRow row in table.Rows)
+        {
+            foreach (TableCell cell in row.Cells)
+                columns = Math.Max(columns, cell.ColumnIndex + cell.ColumnSpan);
+        }
+
+        return Math.Max(1, columns);
+    }
+
+    private static (double Left, double Width) ColumnSpanBox(double[] edges, TableCell cell)
+    {
+        int start = Math.Clamp(cell.ColumnIndex, 0, edges.Length - 1);
+        int end = Math.Clamp(cell.ColumnIndex + cell.ColumnSpan, start + 1, edges.Length - 1);
+        return (edges[start], Math.Max(1, edges[end] - edges[start]));
+    }
+
+    /// <summary>The box a paragraph is laid out in, or the whole column when layout has not seen it.</summary>
+    private CellFrame Frame(int paragraphIndex) =>
+        (uint)paragraphIndex < (uint)_frames.Count
+            ? _frames[paragraphIndex]
+            : new CellFrame(0, Math.Max(1, ContentWidth));
 
     /// <summary>
     /// Works out every paragraph's list marker and left offsets, once per layout.
@@ -1963,9 +2272,13 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
         ApplyMarkerGutters(document);
 
-        double limit = contentWidth > 0 ? contentWidth / 2 : double.MaxValue;
+        _ = contentWidth;
         for (int i = 0; i < _decorations.Count; i++)
         {
+            // Capped against the box the paragraph is in, not against the page: a
+            // list in a narrow cell has less room to give away than the page does.
+            double frameWidth = Frame(i).Width;
+            double limit = frameWidth > 0 ? frameWidth / 2 : double.MaxValue;
             ParagraphDecoration decoration = _decorations[i];
             if (decoration.TextIndent <= limit)
                 continue;
@@ -2034,6 +2347,15 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 if (run.Style.Image is InlineImage image)
                     live.Add(image);
             }
+        }
+
+        // A floating picture is in the document without being in a paragraph, and
+        // releasing its handle here would drop the logo off every letterhead the
+        // moment layout ran.
+        foreach (DocumentShape shape in document.Shapes)
+        {
+            if (shape.Image is InlineImage image)
+                live.Add(image);
         }
 
         List<InlineImage>? stale = null;
@@ -2327,6 +2649,16 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// offsets are relative to <see cref="ContentLeft"/>, so scrolling the document
     /// or moving the control does not invalidate them.
     /// </summary>
+    /// <summary>
+    /// The box a paragraph is laid out in: its left offset from
+    /// <see cref="ContentLeft"/>, and the width it wraps into. An ordinary
+    /// paragraph gets the whole content column; one in a table gets its cell.
+    /// </summary>
+    private readonly record struct CellFrame(double Left, double Width);
+
+    /// <summary>One table cell's box, in the same space a line's top is measured in.</summary>
+    private readonly record struct CellBox(BRect Bounds, BColor Shading, CellBorders Borders);
+
     private readonly record struct ParagraphDecoration(
         string Marker,
         BFontStyle Font,
