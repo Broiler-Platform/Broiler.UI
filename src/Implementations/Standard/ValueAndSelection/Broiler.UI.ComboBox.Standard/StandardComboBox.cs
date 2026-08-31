@@ -44,6 +44,9 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
 
     public int HighlightedIndex => _highlightedIndex;
 
+    /// <summary>The list, while it is down. It is drawn outside the control and worked outside it too.</summary>
+    public override BRect OverlayBounds => IsDropDownOpen ? PopupBounds : BRect.Empty;
+
     protected override BSize MeasureCore(BSize availableSize) =>
         new(ClampDesired(PreferredSize.Width, availableSize.Width), ClampDesired(PreferredSize.Height, availableSize.Height));
 
