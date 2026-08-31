@@ -40,7 +40,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private readonly Dictionary<InlineImage, BImageHandle> _imageHandles = new(ReferenceEqualityComparer.Instance);
     private RichTextDocument? _layoutDocument;
     private BFontStyle? _layoutFont;
+    private double _layoutZoom = double.NaN;
     private double _layoutWidth = double.NaN;
+    private double _zoom = 1;
     private bool _layoutValid;
     private double _contentHeight;
     private double _scrollY;
@@ -101,6 +103,54 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     public double MinimumScrollbarThumbLength { get; set; } = 18;
 
     public BFontStyle Font { get; set; } = BFontStyle.Default;
+
+    /// <summary>The smallest <see cref="Zoom"/> the surface will take.</summary>
+    public const double MinimumZoom = 0.1;
+
+    /// <summary>The largest <see cref="Zoom"/> the surface will take.</summary>
+    public const double MaximumZoom = 10;
+
+    /// <summary>
+    /// How large the document is drawn against the size it states: 1 is the size
+    /// it states, 2 is twice that. A value outside
+    /// <see cref="MinimumZoom"/>..<see cref="MaximumZoom"/> is clamped into it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Zoom is a property of the view, not of the document. It multiplies every
+    /// measurement layout reads from the document - font sizes, indents, tab
+    /// stops, picture sizes, the page and its margins - and nothing it reads from
+    /// the control - the padding, the border, the scrollbar. So the text grows
+    /// inside chrome that stays where it is, and wraps to the column the window
+    /// actually has rather than to one that grew with it. Nothing scaled here is
+    /// written back, so a document saves at the size it was authored at whatever
+    /// it is being read at.
+    /// </para>
+    /// <para>
+    /// It is applied in layout rather than as a transform over the drawing, which
+    /// is what keeps the caret, the selection, hit-testing and wrapping agreeing
+    /// with the glyphs at every level.
+    /// </para>
+    /// </remarks>
+    public double Zoom
+    {
+        get => _zoom;
+        set
+        {
+            ThrowIfDisposed();
+            double zoom = double.IsFinite(value) ? Math.Clamp(value, MinimumZoom, MaximumZoom) : 1;
+            if (_zoom == zoom)
+                return;
+
+            // The content height scales with the zoom, so the scroll offset is
+            // scaled with it: the reader stays on the passage they were reading
+            // instead of being thrown back towards the top of a document that
+            // just grew underneath them.
+            _scrollY *= zoom / _zoom;
+            _zoom = zoom;
+            Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
     public double PaddingX { get; set; } = 8;
 
@@ -220,7 +270,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         DrawPage(renderList, inner);
         if (Document.PlainText.Length == 0 && _compositionText.Length == 0 && PlaceholderText.Length > 0)
         {
-            renderList.DrawText(new BTextRun(PlaceholderText, Font, PlaceholderForeground), new BPoint(ContentLeft, ContentTop - _scrollY));
+            renderList.DrawText(new BTextRun(PlaceholderText, ZoomedFont, PlaceholderForeground), new BPoint(ContentLeft, ContentTop - _scrollY));
         }
         else
         {
@@ -331,7 +381,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             {
                 if (!fullyInside)
                     continue;
-                width = BTextMeasurer.MeasureAdvance(" ", Font); // sliver marking an empty selected line
+                width = BTextMeasurer.MeasureAdvance(" ", ZoomedFont); // sliver marking an empty selected line
             }
 
             renderList.FillRect(new BRect(x1, y, width, line.Height), color);
@@ -387,10 +437,10 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 continue;
 
             var bounds = new BRect(
-                ContentLeft + shape.OffsetX,
-                ContentTop + paragraphTop + shape.OffsetY - _scrollY,
-                shape.Width,
-                shape.Height);
+                ContentLeft + (shape.OffsetX * _zoom),
+                ContentTop + paragraphTop + (shape.OffsetY * _zoom) - _scrollY,
+                shape.Width * _zoom,
+                shape.Height * _zoom);
             if (bounds.Bottom < inner.Top || bounds.Top > inner.Bottom)
                 continue;
 
@@ -619,8 +669,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         BColor color)
     {
         BSize size = ImageDisplaySize(image);
-        double height = Math.Min(size.Height, Math.Max(0, lineHeight - (ImageMargin * 2)));
-        double top = lineTop + Math.Max(ImageMargin, lineHeight - height - ImageMargin);
+        double margin = ZoomedImageMargin;
+        double height = Math.Min(size.Height, Math.Max(0, lineHeight - (margin * 2)));
+        double top = lineTop + Math.Max(margin, lineHeight - height - margin);
         var destination = new BRect(segment.X, top, segment.Advance, height);
 
         BImageHandle handle = ResolveImage(image);
@@ -761,14 +812,18 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private BSize ImageDisplaySize(InlineImage image)
     {
         if (image.HasExplicitSize)
-            return new BSize(image.Width, image.Height);
+            return Zoomed(new BSize(image.Width, image.Height));
 
         BImageHandle handle = ResolveImage(image);
         if (handle.IsValid && handle.PixelSize.Width > 0 && handle.PixelSize.Height > 0)
-            return handle.PixelSize;
+            return Zoomed(handle.PixelSize);
 
-        return new BSize(FallbackImageExtent, FallbackImageExtent);
+        return Zoomed(new BSize(FallbackImageExtent, FallbackImageExtent));
     }
+
+    /// <summary>A size the document states, as it is drawn.</summary>
+    private BSize Zoomed(BSize size) =>
+        _zoom == 1 ? size : new BSize(size.Width * _zoom, size.Height * _zoom);
 
     /// <summary>
     /// The backend handle for an image, created once per image object and kept
@@ -898,11 +953,30 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         return Font with
         {
             FamilyName = string.IsNullOrWhiteSpace(style.FontFamily) ? Font.FamilyName : style.FontFamily,
-            SizeInPixels = style.FontSize is > 0 ? style.FontSize.Value : Font.SizeInPixels,
+            SizeInPixels = ZoomedFontSize(style.FontSize is > 0 ? style.FontSize.Value : Font.SizeInPixels),
             Weight = style.Bold ? BFontWeight.Bold : Font.Weight,
             Slant = style.Italic ? BFontSlant.Italic : Font.Slant,
         };
     }
+
+    /// <summary>
+    /// The control's own font at the current zoom, which is what text with no run
+    /// of its own - the placeholder, an empty line - is measured and drawn with.
+    /// </summary>
+    private BFontStyle ZoomedFont => Font with { SizeInPixels = ZoomedFontSize(Font.SizeInPixels) };
+
+    /// <summary>
+    /// A stated font size as it is drawn. A whole pixel is the floor: zoomed far
+    /// enough out, a size that rounded away would leave a document that is laid
+    /// out but not legible.
+    /// </summary>
+    private double ZoomedFontSize(double size) => Math.Max(1, size * _zoom);
+
+    /// <summary>One indent level as it is drawn.</summary>
+    private double ZoomedIndentWidth => IndentWidth * _zoom;
+
+    /// <summary>The space kept above and below an inline picture, as it is drawn.</summary>
+    private double ZoomedImageMargin => ImageMargin * _zoom;
 
     private void DrawCaret(BRenderList renderList, bool focused)
     {
@@ -1579,7 +1653,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     // --- Layout ------------------------------------------------------------
 
-    private double DefaultLineHeight => BTextMeasurer.GetLineHeight(Font);
+    private double DefaultLineHeight => BTextMeasurer.GetLineHeight(ZoomedFont);
 
     private BRect InnerBounds => new(
         Bounds.Left + PaddingX,
@@ -1588,11 +1662,29 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         Math.Max(0, Bounds.Height - (PaddingY * 2)));
 
     /// <summary>
-    /// The page this document is written for, when it says. A document that says
-    /// nothing is laid out to the width of the control, as it always was.
+    /// The page this document is written for, at the size it is drawn. A document
+    /// that says nothing is laid out to the width of the control, as it always
+    /// was.
     /// </summary>
     private PageGeometry? Page =>
-        Document.PageGeometry is PageGeometry geometry && geometry.IsUsable ? geometry : null;
+        Document.PageGeometry is PageGeometry geometry && geometry.IsUsable ? Zoomed(geometry) : null;
+
+    /// <summary>
+    /// A page as it is drawn. The paper is scaled with the text on it, or a
+    /// zoomed-in document would run off a sheet that stayed the size it was.
+    /// </summary>
+    private PageGeometry Zoomed(PageGeometry page) =>
+        _zoom == 1
+            ? page
+            : new PageGeometry(
+                page.Width * _zoom,
+                page.Height * _zoom,
+                page.MarginLeft * _zoom,
+                page.MarginRight * _zoom,
+                page.MarginTop * _zoom,
+                page.MarginBottom * _zoom,
+                page.HeaderDistance * _zoom,
+                page.FooterDistance * _zoom);
 
     /// <summary>
     /// Where the sheet starts. It is centred in whatever width the control has,
@@ -1629,7 +1721,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             foreach (DocumentShape shape in Document.Shapes)
             {
                 if (shape.OffsetX < 0)
-                    gutter = Math.Max(gutter, -shape.OffsetX);
+                    gutter = Math.Max(gutter, -shape.OffsetX * _zoom);
             }
 
             return gutter;
@@ -1761,7 +1853,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// </summary>
     private double NextTabStop(double advance)
     {
-        double width = TabStopWidth > 0 ? TabStopWidth : DefaultTabStopWidth;
+        double width = (TabStopWidth > 0 ? TabStopWidth : DefaultTabStopWidth) * _zoom;
         return (Math.Floor(Math.Max(0, advance) / width) + 1) * width;
     }
 
@@ -1771,6 +1863,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         if (_layoutValid &&
             ReferenceEquals(_layoutDocument, Document) &&
             _layoutWidth == contentWidth &&
+            _layoutZoom == _zoom &&
             Equals(_layoutFont, Font))
         {
             return;
@@ -1780,6 +1873,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         _layoutValid = true;
         _layoutDocument = Document;
         _layoutWidth = contentWidth;
+        _layoutZoom = _zoom;
         _layoutFont = Font;
         _scrollY = ClampScroll(_scrollY);
     }
@@ -1863,7 +1957,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 _ => string.Empty,
             };
 
-            double indent = Math.Max(0, style.IndentLevel) * IndentWidth;
+            double indent = Math.Max(0, style.IndentLevel) * ZoomedIndentWidth;
             _decorations.Add(new ParagraphDecoration(marker, RunFont(paragraph.StyleAt(0)), indent, indent));
         }
 
@@ -1903,14 +1997,14 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             }
 
             int level = document.Paragraphs[start].Style.IndentLevel;
-            double gutter = IndentWidth;
+            double gutter = ZoomedIndentWidth;
             int end = start;
             while (end < _decorations.Count &&
                    _decorations[end].Marker.Length > 0 &&
                    document.Paragraphs[end].Style.IndentLevel == level)
             {
                 ParagraphDecoration decoration = _decorations[end];
-                gutter = Math.Max(gutter, BTextMeasurer.MeasureAdvance(decoration.Marker, decoration.Font) + MarkerGap);
+                gutter = Math.Max(gutter, BTextMeasurer.MeasureAdvance(decoration.Marker, decoration.Font) + (MarkerGap * _zoom));
                 end++;
             }
 
@@ -2143,7 +2237,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             // A picture makes its line as tall as it needs to be, or the image
             // would be clipped by the surrounding text's line height.
             height = run.Style.Image is InlineImage image
-                ? Math.Max(height, ImageDisplaySize(image).Height + (ImageMargin * 2))
+                ? Math.Max(height, ImageDisplaySize(image).Height + (ZoomedImageMargin * 2))
                 : Math.Max(height, BTextMeasurer.GetLineHeight(RunFont(run.Style)));
         }
 
