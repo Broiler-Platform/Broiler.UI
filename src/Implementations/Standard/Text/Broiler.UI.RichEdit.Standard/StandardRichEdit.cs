@@ -447,11 +447,44 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             if (shape.Fill is ShapeFill fill)
                 FillShape(renderList, bounds, fill);
 
+            // Over the fill and under the outline, so a framed picture keeps its
+            // frame.
+            if (shape.Image is InlineImage image)
+                DrawShapeImage(renderList, image, bounds);
+
             if (!shape.Outline.IsEmpty && shape.Outline.A > 0)
                 renderList.StrokeRect(bounds, shape.Outline, 1);
 
             DrawShapeText(renderList, shape, bounds);
         }
+    }
+
+    /// <summary>
+    /// Draws a floating picture into its box. The box is the size the document
+    /// stated for the frame, so unlike an inline picture there is nothing to
+    /// measure: it fills what it was given.
+    /// </summary>
+    private void DrawShapeImage(BRenderList renderList, InlineImage image, BRect bounds)
+    {
+        BImageHandle handle = ResolveImage(image);
+        if (!handle.IsValid)
+        {
+            // Same as an inline picture the backend could not decode: show where
+            // it is rather than leaving a hole the reader cannot see.
+            StandardControlPaint.StrokeRounded(
+                renderList,
+                bounds,
+                IsEnabled ? Foreground : PlaceholderForeground,
+                StandardControlPaint.ControlRadius,
+                1);
+            return;
+        }
+
+        renderList.DrawImage(
+            handle,
+            new BRect(0, 0, handle.PixelSize.Width, handle.PixelSize.Height),
+            bounds,
+            IsEnabled ? 1.0 : 0.5);
     }
 
     private static void FillShape(BRenderList renderList, BRect bounds, ShapeFill fill)
@@ -2034,6 +2067,15 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                 if (run.Style.Image is InlineImage image)
                     live.Add(image);
             }
+        }
+
+        // A floating picture is in the document without being in a paragraph, and
+        // releasing its handle here would drop the logo off every letterhead the
+        // moment layout ran.
+        foreach (DocumentShape shape in document.Shapes)
+        {
+            if (shape.Image is InlineImage image)
+                live.Add(image);
         }
 
         List<InlineImage>? stale = null;
