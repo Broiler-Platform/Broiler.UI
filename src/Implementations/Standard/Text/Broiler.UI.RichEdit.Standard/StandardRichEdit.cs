@@ -220,6 +220,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         }
         else
         {
+            DrawShapes(renderList, inner);
             DrawRunBackgrounds(renderList, inner);
             DrawRange(renderList, inner, SecondarySelection, SecondarySelectionBackground);
             DrawSelection(renderList, inner);
@@ -332,6 +333,162 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             renderList.FillRect(new BRect(x1, y, width, line.Height), color);
         }
     }
+
+    /// <summary>
+    /// Draws the document's floating shapes under its text, each against the
+    /// paragraph it is anchored to.
+    /// </summary>
+    /// <remarks>
+    /// The same arithmetic the other engines place a shape with: x from the text
+    /// column's left edge, y from the top of the anchoring paragraph. A gradient
+    /// is banded because the render list fills rectangles and has no gradient of
+    /// its own.
+    /// </remarks>
+    private void DrawShapes(BRenderList renderList, BRect inner)
+    {
+        foreach (DocumentShape shape in Document.Shapes)
+        {
+            if (shape.Width <= 0 || shape.Height <= 0)
+                continue;
+
+            if (!TryParagraphTop(shape.ParagraphIndex, out double paragraphTop))
+                continue;
+
+            var bounds = new BRect(
+                ContentLeft + shape.OffsetX,
+                ContentTop + paragraphTop + shape.OffsetY - _scrollY,
+                shape.Width,
+                shape.Height);
+            if (bounds.Bottom < inner.Top || bounds.Top > inner.Bottom)
+                continue;
+
+            if (shape.Fill is ShapeFill fill)
+                FillShape(renderList, bounds, fill);
+
+            if (!shape.Outline.IsEmpty && shape.Outline.A > 0)
+                renderList.StrokeRect(bounds, shape.Outline, 1);
+
+            DrawShapeText(renderList, shape, bounds);
+        }
+    }
+
+    private static void FillShape(BRenderList renderList, BRect bounds, ShapeFill fill)
+    {
+        if (!fill.IsGradient)
+        {
+            renderList.FillRect(bounds, fill.Start);
+            return;
+        }
+
+        double radians = fill.AngleDegrees * Math.PI / 180.0;
+        bool vertical = Math.Abs(Math.Sin(radians)) >= Math.Abs(Math.Cos(radians));
+        double extent = vertical ? bounds.Height : bounds.Width;
+        int bands = (int)Math.Clamp(Math.Round(extent), 2, 512);
+
+        for (int i = 0; i < bands; i++)
+        {
+            double t = bands == 1 ? 0 : (double)i / (bands - 1);
+            BColor color = MixColor(fill.Start, fill.End, t);
+            double offset = extent * i / bands;
+            double size = (extent / bands) + 0.5;
+
+            renderList.FillRect(
+                vertical
+                    ? new BRect(bounds.Left, bounds.Top + offset, bounds.Width, size)
+                    : new BRect(bounds.Left + offset, bounds.Top, size, bounds.Height),
+                color);
+        }
+    }
+
+    /// <summary>
+    /// Draws a shape's own text inside its box, wrapped to the box rather than to
+    /// the page column, and clipped where it runs past the bottom.
+    /// </summary>
+    private void DrawShapeText(BRenderList renderList, DocumentShape shape, BRect bounds)
+    {
+        if (!shape.HasText || bounds.Width <= 0)
+            return;
+
+        double y = bounds.Top;
+        foreach (RichTextParagraph paragraph in shape.Paragraphs)
+        {
+            InlineStyle inline = paragraph.Length > 0 ? paragraph.StyleAt(0) : InlineStyle.Default;
+            BFontStyle font = RunFont(inline);
+            double lineHeight = BTextMeasurer.GetLineHeight(font);
+            BColor color = inline.Foreground.IsEmpty ? Foreground : inline.Foreground;
+
+            foreach (string line in WrapToWidth(paragraph.Text, font, bounds.Width))
+            {
+                if (y + lineHeight > bounds.Bottom)
+                    return;
+
+                double advance = BTextMeasurer.MeasureAdvance(line, font);
+                double slack = Math.Max(0, bounds.Width - advance);
+                double x = paragraph.Style.Alignment switch
+                {
+                    TextAlignment.Center => bounds.Left + (slack / 2),
+                    TextAlignment.Right => bounds.Left + slack,
+                    _ => bounds.Left,
+                };
+
+                renderList.DrawText(new BTextRun(line, font, color), new BPoint(x, y));
+                y += lineHeight;
+            }
+        }
+    }
+
+    /// <summary>Greedy word wrap to a width, for text laid out inside a shape.</summary>
+    private static IEnumerable<string> WrapToWidth(string text, BFontStyle font, double width)
+    {
+        if (text.Length == 0)
+        {
+            yield return string.Empty;
+            yield break;
+        }
+
+        string[] words = text.Split(' ');
+        var line = new System.Text.StringBuilder();
+        foreach (string word in words)
+        {
+            string candidate = line.Length == 0 ? word : line + " " + word;
+            if (line.Length > 0 && BTextMeasurer.MeasureAdvance(candidate, font) > width)
+            {
+                yield return line.ToString();
+                line.Clear();
+                line.Append(word);
+                continue;
+            }
+
+            line.Clear();
+            line.Append(candidate);
+        }
+
+        if (line.Length > 0)
+            yield return line.ToString();
+    }
+
+    /// <summary>The top of a paragraph's first line, which is what a shape hangs from.</summary>
+    private bool TryParagraphTop(int paragraphIndex, out double top)
+    {
+        foreach (VisualLine line in _lines)
+        {
+            if (line.ParagraphIndex == paragraphIndex)
+            {
+                top = line.Top;
+                return true;
+            }
+        }
+
+        top = 0;
+        return false;
+    }
+
+    private static BColor MixColor(BColor from, BColor to, double t) =>
+        new(
+            (byte)Math.Round(from.R + ((to.R - from.R) * t)),
+            (byte)Math.Round(from.G + ((to.G - from.G) * t)),
+            (byte)Math.Round(from.B + ((to.B - from.B) * t)),
+            (byte)Math.Round(from.A + ((to.A - from.A) * t)));
 
     private void DrawRunBackgrounds(BRenderList renderList, BRect inner)
     {
@@ -1398,11 +1555,38 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         Math.Max(0, Bounds.Width - (PaddingX * 2)),
         Math.Max(0, Bounds.Height - (PaddingY * 2)));
 
-    private double ContentLeft => Bounds.Left + PaddingX;
+    private double ContentLeft => Bounds.Left + PaddingX + ShapeGutter;
+
+    /// <summary>
+    /// How far left of the text column the document's shapes reach, which the
+    /// column moves over to make room for.
+    /// </summary>
+    /// <remarks>
+    /// A letterhead anchors its stripe about 111 points left of the column,
+    /// because on the printed page that is the margin it stands in. This surface
+    /// has no page and fills whatever width it is given, so without a gutter the
+    /// stripe would be drawn off the left edge and clipped away. A document with
+    /// no margin content - which is nearly all of them - gets no gutter and the
+    /// full width, so nothing changes for ordinary text.
+    /// </remarks>
+    private double ShapeGutter
+    {
+        get
+        {
+            double gutter = 0;
+            foreach (DocumentShape shape in Document.Shapes)
+            {
+                if (shape.OffsetX < 0)
+                    gutter = Math.Max(gutter, -shape.OffsetX);
+            }
+
+            return gutter;
+        }
+    }
 
     private double ContentTop => Bounds.Top + PaddingY;
 
-    private double ContentWidth => Math.Max(0, Bounds.Width - (PaddingX * 2));
+    private double ContentWidth => Math.Max(0, Bounds.Width - (PaddingX * 2) - ShapeGutter);
 
     private double ContentHeight => Math.Max(0, Bounds.Height - (PaddingY * 2));
 
