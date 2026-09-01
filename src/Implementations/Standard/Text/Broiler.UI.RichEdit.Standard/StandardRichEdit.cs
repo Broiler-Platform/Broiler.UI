@@ -276,7 +276,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         }
         else
         {
-            DrawShapes(renderList, inner);
+            DrawShapes(renderList, inner, behindText: true);
             DrawCells(renderList, inner);
             DrawRunBackgrounds(renderList, inner);
             DrawRange(renderList, inner, SecondarySelection, SecondarySelectionBackground);
@@ -284,6 +284,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             DrawListMarkers(renderList, inner);
             DrawText(renderList, inner);
             DrawComposition(renderList, inner, focused);
+
+            // The other half of the shapes: a document that says a picture sits in
+            // front of the text gets one, and it covers the text the way it does
+            // in the word processor the file came from. The caret is drawn after
+            // this, so it stays findable under a shape.
+            DrawShapes(renderList, inner, behindText: false);
         }
 
         DrawCaret(renderList, focused);
@@ -429,10 +435,22 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         renderList.StrokeRect(sheet, BorderColor, 1);
     }
 
-    private void DrawShapes(BRenderList renderList, BRect inner)
+    /// <summary>
+    /// Draws one stacking layer of the floating shapes: the ones under the body
+    /// text before it is drawn, the ones over it afterwards.
+    /// </summary>
+    /// <remarks>
+    /// Two passes rather than one sorted list, because the layers are separated by
+    /// everything else the control paints - cells, backgrounds, the selection, the
+    /// text - and there is no single point in that sequence to sort against.
+    /// </remarks>
+    private void DrawShapes(BRenderList renderList, BRect inner, bool behindText)
     {
         foreach (DocumentShape shape in Document.Shapes)
         {
+            if (shape.BehindText != behindText)
+                continue;
+
             if (shape.Width <= 0 || shape.Height <= 0)
                 continue;
 
@@ -492,8 +510,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     /// <summary>
     /// Paints the table cells: their backgrounds, then the edges they state.
-    /// Under the text and over the shapes, so a shaded cell sits on a letterhead's
-    /// stripe rather than under it.
+    /// Under the text and over the shapes that draw behind it, so a shaded cell
+    /// sits on a letterhead's stripe rather than under it.
     /// </summary>
     private void DrawCells(BRenderList renderList, BRect inner)
     {
