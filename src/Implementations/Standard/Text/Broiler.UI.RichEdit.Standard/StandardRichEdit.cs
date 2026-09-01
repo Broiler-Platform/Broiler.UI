@@ -276,6 +276,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         }
         else
         {
+            DrawRunningShapes(renderList, inner, behindText: true);
             DrawShapes(renderList, inner, behindText: true);
             DrawCells(renderList, inner);
             DrawRunBackgrounds(renderList, inner);
@@ -290,6 +291,8 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             // in the word processor the file came from. The caret is drawn after
             // this, so it stays findable under a shape.
             DrawShapes(renderList, inner, behindText: false);
+            DrawRunningShapes(renderList, inner, behindText: false);
+            DrawRunningText(renderList, inner);
         }
 
         DrawCaret(renderList, focused);
@@ -424,15 +427,141 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
         renderList.FillRect(inner, IsEnabled ? PageSurround : StandardControlPaint.SurfaceDisabled);
 
-        double top = Bounds.Top + PaddingY - _scrollY;
-        // A sheet is at least a page tall, and taller when the text runs past the
-        // bottom - this surface flows rather than paginating, so the paper grows
-        // instead of a second sheet starting.
-        double height = Math.Max(page.Height, _contentHeight + page.MarginTop + page.MarginBottom);
-        var sheet = new BRect(PageLeft, top, page.Width, height);
-
+        BRect sheet = Sheet(page);
         renderList.FillRect(sheet, IsEnabled ? Background : StandardControlPaint.SurfaceDisabled);
         renderList.StrokeRect(sheet, BorderColor, 1);
+    }
+
+    /// <summary>
+    /// The paper, in device units. A sheet is at least a page tall, and taller
+    /// when the text runs past the bottom - this surface flows rather than
+    /// paginating, so the paper grows instead of a second sheet starting.
+    /// </summary>
+    private BRect Sheet(PageGeometry page) => new(
+        PageLeft,
+        Bounds.Top + PaddingY - _scrollY,
+        page.Width,
+        Math.Max(page.Height, _contentHeight + page.MarginTop + page.MarginBottom));
+
+    /// <summary>
+    /// Draws one stacking layer of the running content's shapes: a letterhead's
+    /// stripe belongs to the header, not to the first line of the letter.
+    /// </summary>
+    /// <remarks>
+    /// The offsets are measured against the page rather than a paragraph, which
+    /// is what running content is: it repeats, so it has no line of the body to
+    /// hang from. This surface draws one sheet rather than paginating, so the
+    /// header is drawn once at its top instead of once per page - and the
+    /// first-page selection is the one a single sheet takes.
+    /// </remarks>
+    private void DrawRunningShapes(BRenderList renderList, BRect inner, bool behindText)
+    {
+        if (Page is not PageGeometry page || Document.RunningContent.IsEmpty)
+            return;
+
+        double sheetTop = Sheet(page).Top;
+        foreach (DocumentShape shape in RunningShapes())
+        {
+            if (shape.BehindText != behindText || shape.Width <= 0 || shape.Height <= 0)
+                continue;
+
+            var bounds = new BRect(
+                ContentLeft + (shape.OffsetX * _zoom),
+                sheetTop + (shape.OffsetY * _zoom),
+                shape.Width * _zoom,
+                shape.Height * _zoom);
+            if (bounds.Bottom < inner.Top || bounds.Top > inner.Bottom)
+                continue;
+
+            if (shape.Fill is ShapeFill fill)
+                FillShape(renderList, bounds, fill);
+
+            if (shape.Image is InlineImage image)
+                DrawShapeImage(renderList, image, bounds);
+
+            if (!shape.Outline.IsEmpty && shape.Outline.A > 0)
+                renderList.StrokeRect(bounds, shape.Outline, 1);
+
+            DrawParagraphsInBox(renderList, shape.Paragraphs, bounds);
+        }
+    }
+
+    /// <summary>The header's and footer's shapes for the sheet, in draw order.</summary>
+    private IEnumerable<DocumentShape> RunningShapes()
+    {
+        RunningContent running = Document.RunningContent;
+        foreach (DocumentShape shape in running.EffectiveHeaderShapes(PageSelection.First))
+            yield return shape;
+
+        foreach (DocumentShape shape in running.EffectiveFooterShapes(PageSelection.First))
+            yield return shape;
+    }
+
+    /// <summary>
+    /// Draws the header and the footer in the sheet's own margins, centred in the
+    /// band each belongs to - the same placement the paginating renderers make.
+    /// </summary>
+    /// <remarks>
+    /// A band too short for what it holds is left empty rather than drawn over
+    /// the letter, which is what those renderers report and this one shows.
+    /// </remarks>
+    private void DrawRunningText(BRenderList renderList, BRect inner)
+    {
+        if (Page is not PageGeometry page || Document.RunningContent.IsEmpty)
+            return;
+
+        RunningContent running = Document.RunningContent;
+        BRect sheet = Sheet(page);
+        double width = page.ContentWidth;
+
+        DrawRunningBand(
+            renderList,
+            running.EffectiveHeader(PageSelection.First),
+            new BRect(ContentLeft, sheet.Top, width, page.MarginTop),
+            inner);
+
+        DrawRunningBand(
+            renderList,
+            running.EffectiveFooter(PageSelection.First),
+            new BRect(ContentLeft, sheet.Bottom - page.MarginBottom, width, page.MarginBottom),
+            inner);
+    }
+
+    private void DrawRunningBand(
+        BRenderList renderList,
+        IReadOnlyList<RichTextParagraph> paragraphs,
+        BRect band,
+        BRect inner)
+    {
+        if (paragraphs.Count == 0 || band.Height <= 0 || band.Width <= 0)
+            return;
+
+        if (band.Bottom < inner.Top || band.Top > inner.Bottom)
+            return;
+
+        double height = MeasureParagraphs(paragraphs, band.Width);
+        if (height > band.Height)
+            return;
+
+        DrawParagraphsInBox(
+            renderList,
+            paragraphs,
+            new BRect(band.Left, band.Top + ((band.Height - height) / 2), band.Width, height));
+    }
+
+    /// <summary>How tall the paragraphs are once wrapped to a width.</summary>
+    private double MeasureParagraphs(IReadOnlyList<RichTextParagraph> paragraphs, double width)
+    {
+        double height = 0;
+        foreach (RichTextParagraph paragraph in paragraphs)
+        {
+            BFontStyle font = RunFont(paragraph.Length > 0 ? paragraph.StyleAt(0) : InlineStyle.Default);
+            double lineHeight = BTextMeasurer.GetLineHeight(font);
+            foreach (string _ in WrapToWidth(paragraph.Text, font, width))
+                height += lineHeight;
+        }
+
+        return height;
     }
 
     /// <summary>
@@ -476,7 +605,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             if (!shape.Outline.IsEmpty && shape.Outline.A > 0)
                 renderList.StrokeRect(bounds, shape.Outline, 1);
 
-            DrawShapeText(renderList, shape, bounds);
+            DrawParagraphsInBox(renderList, shape.Paragraphs, bounds);
         }
     }
 
@@ -599,13 +728,16 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// Draws a shape's own text inside its box, wrapped to the box rather than to
     /// the page column, and clipped where it runs past the bottom.
     /// </summary>
-    private void DrawShapeText(BRenderList renderList, DocumentShape shape, BRect bounds)
+    private void DrawParagraphsInBox(
+        BRenderList renderList,
+        IReadOnlyList<RichTextParagraph> paragraphs,
+        BRect bounds)
     {
-        if (!shape.HasText || bounds.Width <= 0)
+        if (paragraphs.Count == 0 || bounds.Width <= 0)
             return;
 
         double y = bounds.Top;
-        foreach (RichTextParagraph paragraph in shape.Paragraphs)
+        foreach (RichTextParagraph paragraph in paragraphs)
         {
             InlineStyle inline = paragraph.Length > 0 ? paragraph.StyleAt(0) : InlineStyle.Default;
             BFontStyle font = RunFont(inline);
