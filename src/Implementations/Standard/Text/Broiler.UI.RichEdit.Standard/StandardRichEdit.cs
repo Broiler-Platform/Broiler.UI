@@ -36,6 +36,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     }
 
     private readonly List<VisualLine> _lines = [];
+
+    /// <summary>The boxes wrapping shapes keep this layout's lines out of.</summary>
+    private TextWrapExclusions _wrap = new();
     private readonly List<ParagraphDecoration> _decorations = [];
     private readonly List<CellFrame> _frames = [];
     private readonly List<CellBox> _cells = [];
@@ -2128,6 +2131,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     {
         _lines.Clear();
         _cells.Clear();
+        _wrap = new TextWrapExclusions();
         RichTextDocument document = Document;
         BuildFrames(document, contentWidth);
         BuildDecorations(document, contentWidth);
@@ -2189,16 +2193,23 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     {
         RichTextParagraph paragraph = document.Paragraphs[paragraphIndex];
         double defaultLineHeight = DefaultLineHeight;
-        double available = Math.Max(1, Frame(paragraphIndex).Width - Decoration(paragraphIndex).TextIndent);
+        double frame = Math.Max(1, Frame(paragraphIndex).Width - Decoration(paragraphIndex).TextIndent);
+
+        // A shape's box is known once the paragraph it hangs from has a top, so
+        // this paragraph's shapes join the exclusions before its own lines are
+        // wrapped. One anchored further down cannot narrow a line above it, which
+        // is what a single forward pass can honestly say.
+        RegisterWrapShapes(document, paragraphIndex, y);
 
         foreach ((int segmentStart, int segmentEnd) in HardSegments(paragraph.Text))
         {
             if (segmentStart == segmentEnd)
             {
+                TextBand empty = LineBand(ref y, defaultLineHeight, frame);
                 _lines.Add(new VisualLine(
                     paragraphIndex, segmentStart, segmentEnd, y, defaultLineHeight,
-                    AlignmentOffset(paragraph, segmentStart, segmentEnd, available),
-                    LineWordSpacing(paragraph, segmentStart, segmentEnd, available)));
+                    empty.Left + AlignmentOffset(paragraph, segmentStart, segmentEnd, empty.Width),
+                    LineWordSpacing(paragraph, segmentStart, segmentEnd, empty.Width)));
                 y += defaultLineHeight;
                 continue;
             }
@@ -2206,12 +2217,17 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             int i = segmentStart;
             while (i < segmentEnd)
             {
-                int lineEnd = MeasureWrap(paragraph, i, segmentEnd, available);
+                // The band is asked for at the default height rather than the
+                // line's own, which is not known until the line has been wrapped
+                // to a width. A taller line can therefore reach a little into a
+                // shape it only just cleared.
+                TextBand band = LineBand(ref y, defaultLineHeight, frame);
+                int lineEnd = MeasureWrap(paragraph, i, segmentEnd, band.Width);
                 double lineHeight = MeasureLineHeight(paragraph, i, lineEnd, defaultLineHeight);
                 _lines.Add(new VisualLine(
                     paragraphIndex, i, lineEnd, y, lineHeight,
-                    AlignmentOffset(paragraph, i, lineEnd, available),
-                    LineWordSpacing(paragraph, i, lineEnd, available)));
+                    band.Left + AlignmentOffset(paragraph, i, lineEnd, band.Width),
+                    LineWordSpacing(paragraph, i, lineEnd, band.Width)));
                 y += lineHeight;
                 i = lineEnd;
             }
@@ -2219,6 +2235,28 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
         return y;
     }
+
+    /// <summary>Adds the wrapping shapes anchored to one paragraph, now that it has a top.</summary>
+    private void RegisterWrapShapes(RichTextDocument document, int paragraphIndex, double top)
+    {
+        foreach (DocumentShape shape in document.Shapes)
+        {
+            if (shape.Wraps && shape.ParagraphIndex == paragraphIndex)
+                _wrap.Add(shape, top + (shape.OffsetY * _zoom), _zoom);
+        }
+    }
+
+    /// <summary>
+    /// The span left for a line at <paramref name="y"/>, moving it down past
+    /// anything that leaves it no room at all.
+    /// </summary>
+    /// <remarks>
+    /// The clearing and the bound both live in <see cref="TextWrapExclusions"/>,
+    /// so this surface and the two paginating renderers answer the question the
+    /// same way.
+    /// </remarks>
+    private TextBand LineBand(ref double y, double height, double frame) =>
+        _wrap.Resolve(ref y, height, frame, out _);
 
     /// <summary>
     /// Lays a table out row by row: every cell of a row starts at the row's top,
