@@ -51,6 +51,7 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
     private BRect _previewLabelBounds;
     private BRect _previewBounds;
     private bool _syncing;
+    private bool _scrollSelectionIntoView = true;
 
     public StandardFontDialog()
     {
@@ -262,6 +263,16 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
             leftWidth,
             Math.Max(0, contentBottom - client.Top - labelHeight)));
 
+        // Only now does the list know how tall it is, and a scroll offset worked out before that is
+        // worked out against a zero-height viewport — which is why the selected family used to open
+        // just off the top of the list. Once per selection, so a user who scrolls away from it and
+        // then resizes the dialog is not dragged back.
+        if (_scrollSelectionIntoView)
+        {
+            _scrollSelectionIntoView = false;
+            _familyList.ScrollIntoView(_familyList.SelectedItemId ?? string.Empty);
+        }
+
         double sizeWidth = Math.Min(96, rightWidth);
         double weightX = rightX + sizeWidth + Gap;
         double weightWidth = Math.Max(0, client.Right - weightX);
@@ -376,6 +387,7 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         {
             _familyList.SelectedItemId = FindListedFamily(SelectedFont.FamilyName);
             _familyList.ScrollIntoView(_familyList.SelectedItemId ?? string.Empty);
+            _scrollSelectionIntoView = true;
             _sizeSpin.Value = SelectedFont.SizeInPixels;
             _weightCombo.SelectIndex(FindWeightIndex(SelectedFont.Weight));
             _italicToggle.ToggleState = SelectedFont.Slant == BFontSlant.Normal ? UiToggleState.Off : UiToggleState.On;
