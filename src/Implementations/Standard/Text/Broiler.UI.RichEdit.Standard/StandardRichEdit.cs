@@ -1078,8 +1078,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// </summary>
     private BSize ImageDisplaySize(InlineImage image)
     {
-        if (image.HasExplicitSize)
-            return Zoomed(new BSize(image.Width, image.Height));
+        // The model resolves this without touching the payload whenever the
+        // document states a size or the resource knows its own pixels, so the
+        // decode below is now only for a picture whose intrinsic size nothing
+        // established — an encoded payload no registered codec could inspect.
+        if (image.TryGetDisplaySize(out double width, out double height))
+            return Zoomed(new BSize(width, height));
 
         BImageHandle handle = ResolveImage(image);
         if (handle.IsValid && handle.PixelSize.Width > 0 && handle.PixelSize.Height > 0)
