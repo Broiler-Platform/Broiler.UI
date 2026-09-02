@@ -168,7 +168,7 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
 
     public BFontStyle TitleFont { get; set; } = BFontStyle.Default;
 
-    public BFontStyle LabelFont { get; set; } = BFontStyle.Default with { SizeInPixels = 13 };
+    public BFontStyle LabelFont { get; set; } = BFontStyle.Default with { Size = 13 };
 
     public BSize PreferredSize { get; set; } = new(560, 384);
 
@@ -388,7 +388,7 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
             _familyList.SelectedItemId = FindListedFamily(SelectedFont.FamilyName);
             _familyList.ScrollIntoView(_familyList.SelectedItemId ?? string.Empty);
             _scrollSelectionIntoView = true;
-            _sizeSpin.Value = SelectedFont.SizeInPixels;
+            _sizeSpin.Value = SelectedFont.Size;
             _weightCombo.SelectIndex(FindWeightIndex(SelectedFont.Weight));
             _italicToggle.ToggleState = SelectedFont.Slant == BFontSlant.Normal ? UiToggleState.Off : UiToggleState.On;
         }
@@ -425,7 +425,7 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         if (_syncing)
             return;
 
-        SelectedFont = SelectedFont with { SizeInPixels = _sizeSpin.Value };
+        SelectedFont = SelectedFont with { Size = _sizeSpin.Value };
     }
 
     private void CommitWeight()
@@ -503,7 +503,7 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
             return;
 
         double lineHeight = BTextMeasurer.GetLineHeight(SelectedFont);
-        double thickness = Math.Max(1, Math.Round(SelectedFont.SizeInPixels / 14));
+        double thickness = Math.Max(1, Math.Round(SelectedFont.Size / 14));
         if (Underline)
         {
             context.RenderList.FillRect(

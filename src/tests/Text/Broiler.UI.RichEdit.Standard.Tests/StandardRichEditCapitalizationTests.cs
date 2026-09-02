@@ -75,7 +75,7 @@ public sealed class StandardRichEditCapitalizationTests
         BTextRun full = Assert.Single(runs, run => run.Text == "A");
         BTextRun reduced = Assert.Single(runs, run => run.Text == "B");
         Assert.True(
-            reduced.Font.SizeInPixels < full.Font.SizeInPixels,
+            reduced.Font.Size < full.Font.Size,
             "the letter typed in lower case should be drawn smaller");
         scene.Session.Dispose();
     }

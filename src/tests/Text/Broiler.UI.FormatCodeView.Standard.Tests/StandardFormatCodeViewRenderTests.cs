@@ -88,7 +88,7 @@ public sealed class StandardFormatCodeViewRenderTests
         using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
             new BSize(320, 120),
             FormatCodeViewStandardHarness.Project("[literal] text"));
-        scene.View.Font = scene.View.Font with { SizeInPixels = 24 };
+        scene.View.Font = scene.View.Font with { Size = 24 };
         scene.View.ApplyTheme(theme);
 
         BRenderList list = scene.Session.RenderFrame();

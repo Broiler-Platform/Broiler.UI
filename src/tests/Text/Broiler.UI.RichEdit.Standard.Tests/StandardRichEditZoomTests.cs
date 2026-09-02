@@ -71,15 +71,54 @@ public sealed class StandardRichEditZoomTests
     // --- Text --------------------------------------------------------------
 
     [Fact(Timeout = 600000)]
+    public void A_Documents_Points_Become_The_Controls_Pixels()
+    {
+        // The unit boundary, pinned. A document states type in points and this
+        // control measures in device-independent pixels, so twelve points is
+        // sixteen pixels. Passing the number across unconverted rendered a
+        // twelve-point document a quarter smaller than it asks for, and matched
+        // no other renderer of the same file.
+        RichEditScene scene = At(1);
+        scene.Edit.Document = RichTextDocument.FromParagraphs(
+        [
+            RichTextParagraph.Create("twelve", InlineStyle.Default with { FontSize = 12 }),
+        ]);
+
+        Assert.Equal(16, Drawn(scene.Session.RenderFrame(), "twelve").Text.Font.Size, 3);
+        scene.Session.Dispose();
+    }
+
+    [Fact(Timeout = 600000)]
+    public void A_Font_Chosen_Here_Round_Trips_Through_The_Document()
+    {
+        // The other direction, and the one that writes to a file: a size picked
+        // in this control's units is stored as points and comes back as the same
+        // pixels. A conversion applied on only one side would drift a document's
+        // type every time it was opened and saved.
+        RichEditScene scene = At(1);
+        scene.Edit.Document = RichTextDocument.FromParagraphs(
+        [
+            RichTextParagraph.Create("sample", InlineStyle.Default),
+        ]);
+        scene.Edit.ExecuteCommand(RichEditCommand.SelectAll);
+        scene.Edit.ExecuteCommand(
+            RichEditCommand.SetFont,
+            new BFontStyle("sans-serif", 24));
+
+        Assert.Equal(24, Drawn(scene.Session.RenderFrame(), "sample").Text.Font.Size, 3);
+        scene.Session.Dispose();
+    }
+
+    [Fact(Timeout = 600000)]
     public void Text_Is_Drawn_At_The_Zoomed_Size()
     {
         RichEditScene plain = Create(new BSize(400, 200), "sample");
-        double stated = Drawn(plain.Session.RenderFrame(), "sample").Text.Font.SizeInPixels;
+        double stated = Drawn(plain.Session.RenderFrame(), "sample").Text.Font.Size;
         plain.Session.Dispose();
 
         RichEditScene scene = At(1.5, "sample");
 
-        Assert.Equal(stated * 1.5, Drawn(scene.Session.RenderFrame(), "sample").Text.Font.SizeInPixels, 3);
+        Assert.Equal(stated * 1.5, Drawn(scene.Session.RenderFrame(), "sample").Text.Font.Size, 3);
         scene.Session.Dispose();
     }
 
@@ -92,7 +131,10 @@ public sealed class StandardRichEditZoomTests
             RichTextParagraph.Create("big", InlineStyle.Default with { FontSize = 30 }),
         ]);
 
-        Assert.Equal(60, Drawn(scene.Session.RenderFrame(), "big").Text.Font.SizeInPixels, 3);
+        // 30 points is 40 device-independent pixels, and the zoom doubles that.
+        // The run's own size is scaled rather than replaced by the control's,
+        // which is what this test is about; the conversion is why 80 and not 60.
+        Assert.Equal(80, Drawn(scene.Session.RenderFrame(), "big").Text.Font.Size, 3);
         scene.Session.Dispose();
     }
 
@@ -102,7 +144,7 @@ public sealed class StandardRichEditZoomTests
         RichEditScene scene = At(StandardRichEdit.MinimumZoom, "sample");
         scene.Edit.Font = new BFontStyle("sans-serif", 4);
 
-        Assert.True(Drawn(scene.Session.RenderFrame(), "sample").Text.Font.SizeInPixels >= 1);
+        Assert.True(Drawn(scene.Session.RenderFrame(), "sample").Text.Font.Size >= 1);
         scene.Session.Dispose();
     }
 
@@ -277,7 +319,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.SetFocus(scene.Edit);
         scene.Session.RenderFrame();
 
-        double zoomedLine = BTextMeasurer.GetLineHeight(font with { SizeInPixels = font.SizeInPixels * 2 });
+        double zoomedLine = BTextMeasurer.GetLineHeight(font with { Size = font.Size * 2 });
         Assert.Equal(zoomedLine - inset, scene.Host.LastCaret!.Bounds.Height, 3);
         scene.Session.Dispose();
     }
