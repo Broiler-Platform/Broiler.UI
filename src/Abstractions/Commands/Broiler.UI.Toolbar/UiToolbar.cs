@@ -7,7 +7,7 @@ namespace Broiler.UI.Toolbar;
 
 public abstract class UiToolbar : UiElement
 {
-    private readonly HashSet<UiElement> _separatorBefore = [];
+    private readonly Dictionary<UiElement, UiToolbarBreak> _breakBefore = [];
     private string _title = string.Empty;
     private UiToolbarOrientation _orientation;
     private UiToolbarOverflow _overflow;
@@ -171,23 +171,47 @@ public abstract class UiToolbar : UiElement
         }
     }
 
-    public void SetSeparatorBefore(UiElement child, bool hasSeparator)
+    /// <summary>
+    /// Starts a group in front of <paramref name="child"/>. <see cref="UiToolbarBreak.Gap"/> opens
+    /// the space without drawing a rule in it, which is usually enough to group a bar and adds no
+    /// ink to it.
+    /// </summary>
+    public void SetBreakBefore(UiElement child, UiToolbarBreak kind)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(child);
         if (!Children.Contains(child))
             throw new InvalidOperationException("Toolbar separator metadata can only be assigned to a child of this toolbar.");
 
-        bool changed = hasSeparator ? _separatorBefore.Add(child) : _separatorBefore.Remove(child);
-        if (changed)
-            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        UiToolbarBreak current = GetBreakBefore(child);
+        if (current == kind)
+            return;
+
+        if (kind == UiToolbarBreak.None)
+            _breakBefore.Remove(child);
+        else
+            _breakBefore[child] = kind;
+
+        Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
-    public bool GetSeparatorBefore(UiElement child)
+    /// <summary>What the bar puts in front of <paramref name="child"/>, if anything.</summary>
+    public UiToolbarBreak GetBreakBefore(UiElement child)
     {
         ArgumentNullException.ThrowIfNull(child);
-        return _separatorBefore.Contains(child);
+        return _breakBefore.TryGetValue(child, out UiToolbarBreak kind) ? kind : UiToolbarBreak.None;
     }
+
+    /// <summary>
+    /// Starts a ruled group in front of <paramref name="child"/>. Shorthand for
+    /// <see cref="SetBreakBefore"/> with <see cref="UiToolbarBreak.Separator"/>.
+    /// </summary>
+    public void SetSeparatorBefore(UiElement child, bool hasSeparator) =>
+        SetBreakBefore(child, hasSeparator ? UiToolbarBreak.Separator : UiToolbarBreak.None);
+
+    /// <summary>Whether a rule is drawn in front of <paramref name="child"/>.</summary>
+    public bool GetSeparatorBefore(UiElement child) =>
+        GetBreakBefore(child) == UiToolbarBreak.Separator;
 
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
@@ -199,7 +223,7 @@ public abstract class UiToolbar : UiElement
 
     protected override void OnChildRemoved(UiElement child)
     {
-        _separatorBefore.Remove(child);
+        _breakBefore.Remove(child);
     }
 
     private UiSemanticState CreateSemanticState()

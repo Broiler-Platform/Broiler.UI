@@ -46,6 +46,13 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
 
     public double SeparatorExtent { get; set; } = 9;
 
+    /// <summary>
+    /// The extra space a <see cref="UiToolbarBreak.Gap"/> opens in front of an item, on top of
+    /// <see cref="UiToolbar.Spacing"/>. Enough that the eye finds the groups; not so much that the
+    /// bar looks broken into pieces.
+    /// </summary>
+    public double GroupExtent { get; set; } = 8;
+
     /// <summary>How much of the bar the overflow chevron takes when there is one.</summary>
     public double OverflowButtonExtent { get; set; } = 24;
 
@@ -78,10 +85,8 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
                 continue;
 
             BSize desired = child.Measure(contentAvailable);
-            if (GetSeparatorBefore(child) && visibleCount > 0)
-                primary += SeparatorExtent;
             if (visibleCount > 0)
-                primary += Spacing;
+                primary += BreakExtent(child) + Spacing;
 
             if (Orientation == UiToolbarOrientation.Horizontal)
             {
@@ -139,9 +144,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
         for (int index = 0; index < visible.Count; index++)
         {
             UiElement child = visible[index];
-            double lead =
-                (GetSeparatorBefore(child) && placed > 0 ? SeparatorExtent : 0) +
-                (placed > 0 ? Spacing : 0);
+            double lead = placed > 0 ? BreakExtent(child) + Spacing : 0;
             double extent = horizontal ? child.DesiredSize.Width : child.DesiredSize.Height;
 
             if (overflows && cursor + lead + extent - origin > limit)
@@ -636,6 +639,19 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
         return result;
     }
 
+    /// <summary>
+    /// The extra room the break in front of <paramref name="child"/> asks for, on top of the bar's
+    /// normal spacing. Measure, arrange and the overflow calculation all have to agree on this, so
+    /// there is one answer and they all read it.
+    /// </summary>
+    private double BreakExtent(UiElement child) =>
+        GetBreakBefore(child) switch
+        {
+            UiToolbarBreak.Separator => SeparatorExtent,
+            UiToolbarBreak.Gap => GroupExtent,
+            _ => 0,
+        };
+
     /// <summary>The room a run of items needs along the bar, separators and spacing included.</summary>
     private double RunExtent(List<UiElement> visible, bool horizontal)
     {
@@ -644,11 +660,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
         {
             UiElement child = visible[index];
             if (index > 0)
-            {
-                extent += Spacing;
-                if (GetSeparatorBefore(child))
-                    extent += SeparatorExtent;
-            }
+                extent += Spacing + BreakExtent(child);
 
             extent += horizontal ? child.DesiredSize.Width : child.DesiredSize.Height;
         }
@@ -669,7 +681,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
 
             // The bar opens no group it did not also open a gap for: the first
             // item on it has nothing to be separated from.
-            if (leads || !GetSeparatorBefore(child))
+            if (leads || GetBreakBefore(child) != UiToolbarBreak.Separator)
                 continue;
 
             if (Orientation == UiToolbarOrientation.Horizontal)

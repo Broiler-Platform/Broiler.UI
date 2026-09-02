@@ -218,10 +218,29 @@ public sealed class UiSession : IDisposable
         return renderList;
     }
 
+    /// <summary>
+    /// Whether a focus ring should currently be drawn for a control that only wants one during
+    /// keyboard navigation.
+    /// </summary>
+    /// <remarks>
+    /// The web calls this :focus-visible, and this is the same approximation: focus arriving by
+    /// keyboard is worth a ring, focus arriving by a click is not - the user knows what they just
+    /// clicked, and ringing it leaves a toolbar looking permanently boxed. It is a property of the
+    /// last input rather than of the focus change, so <see cref="SetFocus"/> keeps its signature
+    /// and every caller keeps working. A session that has seen no input at all reports true: a
+    /// focus ring is the safer default, and it is what a keyboard-only session starts as.
+    ///
+    /// Controls opt in. A text editor draws its ring whenever it has focus, because there the ring
+    /// says where typing will go; a toolbar button consults this first.
+    /// </remarks>
+    public bool IsFocusVisible { get; private set; } = true;
+
     public bool DispatchInput(UiInputEvent input)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(input);
+
+        UpdateFocusVisibility(input.Kind);
 
         // A modal window that broke out into another host window blocks this window's input.
         if (_externalModalDepth > 0)
@@ -238,6 +257,30 @@ public sealed class UiSession : IDisposable
             _lastPointerTarget = target;
 
         return DispatchToTarget(input, target);
+    }
+
+    /// <summary>
+    /// Records whether the most recent input was the kind that earns a focus ring. Text and
+    /// composition count as keyboard: they are how a typed character arrives.
+    /// </summary>
+    private void UpdateFocusVisibility(UiInputEventKind kind)
+    {
+        bool? visible = kind switch
+        {
+            UiInputEventKind.KeyboardKey or UiInputEventKind.TextInput or UiInputEventKind.TextComposition => true,
+            UiInputEventKind.PointerMove or UiInputEventKind.PointerButton or UiInputEventKind.PointerWheel => false,
+            UiInputEventKind.TouchContact or UiInputEventKind.PenContact => false,
+
+            // Unknown says nothing about how the user is driving, so it changes nothing.
+            _ => null,
+        };
+
+        if (visible is not { } resolved || resolved == IsFocusVisible)
+            return;
+
+        IsFocusVisible = resolved;
+        if (FocusedElement is not null)
+            Invalidate(FocusedElement, UiInvalidationKind.Render);
     }
 
     private UiElement? ResolveDispatchTarget(UiInputEvent input)

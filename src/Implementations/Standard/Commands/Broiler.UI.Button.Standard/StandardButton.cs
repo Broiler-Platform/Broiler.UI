@@ -62,11 +62,31 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
 
     public bool IsPressed => _isPressed;
 
+    /// <summary>
+    /// Draws the button's icon into the square box it is given, in the colour the button has
+    /// already resolved for its current state - so hover, pressed and disabled recolour the icon
+    /// without it knowing anything about them.
+    /// </summary>
+    /// <remarks>
+    /// A delegate rather than an icon type, because Broiler.UI has no opinion about what an icon
+    /// is: the toolkit owns where the icon goes and what colour it is, and the application owns
+    /// what it looks like. When this is null the control behaves exactly as it did before icons
+    /// existed. <see cref="UiButton.Text"/> is still the accessible name when an icon replaces it
+    /// on screen, which is what keeps an icon-only bar reachable by screen reader and by name.
+    /// </remarks>
+    public Action<BRenderList, BRect, BColor>? IconPainter { get; set; }
+
+    /// <summary>The side of the square box <see cref="IconPainter"/> draws into.</summary>
+    public double IconExtent { get; set; } = 16;
+
     protected override BSize MeasureCore(BSize availableSize)
     {
-        BSize text = BTextMeasurer.Measure(Text, Font).Size;
-        double width = Math.Max(PreferredSize.Width, text.Width + (PaddingX * 2));
-        double height = Math.Max(PreferredSize.Height, text.Height + (PaddingY * 2));
+        // An icon button is sized by its icon, not by the caption it still carries as its name.
+        BSize content = IconPainter is null
+            ? BTextMeasurer.Measure(Text, Font).Size
+            : new BSize(IconExtent, IconExtent);
+        double width = Math.Max(PreferredSize.Width, content.Width + (PaddingX * 2));
+        double height = Math.Max(PreferredSize.Height, content.Height + (PaddingY * 2));
         return new BSize(ClampDesired(width, availableSize.Width), ClampDesired(height, availableSize.Height));
     }
 
@@ -78,11 +98,20 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
         StandardControlPaint.FillRounded(context.RenderList, Bounds, background, CornerRadius);
         StandardControlPaint.StrokeRounded(context.RenderList, Bounds, border, CornerRadius, 1);
 
-        BSize textSize = BTextMeasurer.Measure(Text, Font).Size;
-        double x = Bounds.Left + Math.Max(0, (Bounds.Width - textSize.Width) / 2);
-        double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
-        if (!string.IsNullOrEmpty(Text))
+        if (IconPainter is { } painter)
         {
+            // The icon replaces the caption rather than joining it: a bar of icon buttons that
+            // also drew their text would be neither.
+            BRect box = IconBox();
+            if (!box.IsEmpty)
+                painter(context.RenderList, box, foreground);
+        }
+        else if (!string.IsNullOrEmpty(Text))
+        {
+            BSize textSize = BTextMeasurer.Measure(Text, Font).Size;
+            double x = Bounds.Left + Math.Max(0, (Bounds.Width - textSize.Width) / 2);
+            double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
+
             // A label wider than the button it names is cut off at the button's own edge rather
             // than painted out across its neighbours — a button in a resizable dialog can end up
             // narrower than the caption it was sized for.
@@ -91,7 +120,9 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
             context.RenderList.PopClip();
         }
 
-        if (Session?.FocusedElement == this)
+        // Only under keyboard navigation: a bar whose buttons ring themselves on click reads as
+        // a page of boxes, and the user already knows which one they clicked.
+        if (Session?.FocusedElement == this && Session.IsFocusVisible)
             StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
     }
 
@@ -232,4 +263,20 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
 
     private static double ClampDesired(double desired, double available) =>
         double.IsInfinity(available) ? desired : Math.Min(desired, Math.Max(0, available));
+
+    /// <summary>
+    /// The square the icon is drawn in: centred, and never larger than the control it sits in.
+    /// </summary>
+    private BRect IconBox()
+    {
+        double extent = Math.Min(IconExtent, Math.Min(Bounds.Width, Bounds.Height));
+        if (!(extent > 0))
+            return BRect.Empty;
+
+        return new BRect(
+            Bounds.Left + ((Bounds.Width - extent) / 2),
+            Bounds.Top + ((Bounds.Height - extent) / 2),
+            extent,
+            extent);
+    }
 }

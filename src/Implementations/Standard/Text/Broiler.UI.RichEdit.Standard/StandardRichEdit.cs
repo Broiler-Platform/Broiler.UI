@@ -93,6 +93,20 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
 
+    /// <summary>
+    /// How thick the border is while the editor does not have focus. The default keeps the hairline
+    /// every other Standard control draws; an editor that wants to read as paper rather than as a
+    /// form field is the reason this is settable at all.
+    /// </summary>
+    public double BorderThickness { get; set; } = 1;
+
+    /// <summary>
+    /// How thick the border is while the editor has focus. Wider than
+    /// <see cref="BorderThickness"/> is what makes the ring read as focus rather than as a colour
+    /// change, but a host that wants a quieter frame can set the two equal.
+    /// </summary>
+    public double FocusRingThickness { get; set; } = 2;
+
     public BColor SelectionBackground { get; set; } = BColor.FromArgb(0xFF, 0xC7, 0xDD, 0xFA);
 
     public BColor SecondarySelectionBackground { get; set; } = BColor.FromArgb(0xFF, 0xFF, 0xF0, 0xB3);
@@ -269,7 +283,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         bool focused = Session?.FocusedElement == this;
 
         StandardControlPaint.FillRounded(renderList, Bounds, IsEnabled ? Background : StandardControlPaint.SurfaceDisabled, CornerRadius);
-        StandardControlPaint.StrokeRounded(renderList, Bounds, focused ? FocusRing : BorderColor, CornerRadius, focused ? 2 : 1);
+        StandardControlPaint.StrokeRounded(
+            renderList,
+            Bounds,
+            focused ? FocusRing : BorderColor,
+            CornerRadius,
+            focused ? FocusRingThickness : BorderThickness);
 
         renderList.PushClip(inner);
         DrawPage(renderList, inner);

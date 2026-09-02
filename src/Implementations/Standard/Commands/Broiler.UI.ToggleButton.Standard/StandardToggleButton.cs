@@ -57,11 +57,24 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
 
     public bool IsPressed => _isPressed;
 
+    /// <summary>
+    /// Draws the button's icon into the square box it is given, in the colour the button has
+    /// already resolved for its current state - so hover, pressed, checked and disabled recolour
+    /// the icon without it knowing anything about them. Null leaves the control drawing its
+    /// caption, exactly as it did before icons existed.
+    /// </summary>
+    public Action<BRenderList, BRect, BColor>? IconPainter { get; set; }
+
+    /// <summary>The side of the square box <see cref="IconPainter"/> draws into.</summary>
+    public double IconExtent { get; set; } = 16;
+
     protected override BSize MeasureCore(BSize availableSize)
     {
-        BSize text = BTextMeasurer.Measure(Text, Font).Size;
-        double width = Math.Max(PreferredSize.Width, text.Width + (PaddingX * 2));
-        double height = Math.Max(PreferredSize.Height, text.Height + (PaddingY * 2));
+        BSize content = IconPainter is null
+            ? BTextMeasurer.Measure(Text, Font).Size
+            : new BSize(IconExtent, IconExtent);
+        double width = Math.Max(PreferredSize.Width, content.Width + (PaddingX * 2));
+        double height = Math.Max(PreferredSize.Height, content.Height + (PaddingY * 2));
         return new BSize(ClampDesired(width, availableSize.Width), ClampDesired(height, availableSize.Height));
     }
 
@@ -72,13 +85,23 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
         StandardControlPaint.FillRounded(context.RenderList, Bounds, background, CornerRadius);
         StandardControlPaint.StrokeRounded(context.RenderList, Bounds, IsDefault ? FocusRing : BorderColor, CornerRadius, IsDefault ? 2 : 1);
 
-        string display = string.IsNullOrEmpty(Text) ? ToggleState.ToString() : Text;
-        BSize textSize = BTextMeasurer.Measure(display, Font).Size;
-        double x = Bounds.Left + Math.Max(0, (Bounds.Width - textSize.Width) / 2);
-        double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
-        context.RenderList.DrawText(new BTextRun(display, Font, foreground), new BPoint(x, y));
+        if (IconPainter is { } painter)
+        {
+            BRect box = IconBox();
+            if (!box.IsEmpty)
+                painter(context.RenderList, box, foreground);
+        }
+        else
+        {
+            string display = string.IsNullOrEmpty(Text) ? ToggleState.ToString() : Text;
+            BSize textSize = BTextMeasurer.Measure(display, Font).Size;
+            double x = Bounds.Left + Math.Max(0, (Bounds.Width - textSize.Width) / 2);
+            double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
+            context.RenderList.DrawText(new BTextRun(display, Font, foreground), new BPoint(x, y));
+        }
 
-        if (Session?.FocusedElement == this)
+        // Keyboard navigation only - see StandardButton.
+        if (Session?.FocusedElement == this && Session.IsFocusVisible)
             StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
     }
 
@@ -210,4 +233,18 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
 
     private static double ClampDesired(double desired, double available) =>
         double.IsInfinity(available) ? desired : Math.Min(desired, Math.Max(0, available));
+
+    /// <summary>The square the icon is drawn in: centred, and never larger than the control.</summary>
+    private BRect IconBox()
+    {
+        double extent = Math.Min(IconExtent, Math.Min(Bounds.Width, Bounds.Height));
+        if (!(extent > 0))
+            return BRect.Empty;
+
+        return new BRect(
+            Bounds.Left + ((Bounds.Width - extent) / 2),
+            Bounds.Top + ((Bounds.Height - extent) / 2),
+            extent,
+            extent);
+    }
 }
