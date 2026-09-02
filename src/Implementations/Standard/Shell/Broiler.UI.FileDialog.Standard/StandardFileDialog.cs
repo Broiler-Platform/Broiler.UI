@@ -7,6 +7,8 @@ using Broiler.Graphics;
 using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.UI.Button.Standard;
+using Broiler.UI.ComboBox;
+using Broiler.UI.ComboBox.Standard;
 using Broiler.UI.Edit.Standard;
 using Broiler.UI.ListView;
 using Broiler.UI.ListView.Standard;
@@ -17,12 +19,25 @@ namespace Broiler.UI.FileDialog.Standard;
 
 public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 {
+    /// <summary>
+    /// The orders the sort box offers, in the order it offers them. The labels name the direction
+    /// each one runs in, so the box needs no separate caption and no separate direction toggle.
+    /// </summary>
+    private static readonly (UiFileDialogSortOrder Order, string Id, string Text)[] SortChoices =
+    [
+        (UiFileDialogSortOrder.Name, "sort:name", "Sort: Name"),
+        (UiFileDialogSortOrder.Type, "sort:type", "Sort: Type"),
+        (UiFileDialogSortOrder.Modified, "sort:modified", "Sort: Modified"),
+        (UiFileDialogSortOrder.Size, "sort:size", "Sort: Size"),
+    ];
+
     private readonly StandardListView _placesList;
     private readonly StandardEdit _fileNameEdit;
     private readonly StandardListView _filesList;
     private readonly StandardListView _directoriesList;
     private readonly StandardButton _upButton;
-    private readonly StandardButton _formatButton;
+    private readonly StandardComboBox _fileTypeCombo;
+    private readonly StandardComboBox _sortCombo;
     private readonly StandardButton _okButton;
     private readonly StandardButton _cancelButton;
     private readonly Dictionary<string, string> _placePaths = [];
@@ -36,11 +51,12 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
     private BRect _foldersHeaderBounds;
     private BRect _filesHeaderBounds;
     private BRect _fileNameLabelBounds;
-    private BRect _formatLabelBounds;
+    private BRect _fileTypeLabelBounds;
     private BRect _statusBounds;
     private BRect _footerRuleBounds;
     private bool _refreshing;
     private bool _syncingFileName;
+    private bool _syncingSelectors;
 
     public StandardFileDialog()
     {
@@ -80,13 +96,17 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
             PaddingX = 8,
             PaddingY = 5,
         };
-        _formatButton = new StandardButton
+        _fileTypeCombo = new StandardComboBox
         {
-            Text = "Format",
             PreferredSize = new BSize(430, 30),
+            ItemHeight = 26,
             CornerRadius = StandardControlPaint.SmallRadius,
-            PaddingX = 8,
-            PaddingY = 5,
+        };
+        _sortCombo = new StandardComboBox
+        {
+            PreferredSize = new BSize(132, 26),
+            ItemHeight = 26,
+            CornerRadius = StandardControlPaint.SmallRadius,
         };
         _okButton = new StandardButton
         {
@@ -112,7 +132,8 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         _directoriesList.SelectionChanged += (_, e) => NavigateToDirectory(e.NewItemId);
         _fileNameEdit.Submitted += (_, _) => AcceptSelection();
         _upButton.Clicked += (_, _) => NavigateUp();
-        _formatButton.Clicked += (_, _) => CycleFileTypeFilter();
+        _fileTypeCombo.SelectionChanged += (_, e) => SelectFileTypeFilter(e.NewIndex);
+        _sortCombo.SelectionChanged += (_, e) => SelectSortOrder(e.NewIndex);
         _okButton.Clicked += (_, _) => AcceptSelection();
         _cancelButton.Clicked += (_, _) => Cancel();
 
@@ -121,11 +142,13 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         AddChild(_directoriesList);
         AddChild(_fileNameEdit);
         AddChild(_upButton);
-        AddChild(_formatButton);
+        AddChild(_fileTypeCombo);
+        AddChild(_sortCombo);
         AddChild(_okButton);
         AddChild(_cancelButton);
 
-        SyncFormatButton();
+        SyncFileTypeCombo();
+        SyncSortCombo();
         Refresh();
     }
 
@@ -189,7 +212,7 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
     public BColor StatusForeground { get; set; } = StandardControlPaint.TextMuted;
 
-    public BSize PreferredSize { get; set; } = new(740, 430);
+    public BSize PreferredSize { get; set; } = new(820, 520);
 
     public double TitleBarHeight { get; set; } = 34;
 
@@ -209,7 +232,9 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
     public StandardButton UpButton => _upButton;
 
-    public StandardButton FormatButton => _formatButton;
+    public StandardComboBox FileTypeComboBox => _fileTypeCombo;
+
+    public StandardComboBox SortComboBox => _sortCombo;
 
     public StandardButton OkButton => _okButton;
 
@@ -281,12 +306,19 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
     protected override void OnFileTypeFiltersChanged()
     {
-        SyncFormatButton();
+        SyncFileTypeCombo();
     }
 
     protected override void OnSelectedFileTypeFilterChanged()
     {
-        SyncFormatButton();
+        SyncFileTypeCombo();
+    }
+
+    protected override void OnSortOrderChanged()
+    {
+        SyncSortCombo();
+        if (!_refreshing)
+            RefreshDirectoryEntries();
     }
 
     protected override BSize MeasureCore(BSize availableSize)
@@ -309,51 +341,72 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
             BindViewport(new UiViewportBinding(finalRect.Size, Session.Host.Scale));
 
         BRect client = GetClientBounds(finalRect);
-        double buttonWidth = Math.Min(112, Math.Max(90, client.Width * 0.14));
+        // The floor is what "Up one level" needs: the button column narrows with the dialog, and
+        // a column that drops below its longest caption clips the caption instead.
+        double buttonWidth = Math.Min(112, Math.Max(104, client.Width * 0.14));
         double buttonHeight = 30;
         double editHeight = 30;
-        bool showFormatSelector = FileTypeFilters.Count > 0;
-        double formatHeight = showFormatSelector ? 30 : 0;
-        double formatGap = showFormatSelector ? 8 : 0;
+        bool showFileType = FileTypeFilters.Count > 0;
         double labelHeight = 18;
+        double rowGap = 8;
+        double statusHeight = 20;
+
+        // The list headers share their row with the sort box, so the row is a control tall rather
+        // than a caption tall.
+        double headerHeight = 26;
         double topInfoHeight = 58;
-        double footerHeight = labelHeight + editHeight + formatGap + formatHeight + 26;
+
+        // Every labelled row is a label *plus* its control: the label sits above the control it
+        // names instead of behind it.
+        double footerStackHeight = labelHeight + editHeight +
+            (showFileType ? rowGap + labelHeight + editHeight : Gap + buttonHeight);
+        double footerHeight = footerStackHeight + rowGap + statusHeight;
         double placesWidth = Math.Min(178, Math.Max(138, client.Width * 0.24));
         double rightX = Math.Max(client.Left, client.Right - buttonWidth);
         double contentLeft = client.Left + placesWidth + Gap;
         double contentWidth = Math.Max(0, rightX - contentLeft - Gap);
-        double footerTop = Math.Max(client.Top + topInfoHeight + labelHeight + Gap, client.Bottom - footerHeight);
+        double footerTop = Math.Max(client.Top + topInfoHeight + headerHeight + Gap, client.Bottom - footerHeight);
         double listHeaderTop = client.Top + topInfoHeight;
-        double listTop = listHeaderTop + labelHeight;
+        double listTop = listHeaderTop + headerHeight;
         double listHeight = Math.Max(0, footerTop - listTop - Gap);
         double folderWidth = Math.Min(Math.Max(160, contentWidth * 0.38), Math.Max(0, contentWidth - 160 - Gap));
         double fileWidth = Math.Max(0, contentWidth - folderWidth - Gap);
+        double filesLeft = contentLeft + folderWidth + Gap;
+        double sortWidth = Math.Min(Math.Max(112, fileWidth * 0.46), fileWidth);
+        double sortHeight = Math.Min(headerHeight, _sortCombo.PreferredSize.Height);
         double fileNameTop = footerTop + labelHeight;
-        double formatTop = fileNameTop + editHeight + formatGap;
+        double fileTypeLabelTop = fileNameTop + editHeight + rowGap;
+        double fileTypeTop = fileTypeLabelTop + labelHeight;
+        double cancelTop = showFileType ? fileTypeTop : fileNameTop + editHeight + Gap;
 
         _placesHeaderBounds = new BRect(client.Left, client.Top, placesWidth, labelHeight);
         _placesPanelBounds = new BRect(client.Left, client.Top, placesWidth, Math.Max(0, footerTop - client.Top - Gap));
         _descriptionBounds = new BRect(contentLeft, client.Top, contentWidth, 20);
         _pathBounds = new BRect(contentLeft, client.Top + 24, contentWidth, Math.Min(PathRowHeight, Math.Max(0, topInfoHeight - 28)));
-        _foldersHeaderBounds = new BRect(contentLeft, listHeaderTop, folderWidth, labelHeight);
-        _filesHeaderBounds = new BRect(contentLeft + folderWidth + Gap, listHeaderTop, fileWidth, labelHeight);
+        _foldersHeaderBounds = new BRect(contentLeft, listHeaderTop, folderWidth, headerHeight);
+        _filesHeaderBounds = new BRect(filesLeft, listHeaderTop, Math.Max(0, fileWidth - sortWidth - Gap), headerHeight);
         _fileNameLabelBounds = new BRect(contentLeft, footerTop, contentWidth, labelHeight);
-        _formatLabelBounds = showFormatSelector
-            ? new BRect(contentLeft, fileNameTop + editHeight, contentWidth, labelHeight)
+        _fileTypeLabelBounds = showFileType
+            ? new BRect(contentLeft, fileTypeLabelTop, contentWidth, labelHeight)
             : default;
-        _statusBounds = new BRect(client.Left, client.Bottom - 20, Math.Max(0, client.Width - buttonWidth - Gap), 20);
-        _footerRuleBounds = new BRect(client.Left, Math.Max(client.Top, footerTop - 1), client.Width, 1);
+        _statusBounds = new BRect(client.Left, client.Bottom - statusHeight, Math.Max(0, client.Width - buttonWidth - Gap), statusHeight);
+        _footerRuleBounds = new BRect(client.Left, Math.Max(client.Top, footerTop - Gap / 2), client.Width, 1);
 
         _placesList.Arrange(new BRect(client.Left, client.Top + labelHeight, placesWidth, Math.Max(0, footerTop - client.Top - labelHeight - Gap)));
         _directoriesList.Arrange(new BRect(contentLeft, listTop, folderWidth, listHeight));
-        _filesList.Arrange(new BRect(contentLeft + folderWidth + Gap, listTop, fileWidth, listHeight));
+        _filesList.Arrange(new BRect(filesLeft, listTop, fileWidth, listHeight));
+        _sortCombo.Arrange(new BRect(
+            filesLeft + Math.Max(0, fileWidth - sortWidth),
+            listHeaderTop + Math.Max(0, (headerHeight - sortHeight) / 2),
+            sortWidth,
+            sortHeight));
         _fileNameEdit.Arrange(new BRect(contentLeft, fileNameTop, contentWidth, editHeight));
-        _formatButton.Arrange(showFormatSelector
-            ? new BRect(contentLeft, formatTop, contentWidth, formatHeight)
+        _fileTypeCombo.Arrange(showFileType
+            ? new BRect(contentLeft, fileTypeTop, contentWidth, editHeight)
             : new BRect(client.Left, client.Bottom, 0, 0));
         _upButton.Arrange(new BRect(rightX, client.Top + 24, buttonWidth, buttonHeight));
         _okButton.Arrange(new BRect(rightX, fileNameTop, buttonWidth, buttonHeight));
-        _cancelButton.Arrange(new BRect(rightX, fileNameTop + buttonHeight + Gap, buttonWidth, buttonHeight));
+        _cancelButton.Arrange(new BRect(rightX, cancelTop, buttonWidth, buttonHeight));
     }
 
     protected override void RenderCore(UiRenderContext context)
@@ -465,12 +518,20 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         CurrentDirectory = path;
     }
 
-    private void CycleFileTypeFilter()
+    private void SelectFileTypeFilter(int index)
     {
-        if (FileTypeFilters.Count < 2)
+        if (_syncingSelectors || index < 0)
             return;
 
-        SelectedFileTypeFilterIndex = (SelectedFileTypeFilterIndex + 1) % FileTypeFilters.Count;
+        SelectedFileTypeFilterIndex = index;
+    }
+
+    private void SelectSortOrder(int index)
+    {
+        if (_syncingSelectors || (uint)index >= (uint)SortChoices.Length)
+            return;
+
+        SortOrder = SortChoices[index].Order;
     }
 
     private void SyncFileNameEdit()
@@ -497,11 +558,45 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         _filesList.SelectedItemId = selected;
     }
 
-    private void SyncFormatButton()
+    /// <summary>
+    /// Mirrors the dialog's filter set onto the file type box. The box is the input as well as
+    /// the display, so its own selection change is routed back here; the guard is what stops that
+    /// round trip from re-entering while the box is being filled.
+    /// </summary>
+    private void SyncFileTypeCombo()
     {
-        UiFileDialogFilter? filter = SelectedFileTypeFilter;
-        _formatButton.Text = filter is null ? "Format" : "Format: " + filter.Name;
-        _formatButton.IsEnabled = FileTypeFilters.Count > 1;
+        _syncingSelectors = true;
+        try
+        {
+            // Keyed by position rather than by name: two formats may well share a display name,
+            // and the box refuses duplicate item IDs.
+            _fileTypeCombo.SetItems(FileTypeFilters
+                .Select(static (filter, index) => new UiComboBoxItem(
+                    "filter:" + index.ToString(CultureInfo.InvariantCulture),
+                    filter.Name)));
+            _fileTypeCombo.SelectIndex(SelectedFileTypeFilterIndex);
+            _fileTypeCombo.IsEnabled = FileTypeFilters.Count > 1;
+        }
+        finally
+        {
+            _syncingSelectors = false;
+        }
+    }
+
+    private void SyncSortCombo()
+    {
+        _syncingSelectors = true;
+        try
+        {
+            if (_sortCombo.Items.Count != SortChoices.Length)
+                _sortCombo.SetItems(SortChoices.Select(static choice => new UiComboBoxItem(choice.Id, choice.Text)));
+
+            _sortCombo.SelectIndex(Array.FindIndex(SortChoices, choice => choice.Order == SortOrder));
+        }
+        finally
+        {
+            _syncingSelectors = false;
+        }
     }
 
     private bool HandlePointerButton(UiInputEvent input)
@@ -554,8 +649,8 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         DrawText(context, BuildFilesHeader(), _filesHeaderBounds, HeaderFont, HeaderForeground);
         DrawText(context, "File name", _fileNameLabelBounds, LabelFont, LabelForeground);
 
-        if (!_formatLabelBounds.IsEmpty)
-            DrawText(context, "File type", _formatLabelBounds, LabelFont, LabelForeground);
+        if (!_fileTypeLabelBounds.IsEmpty)
+            DrawText(context, "File type", _fileTypeLabelBounds, LabelFont, LabelForeground);
     }
 
     private void DrawStatus(UiRenderContext context) =>
@@ -577,11 +672,12 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
             ? "Choose a folder, name the document, and pick the format to save."
             : "Choose a document to open, or jump to a common location from Places.";
 
-    private string BuildFilesHeader()
-    {
-        string filter = SelectedFileTypeFilter?.Name ?? FileNameFilter;
-        return "Files (" + _filesList.Items.Count.ToString(CultureInfo.InvariantCulture) + ") - " + filter;
-    }
+    /// <summary>
+    /// The files header. The filter it used to name is the file type box's own label now, and the
+    /// room that frees is where the sort box sits.
+    /// </summary>
+    private string BuildFilesHeader() =>
+        "Files (" + _filesList.Items.Count.ToString(CultureInfo.InvariantCulture) + ")";
 
     private string BuildStatusText()
     {
@@ -740,14 +836,27 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
             Math.Max(0, bounds.Width - Padding * 2),
             Math.Max(0, bounds.Height - TitleBarHeight - Padding * 2));
 
-    private static DirectoryInfo[] EnumerateDirectories(DirectoryInfo directory)
+    /// <summary>
+    /// The folders of <paramref name="directory"/> in <see cref="UiFileDialog.SortOrder"/>.
+    /// </summary>
+    /// <remarks>
+    /// A folder carries neither an extension nor a size, so Type and Size leave folders by name:
+    /// ordering them by a key they do not have would only scramble the column the user is reading
+    /// to navigate. Modified they do have, and sorting by it is most of the point of asking for it.
+    /// </remarks>
+    private DirectoryInfo[] EnumerateDirectories(DirectoryInfo directory)
     {
         try
         {
-            return directory
-                .EnumerateDirectories()
-                .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            IEnumerable<DirectoryInfo> directories = directory.EnumerateDirectories();
+            return SortOrder == UiFileDialogSortOrder.Modified
+                ? directories
+                    .OrderByDescending(static item => item.LastWriteTimeUtc)
+                    .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray()
+                : directories
+                    .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
         }
         catch (Exception ex) when (IsFileSystemReadException(ex))
         {
@@ -755,14 +864,36 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         }
     }
 
-    private static FileInfo[] EnumerateFiles(DirectoryInfo directory)
+    /// <summary>
+    /// The files of <paramref name="directory"/> in <see cref="UiFileDialog.SortOrder"/>. Name
+    /// breaks every tie, so a folder full of same-sized or same-dated files still lists in an
+    /// order that holds still between refreshes.
+    /// </summary>
+    private FileInfo[] EnumerateFiles(DirectoryInfo directory)
     {
         try
         {
-            return directory
-                .EnumerateFiles()
-                .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            // The times and lengths below are the ones the directory scan already read, so
+            // ordering by them costs no further trips to the file system.
+            IEnumerable<FileInfo> files = directory.EnumerateFiles();
+            return SortOrder switch
+            {
+                UiFileDialogSortOrder.Type => files
+                    .OrderBy(static item => item.Extension, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                UiFileDialogSortOrder.Modified => files
+                    .OrderByDescending(static item => item.LastWriteTimeUtc)
+                    .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                UiFileDialogSortOrder.Size => files
+                    .OrderByDescending(static item => item.Length)
+                    .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                _ => files
+                    .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+            };
         }
         catch (Exception ex) when (IsFileSystemReadException(ex))
         {

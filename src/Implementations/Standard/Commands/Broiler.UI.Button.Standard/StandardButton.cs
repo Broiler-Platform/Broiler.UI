@@ -82,7 +82,14 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
         double x = Bounds.Left + Math.Max(0, (Bounds.Width - textSize.Width) / 2);
         double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
         if (!string.IsNullOrEmpty(Text))
+        {
+            // A label wider than the button it names is cut off at the button's own edge rather
+            // than painted out across its neighbours — a button in a resizable dialog can end up
+            // narrower than the caption it was sized for.
+            context.RenderList.PushClip(Bounds);
             context.RenderList.DrawText(new BTextRun(Text, Font, foreground), new BPoint(x, y));
+            context.RenderList.PopClip();
+        }
 
         if (Session?.FocusedElement == this)
             StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);

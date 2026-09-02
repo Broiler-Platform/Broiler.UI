@@ -18,6 +18,15 @@ public abstract class UiFileDialog : UiDialog
     private string _fileNameFilter = "*";
     private UiFileDialogFilter[] _fileTypeFilters = [];
     private int _selectedFileTypeFilterIndex = -1;
+    private UiFileDialogSortOrder _sortOrder = UiFileDialogSortOrder.Name;
+
+    protected UiFileDialog()
+    {
+        // The one dialog whose content is a list of unknown length. A folder deeper than the
+        // eight rows a fixed frame affords is the normal case, not the exceptional one, so this
+        // is the dialog that takes UiDialog's fixed size back.
+        CanResize = true;
+    }
 
     public UiFileDialogMode Mode
     {
@@ -117,6 +126,25 @@ public abstract class UiFileDialog : UiDialog
         }
     }
 
+    /// <summary>
+    /// The order folders and files are listed in. Each order carries its own direction; see
+    /// <see cref="UiFileDialogSortOrder"/>.
+    /// </summary>
+    public UiFileDialogSortOrder SortOrder
+    {
+        get => _sortOrder;
+        set
+        {
+            ThrowIfDisposed();
+            if (_sortOrder == value)
+                return;
+
+            _sortOrder = value;
+            OnSortOrderChanged();
+            Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
     public UiFileDialogFilter? SelectedFileTypeFilter =>
         _selectedFileTypeFilterIndex >= 0 && _selectedFileTypeFilterIndex < _fileTypeFilters.Length
             ? _fileTypeFilters[_selectedFileTypeFilterIndex]
@@ -188,6 +216,10 @@ public abstract class UiFileDialog : UiDialog
     }
 
     protected virtual void OnSelectedFileTypeFilterChanged()
+    {
+    }
+
+    protected virtual void OnSortOrderChanged()
     {
     }
 

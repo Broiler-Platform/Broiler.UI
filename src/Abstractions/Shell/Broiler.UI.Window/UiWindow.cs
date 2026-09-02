@@ -18,6 +18,7 @@ public abstract class UiWindow : UiElement
     private UiWindowChrome _chrome = UiWindowChrome.Auto;
     private bool _canMinimize = true;
     private bool _canMaximize = true;
+    private bool _canResize = true;
     private bool _canClose = true;
     private bool _isActive;
     private bool _isClosed;
@@ -114,6 +115,25 @@ public abstract class UiWindow : UiElement
     {
         get => _canMaximize;
         set => SetChromeFlag(ref _canMaximize, value);
+    }
+
+    /// <summary>
+    /// Whether the user may resize the window by dragging its edges.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="CanMaximize"/>, because the two are separate wishes: a dialog
+    /// listing a folder is worth stretching without being worth parking over the whole screen.
+    /// Maximizing still needs a resizable frame, so a window that refuses this shows no maximize
+    /// button either — <see cref="ShowsMaximizeButton"/> asks the host, and the host is only
+    /// resizable when this said so.
+    ///
+    /// A break-out asks its host window for this once, when the native window is created, so it
+    /// has to be set before the window is shown; a fixed-size native window cannot grow one later.
+    /// </remarks>
+    public bool CanResize
+    {
+        get => _canResize;
+        set => SetChromeFlag(ref _canResize, value);
     }
 
     /// <summary>Whether the window offers a close button.</summary>
@@ -233,7 +253,7 @@ public abstract class UiWindow : UiElement
         owner.RemoveChild(this);
 
         IUiHostWindow hostWindow = windowHost.CreateHostWindow(
-            new UiHostWindowRequest(title, requested, isModal, ResolveRequestedChrome(), _canMaximize));
+            new UiHostWindowRequest(title, requested, isModal, ResolveRequestedChrome(), _canResize));
         var hosted = new UiSession(hostWindow, origin.Dispatcher, origin.Clock, origin.Factories);
 
         _hostWindow = hostWindow;
@@ -391,7 +411,7 @@ public abstract class UiWindow : UiElement
     public bool BeginResizeDrag(UiWindowEdge edge)
     {
         ThrowIfDisposed();
-        if (edge == UiWindowEdge.None || !_canMaximize)
+        if (edge == UiWindowEdge.None || !_canResize)
             return false;
 
         IUiWindowChromeHost? host = ChromeHost;

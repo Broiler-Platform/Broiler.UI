@@ -16,6 +16,7 @@
     <ProjectReference Include="..\..\..\..\Abstractions\Shell\Broiler.UI.FileDialog\Broiler.UI.FileDialog.csproj" />
     <ProjectReference Include="..\..\Commands\Broiler.UI.Button.Standard\Broiler.UI.Button.Standard.csproj" />
     <ProjectReference Include="..\..\Text\Broiler.UI.Edit.Standard\Broiler.UI.Edit.Standard.csproj" />
+    <ProjectReference Include="..\..\ValueAndSelection\Broiler.UI.ComboBox.Standard\Broiler.UI.ComboBox.Standard.csproj" />
     <ProjectReference Include="..\..\ValueAndSelection\Broiler.UI.ListView.Standard\Broiler.UI.ListView.Standard.csproj" />
     <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
     <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />

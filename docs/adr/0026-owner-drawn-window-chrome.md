@@ -56,8 +56,11 @@ that keeps its platform title bar gets no second one painted underneath it, whic
 rule that removes the double title bar in both directions. `UiWindowChrome.Owner` and
 `UiWindowChrome.None` force the decision.
 
-`UiWindow` gains `Icon`, `CanMinimize`, `CanMaximize`, `CanClose`, `Minimize`,
-`Maximize`, `Restore`, `ToggleMaximize`, `BeginMoveDrag`, and `BeginResizeDrag`.
+`UiWindow` gains `Icon`, `CanMinimize`, `CanMaximize`, `CanResize`, `CanClose`, `Minimize`,
+`Maximize`, `Restore`, `ToggleMaximize`, `BeginMoveDrag`, and `BeginResizeDrag`. `CanResize` is
+what a break-out asks the host window for and what `BeginResizeDrag` obeys; `CanMaximize` only
+decides whether a maximize button is drawn, so a window can be stretchable without being
+maximizable — which is what `UiFileDialog` is.
 `UiWindowChromeLayout` and `UiWindowChromeController` (in the window contract assembly)
 lay the bar out, hit-test it, and run its commands, so every control family behaves
 identically; the `.Standard` implementations only paint, through
