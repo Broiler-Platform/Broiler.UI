@@ -34,4 +34,10 @@ public enum UiSemanticRole
     /// and every read is bounded. See Broiler.UI ADR 0022.
     /// </summary>
     CodeEditor,
+
+    /// <summary>
+    /// A number that is typed or stepped. Distinct from <see cref="Slider"/>, which has no text of
+    /// its own, and from <see cref="Edit"/>, which has no range or step to report.
+    /// </summary>
+    SpinBox,
 }

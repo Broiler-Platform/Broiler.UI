@@ -66,7 +66,7 @@ In GitHub Actions use `secrets.GITHUB_TOKEN` rather than a personal token.
 
 ## Packages
 
-56 packages, all `net10.0`. Every one ships XML documentation and a `.snupkg` symbol
+58 packages, all `net10.0`. Every one ships XML documentation and a `.snupkg` symbol
 package, and is built deterministically with SourceLink.
 
 | Package | Role |
@@ -84,7 +84,7 @@ Each control type ships as a contract package and a `.Standard` implementation
 | Layout | `Panel`, `ScrollView`, `Splitter`, `TabView` |
 | Content | `Label`, `ImageView`, `ProgressBar` |
 | Commands | `Button`, `ToggleButton`, `Toolbar`, `Menu` |
-| Value and selection | `CheckBox`, `RadioButton`, `Slider`, `ListView`, `ComboBox`, `TreeView` |
+| Value and selection | `CheckBox`, `RadioButton`, `Slider`, `SpinBox`, `ListView`, `ComboBox`, `TreeView` |
 | Text | `Edit`, `CodeEditor`, `RichEdit`, `FormatCodeView` |
 
 `Broiler.UI.RichEdit.Rtf` sits outside the pairing: it is an optional integration that
