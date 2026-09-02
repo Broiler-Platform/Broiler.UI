@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Threading;
 using Broiler.Graphics;
 using Broiler.Input;
 using Broiler.Input.Keyboard;
@@ -92,17 +94,25 @@ public sealed class SpinBoxControlTests
         Assert.Equal("not a number", spin.Edit.Text);
     }
 
-    /// <summary>The box writes "12.5" and a German keyboard produces "12,5". Both are the number.</summary>
+    /// <summary>
+    /// The box writes "12.5" and a German keyboard produces "12,5". Both are the number.
+    /// </summary>
+    /// <remarks>
+    /// The culture is pinned on a thread of this test's own rather than taken from the host, and
+    /// spelled out by its separators rather than by a name: a host running under invariant
+    /// globalization resolves every culture name to the invariant one, and the point here is a
+    /// culture whose decimal separator is a comma. Taking it from the host is what made an earlier
+    /// version of this pass on a German machine and fail on CI.
+    /// </remarks>
     [Fact(Timeout = 600000)]
     public void Spin_Box_Takes_Either_Decimal_Separator()
     {
-        Assert.True(UI.SpinBox.UiSpinBox.TryParseValue("12.5", out double dot));
-        Assert.True(UI.SpinBox.UiSpinBox.TryParseValue("12,5", out double comma));
+        var comma = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+        comma.NumberFormat.NumberDecimalSeparator = ",";
+        comma.NumberFormat.NumberGroupSeparator = ".";
 
-        Assert.Equal(12.5, dot);
-        // Under an invariant test culture "12,5" is a group separator, which parses to 125 rather
-        // than failing; either way it is a number, and the box clamps it into range.
-        Assert.True(comma is 12.5 or 125);
+        Assert.Equal((true, 12.5), ParseUnder(comma, "12.5"));
+        Assert.Equal((true, 12.5), ParseUnder(comma, "12,5"));
     }
 
     [Fact(Timeout = 600000)]
@@ -197,6 +207,22 @@ public sealed class SpinBoxControlTests
 
         Assert.Equal(UiSemanticRole.SpinBox, node.Role);
         Assert.Equal("24", node.Name);
+    }
+
+    /// <summary>Parses on a thread of its own, so the culture cannot leak into another test.</summary>
+    private static (bool Parsed, double Value) ParseUnder(CultureInfo culture, string text)
+    {
+        bool parsed = false;
+        double value = 0;
+        var thread = new Thread(() =>
+        {
+            CultureInfo.CurrentCulture = culture;
+            parsed = UI.SpinBox.UiSpinBox.TryParseValue(text, out value);
+        });
+
+        thread.Start();
+        thread.Join();
+        return (parsed, value);
     }
 
     private static BPoint Center(BRect bounds) =>
