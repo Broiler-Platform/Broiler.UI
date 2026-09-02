@@ -70,9 +70,13 @@ public sealed class UiRichEditCommandTests
 
         edit.ExecuteCommand(RichEditCommand.SetFont, new BFontStyle("Georgia", 22, BFontWeight.Bold, BFontSlant.Italic));
 
+        // A BFontStyle handed to this control is in the control's own
+        // device-independent pixels; the model records points. 22 pixels is
+        // 16.5 points, and writing 22 into the document would make the file say
+        // a size nobody chose.
         style = edit.Document.Paragraphs[0].Runs[0].Style;
         Assert.Equal("Georgia", style.FontFamily);
-        Assert.Equal(22f, style.FontSize.GetValueOrDefault());
+        Assert.Equal(16.5f, style.FontSize.GetValueOrDefault());
         Assert.True(style.Bold);
         Assert.True(style.Italic);
     }

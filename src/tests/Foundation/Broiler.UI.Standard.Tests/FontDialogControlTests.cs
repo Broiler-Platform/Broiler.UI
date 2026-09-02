@@ -20,7 +20,7 @@ public sealed class FontDialogControlTests
         dialog.ItalicToggle.ToggleState = UiToggleState.On;
 
         Assert.Equal("Beta Serif", dialog.SelectedFont.FamilyName);
-        Assert.Equal(18, dialog.SelectedFont.SizeInPixels);
+        Assert.Equal(18, dialog.SelectedFont.Size);
         Assert.Equal(BFontWeight.Bold, dialog.SelectedFont.Weight);
         Assert.Equal(BFontSlant.Italic, dialog.SelectedFont.Slant);
     }
@@ -37,11 +37,11 @@ public sealed class FontDialogControlTests
         dialog.SizeSpin.StepUp();
         dialog.SizeSpin.StepUp();
 
-        Assert.Equal(18, dialog.SelectedFont.SizeInPixels);
+        Assert.Equal(18, dialog.SelectedFont.Size);
 
         dialog.SizeSpin.PageDown();
 
-        Assert.Equal(8, dialog.SelectedFont.SizeInPixels);
+        Assert.Equal(8, dialog.SelectedFont.Size);
     }
 
     /// <summary>
@@ -143,7 +143,7 @@ public sealed class FontDialogControlTests
             command =>
                 command.Text.Text == "Preview text" &&
                 command.Text.Font.FamilyName == "Consolas" &&
-                command.Text.Font.SizeInPixels == 22 &&
+                command.Text.Font.Size == 22 &&
                 command.Text.Font.Weight == BFontWeight.Bold &&
                 command.Text.Font.Slant == BFontSlant.Italic);
     }

@@ -398,12 +398,22 @@ public abstract class UiRichEdit : UiElement
         InlineStyleDelta.WithCapitalization(
             CurrentInlineStyle.Capitalization == kind ? TextCapitalization.None : kind);
 
+    /// <summary>
+    /// The model change a chosen font makes.
+    /// </summary>
+    /// <remarks>
+    /// The other half of the conversion the rich edit does when it draws: a font
+    /// picked in this control is in the control's device-independent pixels, and
+    /// the model records type in points. Writing the pixel number into the model
+    /// would make a document say a size nobody chose, and it would say it
+    /// permanently — the file keeps it.
+    /// </remarks>
     private static InlineStyleDelta FontStyleDelta(BFontStyle font) => new()
     {
         SetFontFamily = true,
         FontFamily = NormalizeFontFamily(font.FamilyName),
         SetFontSize = true,
-        FontSize = NormalizeFontSize(font.SizeInPixels),
+        FontSize = NormalizeFontSize(BFontStyle.PixelsToPoints(font.Size)),
         Bold = font.Weight >= BFontWeight.Bold,
         Italic = font.Slant != BFontSlant.Normal,
     };

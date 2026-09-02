@@ -72,7 +72,7 @@ public sealed class StandardRichEditStyledRenderTests
             r =>
                 r.Text == "hello" &&
                 r.Font.FamilyName == "Consolas" &&
-                r.Font.SizeInPixels == 22 &&
+                r.Font.Size == 22 &&
                 r.Font.Weight == BFontWeight.Bold &&
                 r.Font.Slant == BFontSlant.Italic);
         scene.Session.Dispose();

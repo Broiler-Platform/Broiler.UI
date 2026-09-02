@@ -957,7 +957,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         if (segment.Advance <= 0 || (!segment.Style.Underline && !segment.Style.Strikethrough))
             return;
 
-        double thickness = Math.Max(1, Math.Round(segment.Font.SizeInPixels / 14));
+        double thickness = Math.Max(1, Math.Round(segment.Font.Size / 14));
         if (segment.Style.Underline)
             renderList.FillRect(new BRect(segment.X, y + lineHeight - thickness - 1, segment.Advance, thickness), color);
         if (segment.Style.Strikethrough)
@@ -1160,7 +1160,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             yield break;
         }
 
-        BFontStyle reduced = font with { SizeInPixels = Math.Max(1, font.SizeInPixels * SmallCapsScale) };
+        BFontStyle reduced = font with { Size = Math.Max(1, font.Size * SmallCapsScale) };
         int start = 0;
         bool small = char.IsLower(text[0]);
         for (int i = 1; i <= text.Length; i++)
@@ -1219,12 +1219,29 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         return advance;
     }
 
+    /// <summary>
+    /// The font one run is drawn with, in this control's own units.
+    /// </summary>
+    /// <remarks>
+    /// The document states type in <em>points</em> and this control measures in
+    /// device-independent pixels, so a stated size is converted rather than
+    /// passed across. It used to be passed across, which rendered a twelve-point
+    /// document at twelve pixels — a quarter smaller than it asks for, and
+    /// smaller than the same file drawn by broilerdoc, which converts.
+    ///
+    /// The control's own <see cref="Font"/> needs no conversion: it is already
+    /// in the units this control measures in, because a host set it here.
+    /// </remarks>
     private BFontStyle RunFont(InlineStyle style)
     {
+        double size = style.FontSize is > 0
+            ? BFontStyle.PointsToPixels(style.FontSize.Value)
+            : Font.Size;
+
         return Font with
         {
             FamilyName = string.IsNullOrWhiteSpace(style.FontFamily) ? Font.FamilyName : style.FontFamily,
-            SizeInPixels = ZoomedFontSize(style.FontSize is > 0 ? style.FontSize.Value : Font.SizeInPixels),
+            Size = ZoomedFontSize(size),
             Weight = style.Bold ? BFontWeight.Bold : Font.Weight,
             Slant = style.Italic ? BFontSlant.Italic : Font.Slant,
         };
@@ -1234,7 +1251,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// The control's own font at the current zoom, which is what text with no run
     /// of its own - the placeholder, an empty line - is measured and drawn with.
     /// </summary>
-    private BFontStyle ZoomedFont => Font with { SizeInPixels = ZoomedFontSize(Font.SizeInPixels) };
+    private BFontStyle ZoomedFont => Font with { Size = ZoomedFontSize(Font.Size) };
 
     /// <summary>
     /// A stated font size as it is drawn. A whole pixel is the floor: zoomed far

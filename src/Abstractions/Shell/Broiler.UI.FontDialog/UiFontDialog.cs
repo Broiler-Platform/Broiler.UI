@@ -173,7 +173,7 @@ public abstract class UiFontDialog : UiDialog
         return string.Join(
             "|",
             Escape(font.FamilyName),
-            font.SizeInPixels.ToString("0.###", CultureInfo.InvariantCulture),
+            font.Size.ToString("0.###", CultureInfo.InvariantCulture),
             ((int)font.Weight).ToString(CultureInfo.InvariantCulture),
             font.Slant.ToString(),
             underline ? "underline" : "none",
@@ -261,9 +261,9 @@ public abstract class UiFontDialog : UiDialog
         string family = string.IsNullOrWhiteSpace(font.FamilyName)
             ? BFontStyle.Default.FamilyName
             : font.FamilyName.Trim();
-        double size = double.IsNaN(font.SizeInPixels) || double.IsInfinity(font.SizeInPixels) || font.SizeInPixels <= 0
-            ? BFontStyle.Default.SizeInPixels
-            : Math.Clamp(font.SizeInPixels, 1.0, 512.0);
+        double size = double.IsNaN(font.Size) || double.IsInfinity(font.Size) || font.Size <= 0
+            ? BFontStyle.Default.Size
+            : Math.Clamp(font.Size, 1.0, 512.0);
         BFontSlant slant = Enum.IsDefined(font.Slant) ? font.Slant : BFontSlant.Normal;
         return new BFontStyle(family, size, font.Weight, slant);
     }

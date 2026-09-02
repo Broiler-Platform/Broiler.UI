@@ -220,7 +220,7 @@ internal static class Program
             Console.WriteLine(
                 "  " + role +
                 ": family=" + font.FamilyName +
-                ", size=" + font.SizeInPixels.ToString(CultureInfo.InvariantCulture) + "px" +
+                ", size=" + font.Size.ToString(CultureInfo.InvariantCulture) + "px" +
                 ", weight=" + font.Weight +
                 ", line-height=" + metrics.LineHeight.ToString(CultureInfo.InvariantCulture) + "px" +
                 ", advance(\"Broiler\")=" + metrics.Advance.ToString(CultureInfo.InvariantCulture) + "px");
