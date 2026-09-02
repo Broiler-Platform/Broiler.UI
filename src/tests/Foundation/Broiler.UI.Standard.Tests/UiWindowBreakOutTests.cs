@@ -271,6 +271,41 @@ public sealed class UiWindowBreakOutTests
     }
 
     [Fact(Timeout = 600000)]
+    public void A_Broken_Out_File_Dialog_Asks_For_A_Resizable_Host_Window()
+    {
+        var host = new FakeWindowHost();
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+
+        var dialog = new StandardFileDialog { Title = "Open" };
+        _ = dialog.ShowOpenModal(owner, new BRect(20, 20, 300, 200));
+
+        // Resizable, and still not maximizable: the two are separate wishes now, and the native
+        // window has to be created for the first one or its frame has no edges to drag.
+        Assert.True(host.Created[0].Request.Resizable);
+        Assert.True(dialog.BeginResizeDrag(UiWindowEdge.BottomRight));
+        Assert.Equal([UiWindowEdge.BottomRight], host.Created[0].ResizeDrags);
+        Assert.False(dialog.CanMaximize);
+    }
+
+    [Fact(Timeout = 600000)]
+    public void A_Broken_Out_Plain_Dialog_Asks_For_A_Fixed_Host_Window()
+    {
+        var host = new FakeWindowHost();
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+
+        var dialog = new StandardDialog { Title = "Notes" };
+        _ = dialog.ShowModal(owner, new BRect(20, 20, 300, 200));
+
+        Assert.False(host.Created[0].Request.Resizable);
+        Assert.False(dialog.BeginResizeDrag(UiWindowEdge.BottomRight));
+        Assert.Empty(host.Created[0].ResizeDrags);
+    }
+
+    [Fact(Timeout = 600000)]
     public void A_Logical_Dialog_Still_Moves_Itself_By_Placement()
     {
         var host = new FakeWindowHost();

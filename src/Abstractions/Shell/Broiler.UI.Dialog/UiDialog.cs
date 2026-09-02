@@ -22,10 +22,12 @@ public abstract class UiDialog : UiWindow
 
     protected UiDialog()
     {
-        // A dialog is sized to its content and dismissed, not parked on the taskbar, so its
-        // chrome carries a close button only. An app that wants more can opt back in.
+        // A dialog is sized to its content and dismissed, not parked on the taskbar or stretched,
+        // so its chrome carries a close button only. A dialog whose content has no natural size —
+        // a file browser listing a folder — opts back in with CanResize.
         CanMinimize = false;
         CanMaximize = false;
+        CanResize = false;
         Closed += HandleClosed;
     }
 

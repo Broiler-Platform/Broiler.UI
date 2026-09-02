@@ -66,7 +66,16 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, CornerRadius, 1);
         string text = SelectedItem?.Text ?? string.Empty;
         if (!string.IsNullOrEmpty(text))
+        {
+            // Clipped short of the arrow: an item named after a file format runs long, and a
+            // closed combo box is often the narrowest thing on a dialog. Without this the label
+            // paints straight over the arrow and out across whatever sits beside the control.
+            BRect textBounds = new(Bounds.Left, Bounds.Top, Math.Max(0, Bounds.Width - 22), Bounds.Height);
+            context.RenderList.PushClip(textBounds);
             context.RenderList.DrawText(new BTextRun(text, Font, Foreground), new BPoint(Bounds.Left + 8, Bounds.Top + Math.Max(0, (Bounds.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            context.RenderList.PopClip();
+        }
+
         context.RenderList.DrawText(new BTextRun(IsDropDownOpen ? "^" : "v", Font, Foreground), new BPoint(Bounds.Right - 18, Bounds.Top + Math.Max(0, (Bounds.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
 
         if (Session?.FocusedElement == this)
