@@ -5,10 +5,12 @@ using Broiler.Graphics;
 using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.UI.Button.Standard;
-using Broiler.UI.Edit.Standard;
+using Broiler.UI.ComboBox;
+using Broiler.UI.ComboBox.Standard;
 using Broiler.UI.FontDialog;
 using Broiler.UI.ListView;
 using Broiler.UI.ListView.Standard;
+using Broiler.UI.SpinBox.Standard;
 using Broiler.UI.Standard;
 using Broiler.UI.ToggleButton;
 using Broiler.UI.ToggleButton.Standard;
@@ -18,27 +20,38 @@ namespace Broiler.UI.FontDialog.Standard;
 
 public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
 {
-    private static readonly BFontWeight[] WeightCycle =
+    /// <summary>
+    /// The weights the box offers, in the order it offers them. Every one is a real DirectWrite /
+    /// CSS weight, so a family that has the face is drawn in it and one that does not falls back
+    /// the way the renderer would anyway.
+    /// </summary>
+    private static readonly (BFontWeight Weight, string Id, string Text)[] WeightChoices =
     [
-        BFontWeight.Normal,
-        BFontWeight.Medium,
-        BFontWeight.SemiBold,
-        BFontWeight.Bold,
-        BFontWeight.Black,
+        (BFontWeight.Thin, "weight:100", "Thin"),
+        (BFontWeight.Light, "weight:300", "Light"),
+        (BFontWeight.Normal, "weight:400", "Normal"),
+        (BFontWeight.Medium, "weight:500", "Medium"),
+        (BFontWeight.SemiBold, "weight:600", "Semi-bold"),
+        (BFontWeight.Bold, "weight:700", "Bold"),
+        (BFontWeight.Black, "weight:900", "Black"),
     ];
 
     private readonly StandardListView _familyList;
-    private readonly StandardEdit _sizeEdit;
-    private readonly StandardButton _weightButton;
+    private readonly StandardSpinBox _sizeSpin;
+    private readonly StandardComboBox _weightCombo;
     private readonly StandardToggleButton _italicToggle;
+    private readonly StandardToggleButton _underlineToggle;
+    private readonly StandardToggleButton _strikethroughToggle;
     private readonly StandardButton _okButton;
     private readonly StandardButton _cancelButton;
     private BRect _familyLabelBounds;
     private BRect _sizeLabelBounds;
     private BRect _weightLabelBounds;
+    private BRect _styleLabelBounds;
     private BRect _previewLabelBounds;
     private BRect _previewBounds;
     private bool _syncing;
+    private bool _scrollSelectionIntoView = true;
 
     public StandardFontDialog()
     {
@@ -46,33 +59,32 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
 
         _familyList = new StandardListView
         {
-            PreferredSize = new BSize(220, 210),
+            PreferredSize = new BSize(240, 260),
             ItemHeight = 24,
             CornerRadius = 0,
         };
-        _sizeEdit = new StandardEdit
+        _sizeSpin = new StandardSpinBox
         {
-            PreferredSize = new BSize(86, 28),
+            PreferredSize = new BSize(96, 28),
             CornerRadius = 0,
-            PaddingX = 5,
-            PaddingY = 4,
-            MaxLength = 8,
+            Minimum = MinimumFontSize,
+            Maximum = MaximumFontSize,
+            // Half a point is the finest any word processor offers, and font sizes are written that
+            // way — 10.5, never 10.50.
+            DecimalPlaces = 1,
+            SmallChange = 1,
+            LargeChange = 10,
         };
-        _weightButton = new StandardButton
+        _weightCombo = new StandardComboBox
         {
-            PreferredSize = new BSize(132, 28),
+            PreferredSize = new BSize(140, 28),
             CornerRadius = 0,
-            PaddingX = 8,
-            PaddingY = 5,
+            ItemHeight = 26,
+            MaxDropDownItems = WeightChoices.Length,
         };
-        _italicToggle = new StandardToggleButton
-        {
-            Text = "Italic",
-            PreferredSize = new BSize(86, 28),
-            CornerRadius = 0,
-            PaddingX = 8,
-            PaddingY = 5,
-        };
+        _italicToggle = CreateStyleToggle("Italic");
+        _underlineToggle = CreateStyleToggle("Underline");
+        _strikethroughToggle = CreateStyleToggle("Strike");
         _okButton = new StandardButton
         {
             Text = "OK",
@@ -92,24 +104,39 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
             PaddingY = 5,
         };
 
+        var weightItems = new List<UiComboBoxItem>(WeightChoices.Length);
+        foreach ((BFontWeight _, string id, string text) in WeightChoices)
+            weightItems.Add(new UiComboBoxItem(id, text));
+        _weightCombo.SetItems(weightItems);
+
         _familyList.SelectionChanged += (_, e) => SelectFamily(e.NewItemId);
-        _sizeEdit.TextChanged += (_, _) => CommitSizeEdit();
-        _sizeEdit.Submitted += (_, _) => CommitSizeEdit();
-        _weightButton.Clicked += (_, _) => CycleWeight();
-        _italicToggle.ToggleStateChanged += (_, _) => CommitItalicToggle();
+        _sizeSpin.ValueChanged += (_, _) => CommitSize();
+        _weightCombo.SelectionChanged += (_, _) => CommitWeight();
+        _italicToggle.ToggleStateChanged += (_, _) => CommitItalic();
+        _underlineToggle.ToggleStateChanged += (_, _) => CommitUnderline();
+        _strikethroughToggle.ToggleStateChanged += (_, _) => CommitStrikethrough();
         _okButton.Clicked += (_, _) => AcceptSelection();
         _cancelButton.Clicked += (_, _) => Cancel();
 
         AddChild(_familyList);
-        AddChild(_sizeEdit);
-        AddChild(_weightButton);
+        AddChild(_sizeSpin);
+        AddChild(_weightCombo);
         AddChild(_italicToggle);
+        AddChild(_underlineToggle);
+        AddChild(_strikethroughToggle);
         AddChild(_okButton);
         AddChild(_cancelButton);
 
         SyncFontFamilies();
         SyncSelectedFont();
+        SyncDecorations();
     }
+
+    /// <summary>The smallest size the box offers. Below this a preview shows nothing legible.</summary>
+    private const double MinimumFontSize = 1;
+
+    /// <summary>Matches the ceiling <see cref="UiFontDialog"/> coerces a font size to.</summary>
+    private const double MaximumFontSize = 512;
 
     public void ApplyTheme(StandardThemeTokens theme)
     {
@@ -143,7 +170,13 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
 
     public BFontStyle LabelFont { get; set; } = BFontStyle.Default with { SizeInPixels = 13 };
 
-    public BSize PreferredSize { get; set; } = new(520, 322);
+    public BSize PreferredSize { get; set; } = new(560, 384);
+
+    /// <summary>
+    /// The smallest the dialog still lays out as designed. It is resizable, so this is what the
+    /// arrangement below is written against rather than a size anything enforces.
+    /// </summary>
+    public BSize MinimumSize { get; set; } = new(420, 300);
 
     public double TitleBarHeight { get; set; } = 30;
 
@@ -153,11 +186,15 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
 
     public StandardListView FamilyList => _familyList;
 
-    public StandardEdit SizeEdit => _sizeEdit;
+    public StandardSpinBox SizeSpin => _sizeSpin;
 
-    public StandardButton WeightButton => _weightButton;
+    public StandardComboBox WeightCombo => _weightCombo;
 
     public StandardToggleButton ItalicToggle => _italicToggle;
+
+    public StandardToggleButton UnderlineToggle => _underlineToggle;
+
+    public StandardToggleButton StrikethroughToggle => _strikethroughToggle;
 
     public StandardButton OkButton => _okButton;
 
@@ -174,6 +211,11 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         SyncSelectedFont();
     }
 
+    protected override void OnDecorationsChanged()
+    {
+        SyncDecorations();
+    }
+
     protected override BSize MeasureCore(BSize availableSize)
     {
         BSize clientAvailable = new(
@@ -188,6 +230,12 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
             ClampDesired(PreferredSize.Height, availableSize.Height));
     }
 
+    /// <summary>
+    /// Lays the dialog out at whatever size it has been dragged to: the family list takes the left
+    /// column and the right one stacks size, weight, style and the preview. Every width is derived
+    /// from the client rectangle rather than fixed, and the preview takes what is left over — it is
+    /// the part worth the extra room a user drags the window out for.
+    /// </summary>
     protected override void ArrangeCore(BRect finalRect)
     {
         if (Session is not null)
@@ -196,31 +244,61 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         BRect client = GetClientBounds(finalRect);
         double buttonHeight = 30;
         double labelHeight = 18;
-        double editHeight = 28;
+        double rowHeight = 28;
         double actionWidth = 76;
         double actionTop = Math.Max(client.Top, client.Bottom - buttonHeight);
         double contentBottom = Math.Max(client.Top, actionTop - Gap);
-        double leftWidth = Math.Min(220, Math.Max(140, client.Width * 0.45));
+
+        // The list is the taller half and the right column the wider one, so the split favours the
+        // right column as the dialog narrows: a preview or a weight name that does not fit is
+        // unreadable, while a truncated family name is still recognisable.
+        double leftWidth = Math.Clamp(client.Width * 0.42, 0, Math.Max(0, client.Width - 232 - Gap));
         double rightX = client.Left + leftWidth + Gap;
         double rightWidth = Math.Max(0, client.Right - rightX);
 
         _familyLabelBounds = new BRect(client.Left, client.Top, leftWidth, labelHeight);
-        _familyList.Arrange(new BRect(client.Left, client.Top + labelHeight, leftWidth, Math.Max(0, contentBottom - client.Top - labelHeight)));
+        _familyList.Arrange(new BRect(
+            client.Left,
+            client.Top + labelHeight,
+            leftWidth,
+            Math.Max(0, contentBottom - client.Top - labelHeight)));
 
-        _sizeLabelBounds = new BRect(rightX, client.Top, rightWidth, labelHeight);
-        _sizeEdit.Arrange(new BRect(rightX, client.Top + labelHeight, Math.Min(92, rightWidth), editHeight));
+        // Only now does the list know how tall it is, and a scroll offset worked out before that is
+        // worked out against a zero-height viewport — which is why the selected family used to open
+        // just off the top of the list. Once per selection, so a user who scrolls away from it and
+        // then resizes the dialog is not dragged back.
+        if (_scrollSelectionIntoView)
+        {
+            _scrollSelectionIntoView = false;
+            _familyList.ScrollIntoView(_familyList.SelectedItemId ?? string.Empty);
+        }
 
-        double weightTop = client.Top + labelHeight + editHeight + Gap;
-        _weightLabelBounds = new BRect(rightX, weightTop, rightWidth, labelHeight);
-        _weightButton.Arrange(new BRect(rightX, weightTop + labelHeight, Math.Min(138, rightWidth), editHeight));
-        _italicToggle.Arrange(new BRect(rightX + Math.Min(138, rightWidth) + Gap, weightTop + labelHeight, Math.Min(92, Math.Max(0, rightWidth - 138 - Gap)), editHeight));
+        double sizeWidth = Math.Min(96, rightWidth);
+        double weightX = rightX + sizeWidth + Gap;
+        double weightWidth = Math.Max(0, client.Right - weightX);
+        _sizeLabelBounds = new BRect(rightX, client.Top, sizeWidth, labelHeight);
+        _weightLabelBounds = new BRect(weightX, client.Top, weightWidth, labelHeight);
+        _sizeSpin.Arrange(new BRect(rightX, client.Top + labelHeight, sizeWidth, rowHeight));
+        _weightCombo.Arrange(new BRect(weightX, client.Top + labelHeight, weightWidth, rowHeight));
 
-        double previewTop = weightTop + labelHeight + editHeight + Gap;
+        double styleTop = client.Top + labelHeight + rowHeight + Gap;
+        _styleLabelBounds = new BRect(rightX, styleTop, rightWidth, labelHeight);
+        ArrangeStyleToggles(new BRect(rightX, styleTop + labelHeight, rightWidth, rowHeight));
+
+        double previewTop = styleTop + labelHeight + rowHeight + Gap;
         _previewLabelBounds = new BRect(rightX, previewTop, rightWidth, labelHeight);
-        _previewBounds = new BRect(rightX, previewTop + labelHeight, rightWidth, Math.Max(54, contentBottom - previewTop - labelHeight));
+        _previewBounds = new BRect(
+            rightX,
+            previewTop + labelHeight,
+            rightWidth,
+            Math.Max(0, contentBottom - previewTop - labelHeight));
 
         _cancelButton.Arrange(new BRect(client.Right - actionWidth, actionTop, actionWidth, buttonHeight));
-        _okButton.Arrange(new BRect(_cancelButton.Bounds.Left - Gap - actionWidth, actionTop, actionWidth, buttonHeight));
+        _okButton.Arrange(new BRect(
+            Math.Max(client.Left, _cancelButton.Bounds.Left - Gap - actionWidth),
+            actionTop,
+            actionWidth,
+            buttonHeight));
     }
 
     protected override void RenderCore(UiRenderContext context)
@@ -232,7 +310,8 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
 
         DrawLabel(context, _familyLabelBounds, "Family");
         DrawLabel(context, _sizeLabelBounds, "Size");
-        DrawLabel(context, _weightLabelBounds, "Weight and style");
+        DrawLabel(context, _weightLabelBounds, "Weight");
+        DrawLabel(context, _styleLabelBounds, "Style");
         DrawLabel(context, _previewLabelBounds, "Preview");
         DrawPreview(context);
 
@@ -255,6 +334,34 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
 
     protected override bool HitTestMoveGrip(BPoint position) =>
         new BRect(Bounds.Left, Bounds.Top, Bounds.Width, Math.Min(TitleBarHeight, Bounds.Height)).Contains(position);
+
+    private static StandardToggleButton CreateStyleToggle(string text) =>
+        new()
+        {
+            Text = text,
+            PreferredSize = new BSize(86, 28),
+            CornerRadius = 0,
+            PaddingX = 6,
+            PaddingY = 5,
+        };
+
+    /// <summary>
+    /// The three style toggles share the row evenly, so the group narrows with the dialog instead
+    /// of the last one falling off the right edge.
+    /// </summary>
+    private void ArrangeStyleToggles(BRect row)
+    {
+        StandardToggleButton[] toggles = [_italicToggle, _underlineToggle, _strikethroughToggle];
+        double width = Math.Max(0, (row.Width - (Gap * (toggles.Length - 1))) / toggles.Length);
+        for (int index = 0; index < toggles.Length; index++)
+        {
+            toggles[index].Arrange(new BRect(
+                row.Left + (index * (width + Gap)),
+                row.Top,
+                width,
+                row.Height));
+        }
+    }
 
     private void SyncFontFamilies()
     {
@@ -280,9 +387,24 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         {
             _familyList.SelectedItemId = FindListedFamily(SelectedFont.FamilyName);
             _familyList.ScrollIntoView(_familyList.SelectedItemId ?? string.Empty);
-            _sizeEdit.Text = SelectedFont.SizeInPixels.ToString("0.###", CultureInfo.InvariantCulture);
-            _weightButton.Text = WeightText(SelectedFont.Weight);
+            _scrollSelectionIntoView = true;
+            _sizeSpin.Value = SelectedFont.SizeInPixels;
+            _weightCombo.SelectIndex(FindWeightIndex(SelectedFont.Weight));
             _italicToggle.ToggleState = SelectedFont.Slant == BFontSlant.Normal ? UiToggleState.Off : UiToggleState.On;
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    private void SyncDecorations()
+    {
+        _syncing = true;
+        try
+        {
+            _underlineToggle.ToggleState = Underline ? UiToggleState.On : UiToggleState.Off;
+            _strikethroughToggle.ToggleState = Strikethrough ? UiToggleState.On : UiToggleState.Off;
         }
         finally
         {
@@ -298,30 +420,44 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         SelectedFont = SelectedFont with { FamilyName = itemId };
     }
 
-    private void CommitSizeEdit()
+    private void CommitSize()
     {
         if (_syncing)
             return;
 
-        if (!double.TryParse(_sizeEdit.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double size))
+        SelectedFont = SelectedFont with { SizeInPixels = _sizeSpin.Value };
+    }
+
+    private void CommitWeight()
+    {
+        if (_syncing || (uint)_weightCombo.SelectedIndex >= (uint)WeightChoices.Length)
             return;
 
-        SelectedFont = SelectedFont with { SizeInPixels = size };
+        SelectedFont = SelectedFont with { Weight = WeightChoices[_weightCombo.SelectedIndex].Weight };
     }
 
-    private void CycleWeight()
-    {
-        int index = Array.IndexOf(WeightCycle, SelectedFont.Weight);
-        int next = index < 0 ? 0 : (index + 1) % WeightCycle.Length;
-        SelectedFont = SelectedFont with { Weight = WeightCycle[next] };
-    }
-
-    private void CommitItalicToggle()
+    private void CommitItalic()
     {
         if (_syncing)
             return;
 
         SelectedFont = SelectedFont with { Slant = _italicToggle.ToggleState == UiToggleState.On ? BFontSlant.Italic : BFontSlant.Normal };
+    }
+
+    private void CommitUnderline()
+    {
+        if (_syncing)
+            return;
+
+        Underline = _underlineToggle.ToggleState == UiToggleState.On;
+    }
+
+    private void CommitStrikethrough()
+    {
+        if (_syncing)
+            return;
+
+        Strikethrough = _strikethroughToggle.ToggleState == UiToggleState.On;
     }
 
     private void DrawLabel(UiRenderContext context, BRect bounds, string text)
@@ -348,7 +484,39 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         context.RenderList.DrawText(
             new BTextRun(SampleText, SelectedFont, PreviewForeground),
             new BPoint(textBounds.Left, textBounds.Top));
+        DrawPreviewDecorations(context, textBounds);
         context.RenderList.PopClip();
+    }
+
+    /// <summary>
+    /// Draws the underline and the strike-through the same way the rich editor does — a thin rule
+    /// in the text colour, positioned off the line box. A preview that showed the family, size,
+    /// weight and slant but not these two would be a preview of most of the choice.
+    /// </summary>
+    private void DrawPreviewDecorations(UiRenderContext context, BRect textBounds)
+    {
+        if (!Underline && !Strikethrough)
+            return;
+
+        double advance = BTextMeasurer.MeasureAdvance(SampleText, SelectedFont);
+        if (advance <= 0)
+            return;
+
+        double lineHeight = BTextMeasurer.GetLineHeight(SelectedFont);
+        double thickness = Math.Max(1, Math.Round(SelectedFont.SizeInPixels / 14));
+        if (Underline)
+        {
+            context.RenderList.FillRect(
+                new BRect(textBounds.Left, textBounds.Top + lineHeight - thickness - 1, advance, thickness),
+                PreviewForeground);
+        }
+
+        if (Strikethrough)
+        {
+            context.RenderList.FillRect(
+                new BRect(textBounds.Left, textBounds.Top + (lineHeight / 2), advance, thickness),
+                PreviewForeground);
+        }
     }
 
     private bool HandlePointerButton(UiInputEvent input)
@@ -385,25 +553,34 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         return null;
     }
 
+    /// <summary>
+    /// The listed weight nearest the selected one. A font can carry any weight from 1 to 999, and
+    /// one that came from a document may sit between two the box offers; showing the closest is
+    /// better than showing none, which would read as "no weight".
+    /// </summary>
+    private static int FindWeightIndex(BFontWeight weight)
+    {
+        int best = 0;
+        int bestDistance = int.MaxValue;
+        for (int index = 0; index < WeightChoices.Length; index++)
+        {
+            int distance = Math.Abs((int)WeightChoices[index].Weight - (int)weight);
+            if (distance >= bestDistance)
+                continue;
+
+            best = index;
+            bestDistance = distance;
+        }
+
+        return best;
+    }
+
     private BRect GetClientBounds(BRect bounds) =>
         new(
             bounds.Left + Padding,
             bounds.Top + TitleBarHeight + Padding,
             Math.Max(0, bounds.Width - Padding * 2),
             Math.Max(0, bounds.Height - TitleBarHeight - Padding * 2));
-
-    private static string WeightText(BFontWeight weight) =>
-        weight switch
-        {
-            BFontWeight.Thin => "Thin",
-            BFontWeight.Light => "Light",
-            BFontWeight.Normal => "Normal",
-            BFontWeight.Medium => "Medium",
-            BFontWeight.SemiBold => "SemiBold",
-            BFontWeight.Bold => "Bold",
-            BFontWeight.Black => "Black",
-            _ => ((int)weight).ToString(CultureInfo.InvariantCulture),
-        };
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>
         input.NativeKeyCode == nativeKeyCode ||

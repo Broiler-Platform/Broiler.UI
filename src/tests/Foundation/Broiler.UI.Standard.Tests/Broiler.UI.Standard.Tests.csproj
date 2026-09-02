@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\..\Implementations\Standard\Layout\Broiler.UI.ScrollView.Standard\Broiler.UI.ScrollView.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.ComboBox.Standard\Broiler.UI.ComboBox.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.ListView.Standard\Broiler.UI.ListView.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.SpinBox.Standard\Broiler.UI.SpinBox.Standard.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
   </ItemGroup>
 
