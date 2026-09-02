@@ -34,6 +34,18 @@ public abstract class UiElement : IDisposable
         }
     }
 
+    /// <summary>
+    /// What a tooltip should say about this element, or empty for none.
+    /// </summary>
+    /// <remarks>
+    /// Data only. Nothing here shows a tooltip - deciding when one appears is a session-level job
+    /// and belongs to whatever is driving hover, so the element only has to carry the text. It
+    /// matters most where a control has no visible caption: an icon-only toolbar loses its
+    /// discoverability entirely without this, which is the whole reason the text of an icon button
+    /// stays set even when the icon is what gets drawn.
+    /// </remarks>
+    public string ToolTipText { get; set; } = string.Empty;
+
     public bool IsAttached => Session is not null;
 
     public bool IsDisposed => _isDisposed;

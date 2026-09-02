@@ -62,6 +62,12 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
 
     public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
 
+    /// <summary>How thick the border is while the pane does not have focus.</summary>
+    public double BorderThickness { get; set; } = 1;
+
+    /// <summary>How thick the border is while the pane has focus.</summary>
+    public double FocusRingThickness { get; set; } = 2;
+
     public BColor ScrollbarTrack { get; set; } = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
 
     public BColor ScrollbarThumb { get; set; } = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
@@ -153,7 +159,7 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
             Bounds,
             focused ? FocusRing : BorderColor,
             CornerRadius,
-            focused ? 2 : 1);
+            focused ? FocusRingThickness : BorderThickness);
 
         list.PushClip(ViewportBounds);
         DrawSelection(list);
