@@ -185,4 +185,52 @@ public sealed class StandardRichEditImageRenderTests
 
         Assert.Equal(1, scene.Host.ReleasedImages);
     }
+
+    [Fact(Timeout = 600000)]
+    public void An_Ordinary_Picture_Is_Handed_Over_Exactly_As_It_Arrived()
+    {
+        // A picture that states no crop and no mask must take the path it always
+        // took: the host gets the document's own bytes, neither decoded nor
+        // encoded again on the way.
+        RichEditScene scene = Create(new BSize(200, 200));
+        scene.Host.ImagePixelSize = new BSize(4, 4);
+
+        scene.Edit.Document = RichTextDocument.FromParagraphs([
+            RichTextParagraph.Create(
+                InlineImage.PlaceholderText,
+                InlineStyle.Default with { Image = new InlineImage(Bytes, "image/png", 4, 4) }),
+        ]);
+
+        scene.Session.RenderFrame();
+
+        Assert.Equal(Bytes, scene.Host.LastEncodedImage);
+        scene.Session.Dispose();
+    }
+
+    [Fact(Timeout = 600000)]
+    public void A_Shaped_Picture_Still_Draws_Where_No_Image_Codec_Is_Composed()
+    {
+        // Shaping a picture means decoding it, and decoding needs a codec catalog
+        // the composition root registers. This component registers none - no
+        // Broiler.UI project references a media codec - so the fallback is not a
+        // hypothetical here: it is the path this very test takes. The picture must
+        // reach the host unshaped rather than not at all.
+        RichEditScene scene = Create(new BSize(200, 200));
+        scene.Host.ImagePixelSize = new BSize(4, 4);
+
+        var image = new InlineImage(
+            Bytes, "image/png", 4, 4,
+            presentation: new ImagePresentation { Mask = ImageMask.Ellipse });
+
+        scene.Edit.Document = RichTextDocument.FromParagraphs([
+            RichTextParagraph.Create(
+                InlineImage.PlaceholderText, InlineStyle.Default with { Image = image }),
+        ]);
+
+        BRenderList list = scene.Session.RenderFrame();
+
+        Assert.Single(list.Commands.OfType<BRenderCommand.DrawImage>());
+        Assert.Equal(Bytes, scene.Host.LastEncodedImage);
+        scene.Session.Dispose();
+    }
 }
