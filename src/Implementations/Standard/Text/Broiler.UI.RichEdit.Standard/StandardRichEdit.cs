@@ -2384,8 +2384,15 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
                     bottom = Math.Max(bottom, reach);
             }
 
-            // A row is never shorter than a line, so an empty one is still a row.
-            heights.Add(Math.Max(bottom - y, defaultLineHeight));
+            // A row is never shorter than a line, so an empty one is still a row,
+            // nor shorter than the height it asked for. That height is a floor and
+            // not a measurement: content that does not fit still makes the row
+            // taller, because clipping a row's own text would lose it. It is what
+            // holds the empty first row of a page-layout table open, and with it
+            // the block the template put underneath.
+            heights.Add(Math.Max(
+                Math.Max(bottom - y, defaultLineHeight),
+                row.MinHeight * _zoom));
             y += heights[^1];
         }
 
