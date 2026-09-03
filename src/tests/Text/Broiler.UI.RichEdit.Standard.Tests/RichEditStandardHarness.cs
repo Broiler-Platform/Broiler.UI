@@ -56,9 +56,17 @@ internal sealed class TestHost : IUiHost, IUiClipboardHost, IUiTextInputHost, IU
         ClearCaretCount++;
     }
 
+    /// <summary>
+    /// The bytes of the last image handed to this host. Kept so a test can check
+    /// what the control actually gave the backend - a picture the document says
+    /// is cropped or masked reaches here already shaped.
+    /// </summary>
+    public byte[] LastEncodedImage { get; private set; } = [];
+
     public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage)
     {
         CreatedImages++;
+        LastEncodedImage = encodedImage.ToArray();
         if (ImagePixelSize is not BSize size)
             return BImageHandle.Invalid;
 

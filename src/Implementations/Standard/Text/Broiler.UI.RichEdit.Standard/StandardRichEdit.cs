@@ -1109,10 +1109,59 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
         BImageHandle handle = BImageHandle.Invalid;
         if (Session?.Host is IUiImageHost imageHost && !image.Data.IsEmpty)
-            handle = imageHost.CreateImage(image.Data.Span);
+            handle = Create(imageHost, image);
 
         _imageHandles[image] = handle;
         return handle;
+    }
+
+    /// <summary>
+    /// The handle for one picture, as the document presents it: cropped to the
+    /// part it uses and masked to its shape.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A picture that states neither takes the path it always took - the host
+    /// decodes the bytes it was given - so the ordinary picture costs nothing.
+    /// </para>
+    /// <para>
+    /// One that states either is decoded here, presented, and encoded again for
+    /// the host, which is a round trip through PNG that buys a great deal: the
+    /// alternative is an elliptical clip in the render list, and that is a real
+    /// primitive in four backends with four different answers - a stencil buffer,
+    /// a layer over a geometry, per-pixel coverage, and a canvas path - where
+    /// this is one managed pass. It happens once per picture, behind the cache
+    /// this method exists to fill, and never per frame.
+    /// </para>
+    /// </remarks>
+    private static BImageHandle Create(IUiImageHost host, InlineImage image)
+    {
+        if (image.Presentation.IsDefault)
+            return host.CreateImage(image.Data.Span);
+
+        try
+        {
+            using BBitmap decoded = BBitmap.Decode(image.Data.Span);
+            BBitmap presented = image.Presentation.Apply(decoded);
+            try
+            {
+                return host.CreateImage(presented.Encode());
+            }
+            finally
+            {
+                if (!ReferenceEquals(presented, decoded))
+                    presented.Dispose();
+            }
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or ArgumentException
+                or NotSupportedException or FormatException)
+        {
+            // The picture did not decode here. The host may still manage it - it
+            // composes codecs this control does not - so the bytes go on as they
+            // are and the picture draws unshaped rather than not at all.
+            return host.CreateImage(image.Data.Span);
+        }
     }
 
     private void ReleaseImages()
