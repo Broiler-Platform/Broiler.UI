@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Broiler.Documents.Model;
@@ -918,7 +918,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
             // right-aligned item keeps its bullet against the item, not the margin.
             renderList.DrawText(
                 new BTextRun(decoration.Marker, decoration.Font, color),
-                new BPoint(ContentLeft + decoration.MarkerIndent + line.AlignmentOffset, y));
+                new BPoint(MarkerLeft(line), y));
         }
     }
 
@@ -2038,6 +2038,22 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         ContentLeft + Frame(line.ParagraphIndex).Left +
         Decoration(line.ParagraphIndex).TextIndent + line.AlignmentOffset;
 
+    /// <summary>
+    /// Where a paragraph's list marker starts: the same box and alignment its
+    /// text gets, at the marker's own indent rather than the text's.
+    /// </summary>
+    /// <remarks>
+    /// Written as a sibling of <see cref="LineLeft"/> on purpose. The marker used
+    /// to be positioned from <see cref="ContentLeft"/> directly, which is the same
+    /// thing for an ordinary paragraph — an ordinary paragraph's frame starts at
+    /// zero — and wrong for every paragraph in a table cell, where the text moved
+    /// over by the cell's offset and the bullet stayed at the page margin. The two
+    /// origins differ in one term and now say so.
+    /// </remarks>
+    private double MarkerLeft(VisualLine line) =>
+        ContentLeft + Frame(line.ParagraphIndex).Left +
+        Decoration(line.ParagraphIndex).MarkerIndent + line.AlignmentOffset;
+
     public bool HasVerticalScrollbar => VerticalScrollPolicy == RichEditScrollPolicy.Always ||
                                         (VerticalScrollPolicy == RichEditScrollPolicy.Auto && MaxScroll > 0);
 
@@ -2874,8 +2890,10 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// What a paragraph's list and indent add to it: the marker drawn in the
     /// gutter — empty when the paragraph is not a list item — the font that marker
     /// is drawn with, and the left offsets of the marker and of the text. Both
-    /// offsets are relative to <see cref="ContentLeft"/>, so scrolling the document
-    /// or moving the control does not invalidate them.
+    /// offsets are relative to the left edge of the paragraph's own
+    /// <see cref="CellFrame"/> — not to <see cref="ContentLeft"/> — so scrolling
+    /// the document or moving the control does not invalidate them, and a
+    /// paragraph in a table cell carries the cell's offset exactly once.
     /// </summary>
     /// <summary>
     /// The box a paragraph is laid out in: its left offset from

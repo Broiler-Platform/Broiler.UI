@@ -158,4 +158,51 @@ public sealed class StandardRichEditListRenderTests
         Assert.Equal(2, Texts(list).Count(command => command.Text.Text == Bullet));
         scene.Session.Dispose();
     }
+
+    [Fact(Timeout = 600000)]
+    public void A_Bullet_In_A_Table_Cell_Sits_In_That_Cell_Rather_Than_At_The_Page_Margin()
+    {
+        // The CV-template shape: a two-column layout table whose right cell holds
+        // the bulleted list. The marker used to be drawn from the control's
+        // content left, so it landed at the page margin - out in the left cell,
+        // hundreds of points away from the text it introduces - while the text
+        // correctly carried its cell's offset. An ordinary paragraph's frame
+        // starts at zero, which is why no test outside a table ever saw it.
+        RichEditScene scene = Scene(
+            new BSize(600, 300),
+            ("left", ParagraphStyle.Default),
+            ("item", Bulleted()));
+
+        scene.Edit.Document = scene.Edit.Document.WithTables([
+            new DocumentTable(
+                0,
+                2,
+                [new TableRow([new TableCell(0, 1, 0), new TableCell(1, 1, 1)])],
+                [200, 200],
+                cellPadding: 0),
+        ]);
+
+        BRenderList list = scene.Session.RenderFrame();
+
+        BRenderCommand.DrawText left = Drawn(list, "left");
+        BRenderCommand.DrawText bullet = Drawn(list, Bullet);
+        BRenderCommand.DrawText item = Drawn(list, "item");
+
+        // The marker belongs to the item, so it travels with it into the second
+        // column: past the first cell, and immediately in front of its own text.
+        Assert.True(
+            bullet.Origin.X > left.Origin.X,
+            $"the bullet at {bullet.Origin.X} is still in the first cell, whose text starts at {left.Origin.X}");
+        Assert.Equal(bullet.Origin.Y, item.Origin.Y, 3);
+        Assert.True(
+            item.Origin.X >= bullet.Origin.X + BTextMeasurer.MeasureAdvance(Bullet, bullet.Text.Font),
+            $"item text at {item.Origin.X} overlaps its bullet at {bullet.Origin.X}");
+
+        // And it is the item's own gutter that separates them, not the width of a
+        // cell: the gap here matches the gap the same list has outside a table.
+        Assert.True(
+            item.Origin.X - bullet.Origin.X < 100,
+            $"the bullet at {bullet.Origin.X} is {item.Origin.X - bullet.Origin.X} from its text at {item.Origin.X}");
+        scene.Session.Dispose();
+    }
 }
