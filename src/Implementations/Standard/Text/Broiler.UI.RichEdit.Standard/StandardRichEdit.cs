@@ -2330,29 +2330,58 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         double defaultLineHeight = DefaultLineHeight;
         var heights = new List<double>(table.Rows.Count);
         var spans = new List<(int Row, int Index, int RowSpan)>();
+
+        // A cell that spans rows is not as tall as its first row. Its content is
+        // laid out from that row's top and may reach far past it, so its height
+        // is claimed by the *last* row it covers rather than the first: that is
+        // where the space it needs has to exist by. Charging it to the first row
+        // instead made a two-row layout table - the shape every CV template uses,
+        // content merged down the right column and the sidebar in the left cell of
+        // row two - put the whole document into row one and start row two beneath
+        // it, so the sidebar arrived after the content instead of beside it.
+        var reaches = new List<(int LastRow, double Bottom)>();
         double y = top;
 
         foreach (TableRow row in table.Rows)
         {
+            int rowIndex = heights.Count;
             double bottom = y;
             foreach (TableCell cell in row.Cells)
             {
                 (double left, double width) = ColumnSpanBox(edges, cell);
-                bottom = Math.Max(
-                    bottom,
-                    LayoutBlocks(
-                        document,
-                        cell.Tables,
-                        cell.ParagraphIndex,
-                        cell.ParagraphEnd,
-                        y,
-                        new CellFrame(left + padding, Math.Max(1, width - (padding * 2)))));
+                double cellBottom = LayoutBlocks(
+                    document,
+                    cell.Tables,
+                    cell.ParagraphIndex,
+                    cell.ParagraphEnd,
+                    y,
+                    new CellFrame(left + padding, Math.Max(1, width - (padding * 2))));
 
                 if (cell.IsRowSpanContinuation)
+                {
+                    // The continuation holds no content of its own - what it covers
+                    // lives in the cell that started the span - so whatever empty
+                    // paragraph it carries does not get to set a height.
                     continue;
+                }
 
-                spans.Add((heights.Count, _cells.Count, cell.RowSpan));
+                int rowSpan = Math.Max(1, cell.RowSpan);
+                if (rowSpan > 1)
+                    reaches.Add((rowIndex + rowSpan - 1, cellBottom));
+                else
+                    bottom = Math.Max(bottom, cellBottom);
+
+                spans.Add((rowIndex, _cells.Count, cell.RowSpan));
                 _cells.Add(new CellBox(new BRect(left, y, width, 0), cell.Shading, cell.Borders));
+            }
+
+            // Now the spanning cells that end here, which is the row that has to
+            // be tall enough for them. Rows they merely pass through keep the
+            // height their own cells asked for.
+            foreach ((int lastRow, double reach) in reaches)
+            {
+                if (lastRow == rowIndex)
+                    bottom = Math.Max(bottom, reach);
             }
 
             // A row is never shorter than a line, so an empty one is still a row.

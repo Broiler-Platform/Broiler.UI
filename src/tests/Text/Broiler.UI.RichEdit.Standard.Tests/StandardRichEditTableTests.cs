@@ -337,4 +337,62 @@ public sealed class StandardRichEditTableTests
 
         return -1;
     }
+
+    [Fact(Timeout = 600000)]
+    public void A_Tall_Row_Span_Does_Not_Push_The_Next_Rows_Cells_Below_It()
+    {
+        // The CV-template shape, and the reason this test exists: a two-row table
+        // whose right column is merged down and holds the whole document, with the
+        // sidebar in the left cell of row two. The merged cell's height used to be
+        // charged to row one, so row two - and the sidebar with it - began below
+        // the entire document instead of beside it.
+        var document = RichTextDocument.FromParagraphs([
+            RichTextParagraph.Plain("corner"),
+            RichTextParagraph.Plain("tall one"),
+            RichTextParagraph.Plain("tall two"),
+            RichTextParagraph.Plain("tall three"),
+            RichTextParagraph.Plain("tall four"),
+            RichTextParagraph.Plain("tall five"),
+            RichTextParagraph.Plain("sidebar"),
+            RichTextParagraph.Plain("covered"),
+        ]).WithTables([
+            new DocumentTable(
+                0,
+                8,
+                [
+                    new TableRow([
+                        new TableCell(0, 1, 0),
+                        new TableCell(1, 5, 1, rowSpan: 2),
+                    ]),
+                    new TableRow([
+                        new TableCell(6, 1, 0),
+                        new TableCell(7, 1, 1, isRowSpanContinuation: true),
+                    ]),
+                ],
+                [100, 100],
+                cellPadding: 0),
+        ]);
+
+        BRenderList list = Scene(document, new BSize(400, 600)).Session.RenderFrame();
+
+        double corner = Text(list, "corner").Origin.Y;
+        double sidebar = Text(list, "sidebar").Origin.Y;
+        double first = Text(list, "tall one").Origin.Y;
+        double last = Text(list, "tall five").Origin.Y;
+
+        // The sidebar belongs beside the merged column, not under it: it starts
+        // within the span rather than past the last line of it.
+        Assert.True(
+            sidebar < last,
+            $"the sidebar at {sidebar} starts below the merged cell's last line at {last}");
+
+        // Row two still comes after row one, so the sidebar sits under the corner
+        // and level with the merged cell's own text rather than above it.
+        Assert.True(
+            sidebar > corner,
+            $"the sidebar at {sidebar} did not start below row one's cell at {corner}");
+        Assert.True(
+            sidebar >= first,
+            $"the sidebar at {sidebar} started above the merged cell's first line at {first}");
+        }
 }
