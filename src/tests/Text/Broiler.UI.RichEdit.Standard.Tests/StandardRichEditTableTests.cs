@@ -395,4 +395,94 @@ public sealed class StandardRichEditTableTests
             sidebar >= first,
             $"the sidebar at {sidebar} started above the merged cell's first line at {first}");
         }
+
+    [Fact(Timeout = 600000)]
+    public void A_Row_Is_At_Least_As_Tall_As_The_Height_It_States()
+    {
+        // The empty tall first row a page-layout template states so that the
+        // block in the row beneath it starts where the design puts it.
+        RichTextDocument document = Grid().WithTables([
+            new DocumentTable(
+                0,
+                4,
+                [
+                    new TableRow(
+                        [new TableCell(0, 1, 0), new TableCell(1, 1, 1)],
+                        minHeight: 120),
+                    new TableRow([new TableCell(2, 1, 0), new TableCell(3, 1, 1)]),
+                ],
+                [100, 100],
+                cellPadding: 0),
+        ]);
+
+        BRenderList list = Scene(document, new BSize(400, 400)).Session.RenderFrame();
+
+        double gap = Text(list, "a2").Origin.Y - Text(list, "a1").Origin.Y;
+        Assert.True(gap >= 120, $"row two started {gap} below row one, which asked for 120");
+    }
+
+    [Fact(Timeout = 600000)]
+    public void A_Stated_Height_Is_A_Floor_And_Never_Clips_The_Rows_Content()
+    {
+        // A row taller than its stated height keeps the height its content needs.
+        // The alternative - honouring the number exactly - loses text, which is
+        // the one outcome a document reader may not choose.
+        RichTextDocument tall = RichTextDocument.FromParagraphs([
+            RichTextParagraph.Plain("one two three four five six seven eight nine ten"),
+            RichTextParagraph.Plain("b1"),
+            RichTextParagraph.Plain("a2"),
+            RichTextParagraph.Plain("b2"),
+        ]).WithTables([
+            new DocumentTable(
+                0,
+                4,
+                [
+                    new TableRow(
+                        [new TableCell(0, 1, 0), new TableCell(1, 1, 1)],
+                        minHeight: 1),
+                    new TableRow([new TableCell(2, 1, 0), new TableCell(3, 1, 1)]),
+                ],
+                [60, 60],
+                cellPadding: 0),
+        ]);
+
+        BRenderList list = Scene(tall, new BSize(400, 400)).Session.RenderFrame();
+
+        double gap = Text(list, "a2").Origin.Y - Text(list, "one").Origin.Y;
+        Assert.True(gap > 20, $"row one was squeezed to {gap}, clipping the text it holds");
+    }
+
+    [Fact(Timeout = 600000)]
+    public void A_Stated_Height_Scales_With_The_Zoom()
+    {
+        RichTextDocument document = Grid().WithTables([
+            new DocumentTable(
+                0,
+                4,
+                [
+                    new TableRow(
+                        [new TableCell(0, 1, 0), new TableCell(1, 1, 1)],
+                        minHeight: 100),
+                    new TableRow([new TableCell(2, 1, 0), new TableCell(3, 1, 1)]),
+                ],
+                [100, 100],
+                cellPadding: 0),
+        ]);
+
+        RichEditScene scene = Scene(document, new BSize(400, 600));
+        double plain = Text(scene.Session.RenderFrame(), "a2").Origin.Y
+            - Text(scene.Session.RenderFrame(), "a1").Origin.Y;
+
+        scene.Edit.Zoom = 2;
+        BRenderList zoomed = scene.Session.RenderFrame();
+        double doubled = Text(zoomed, "a2").Origin.Y - Text(zoomed, "a1").Origin.Y;
+
+        // A height in points is a document measurement, so it zooms with the rest
+        // of the document rather than staying a fixed number of device pixels.
+        // Asserted against the stated height rather than against the other
+        // measurement: content alone doubles under zoom too, so a ratio would
+        // hold whether or not the height was honoured at all.
+        Assert.True(plain >= 100, $"the row asked for 100 and was {plain}");
+        Assert.True(doubled >= 200, $"at double zoom the row asked for 200 and was {doubled}");
+    }
 }
