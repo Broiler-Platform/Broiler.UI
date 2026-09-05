@@ -18,6 +18,13 @@ namespace Broiler.UI.TreeView.Standard;
 /// </summary>
 public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
 {
+    /// <summary>
+    /// How long after a press a second press still counts as a double click.
+    /// It matches the window the Standard editors use, so a double click means
+    /// the same thing everywhere in a window.
+    /// </summary>
+    private static readonly TimeSpan DoubleClickWindow = TimeSpan.FromMilliseconds(400);
+
     private BFontStyle _font = new("sans-serif", 14);
     private double _rowHeight = 20;
     private double _indentWidth = 16;
@@ -33,6 +40,8 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     private bool _highContrast;
     private string _typeAheadBuffer = string.Empty;
     private long _typeAheadTicks;
+    private UiTimestamp _lastClickTime;
+    private TreeNodeId _lastClickRow = TreeNodeId.None;
 
     public BFontStyle Font
     {
@@ -266,6 +275,12 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             return true;
         }
 
+        // A double click consumes the pair, so a third press starts a fresh
+        // one. Without that, click-click-click on a file opens it twice.
+        bool activate = IsDoubleClick(row.Id);
+        _lastClickTime = Session?.Clock.Now ?? default;
+        _lastClickRow = activate ? TreeNodeId.None : row.Id;
+
         bool extend = input.KeyModifiers.HasFlag(KeyboardModifierState.Control) &&
             SelectionMode == TreeSelectionMode.Extended;
         if (extend)
@@ -280,7 +295,40 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             SetSelection([row.Id]);
         }
 
+        // The second click opens what the first one selected. Without it the
+        // mouse could select a row but never activate one — Enter was the only
+        // route to NodeActivated, so a user who clicked a file in the explorer
+        // saw nothing happen at all.
+        if (activate)
+        {
+            // A row with children expands rather than opens, which is what
+            // every file tree does and the only thing a folder can offer. It is
+            // still announced as activated, so a host that has something else
+            // to do with a folder gets the chance.
+            if (row.HasChildren)
+                ToggleExpansion(row.Id);
+
+            ActivateNode(row.Id);
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Whether this press completes a double click on <paramref name="row"/>.
+    ///
+    /// The second press must land on the same row rather than merely near the
+    /// first, which is the editors' rule. A row is the thing being clicked, so
+    /// a press that drifts along one is still on it, and a press that lands on
+    /// the neighbour is not — however few pixels it moved.
+    /// </summary>
+    private bool IsDoubleClick(TreeNodeId row)
+    {
+        if (Session is null || row.IsNone || row != _lastClickRow)
+            return false;
+
+        TimeSpan delta = Session.Clock.Now.Elapsed - _lastClickTime.Elapsed;
+        return delta >= TimeSpan.Zero && delta <= DoubleClickWindow;
     }
 
     private bool OnWheel(UiInputEvent input)

@@ -281,8 +281,19 @@ public abstract class UiTreeView : UiElement
     public void ActivateFocused()
     {
         ThrowIfDisposed();
-        if (!_focused.IsNone)
-            NodeActivated?.Invoke(this, new TreeNodeEventArgs(_focused));
+        ActivateNode(_focused);
+    }
+
+    /// <summary>
+    /// Activates a named node, for a route that is not the focused row: the
+    /// double click, which activates what the pointer is over, and a host
+    /// command that acts on a row it already has in hand.
+    /// </summary>
+    public void ActivateNode(TreeNodeId node)
+    {
+        ThrowIfDisposed();
+        if (!node.IsNone)
+            NodeActivated?.Invoke(this, new TreeNodeEventArgs(node));
     }
 
     /// <summary>Rebuilds the expanded set after the data source changed.</summary>
