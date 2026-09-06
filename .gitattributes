@@ -1,0 +1,9 @@
+# A shell script has to reach a Linux runner with LF endings: CRLF turns the
+# shebang into `/usr/bin/env bash\r`, and the runner answers `bad interpreter`.
+# A Windows clone with core.autocrlf=true converts on checkout, so the working
+# copy is where this goes wrong even when the index is clean.
+#
+# This repository has no line-ending policy otherwise and this file does not
+# introduce one. It pins the one file type where the ending is executable
+# semantics rather than style; everything else keeps whatever it has today.
+*.sh text eol=lf
