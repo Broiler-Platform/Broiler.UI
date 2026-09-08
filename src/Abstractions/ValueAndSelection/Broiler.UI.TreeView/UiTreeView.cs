@@ -44,6 +44,7 @@ public abstract class UiTreeView : UiElement
     private BSize _preferredSize = new(280, 400);
     private TreeNodeId _focused = TreeNodeId.None;
     private int _firstVisibleRow;
+    private TreeSecondaryLabelPlacement _secondaryLabelPlacement;
     private bool _rowsValid;
 
     public event EventHandler<TreeSelectionChangedEventArgs>? SelectionChanged;
@@ -142,6 +143,44 @@ public abstract class UiTreeView : UiElement
 
     /// <summary>How many rows the current bounds can show.</summary>
     public int VisibleRowCapacity { get; set; } = 20;
+
+    /// <summary>
+    /// Where a row draws its secondary label. See
+    /// <see cref="TreeSecondaryLabelPlacement"/> for which trees want which.
+    /// </summary>
+    public TreeSecondaryLabelPlacement SecondaryLabelPlacement
+    {
+        get => _secondaryLabelPlacement;
+        set
+        {
+            ThrowIfDisposed();
+            if (_secondaryLabelPlacement == value)
+                return;
+
+            _secondaryLabelPlacement = value;
+            OnSecondaryLabelPlacementChanged();
+
+            // Measure as well as render: an implementation that puts the second
+            // label on its own line makes every row taller, and the row height
+            // is what the arranged bounds are divided by to decide how many
+            // rows fit and which one a click landed on.
+            Invalidate(
+                UiInvalidationKind.Measure | UiInvalidationKind.Arrange |
+                UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// Called when <see cref="SecondaryLabelPlacement"/> changes, so an
+    /// implementation that caches a row height from it can recompute one.
+    ///
+    /// A hook rather than leaving it to be noticed at render time: the row
+    /// height answers a hit test, and a stale one sends a click to the wrong
+    /// row before anything has been drawn.
+    /// </summary>
+    protected virtual void OnSecondaryLabelPlacementChanged()
+    {
+    }
 
     public bool IsExpanded(TreeNodeId node) => _expanded.Contains(node);
 

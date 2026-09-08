@@ -53,12 +53,33 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             if (_font == value)
                 return;
             _font = value;
-            _rowHeight = Math.Max(1, BTextMeasurer.GetLineHeight(value) + 4);
+            RecomputeRowHeight();
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
         }
     }
 
     public double RowHeight => _rowHeight;
+
+    protected override void OnSecondaryLabelPlacementChanged() => RecomputeRowHeight();
+
+    /// <summary>
+    /// A row is two lines tall when the secondary label is placed under the
+    /// label, and one when it is beside it.
+    ///
+    /// Uniform either way, and deliberately: a row that was only two lines tall
+    /// when it happened to carry a secondary label would make the height a
+    /// function of the data, and the hit test, the scroll offset and the visible
+    /// capacity are all one division by a single number.
+    /// </summary>
+    private void RecomputeRowHeight()
+    {
+        double line = BTextMeasurer.GetLineHeight(_font);
+        _rowHeight = Math.Max(
+            1,
+            SecondaryLabelPlacement == TreeSecondaryLabelPlacement.BelowLabel
+                ? (line * 2) + 6
+                : line + 4);
+    }
 
     public void ApplyTheme(StandardThemeTokens tokens)
     {
@@ -145,13 +166,19 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             list.FillRect(new BRect(bounds.Left, top + _rowHeight - 1, bounds.Width, 1), _focusRing);
         }
 
+        // Everything but the text is aligned to the row's first line rather than
+        // to the whole row. On a two-line row the label is the first line, and a
+        // triangle or a decoration floating between the two lines would belong
+        // to neither of them.
+        double firstLine = FirstLineHeight;
+
         if (row.HasChildren)
         {
             // A triangle drawn as nested rectangles: pointing right when
             // collapsed, down when expanded, so expansion is legible without
             // colour or an icon font.
-            double size = Math.Max(4, _rowHeight / 3);
-            double glyphTop = top + ((_rowHeight - size) / 2);
+            double size = Math.Max(4, firstLine / 3);
+            double glyphTop = top + ((firstLine - size) / 2);
             if (row.IsExpanded)
             {
                 for (double step = 0; step < size / 2; step++)
@@ -170,16 +197,38 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         double advance = BTextMeasurer.MeasureAdvance(presentation.Label, _font);
         if (presentation.SecondaryLabel is { Length: > 0 } secondary)
         {
-            list.DrawText(
-                new BTextRun(secondary, _font, _mutedForeground),
-                new BPoint(textLeft + advance + 8, top + 2));
-            advance += BTextMeasurer.MeasureAdvance(secondary, _font) + 8;
+            if (SecondaryLabelPlacement == TreeSecondaryLabelPlacement.BelowLabel)
+            {
+                // Its own line, at the label's own left edge, so a column of
+                // answers reads down the pane instead of starting wherever the
+                // name above it happened to end.
+                list.DrawText(
+                    new BTextRun(secondary, _font, _mutedForeground),
+                    new BPoint(textLeft, top + 2 + BTextMeasurer.GetLineHeight(_font)));
+            }
+            else
+            {
+                list.DrawText(
+                    new BTextRun(secondary, _font, _mutedForeground),
+                    new BPoint(textLeft + advance + 8, top + 2));
+                advance += BTextMeasurer.MeasureAdvance(secondary, _font) + 8;
+            }
         }
 
-        RenderDecoration(list, presentation.Decoration, textLeft + advance + 8, top);
+        RenderDecoration(list, presentation.Decoration, textLeft + advance + 8, top, firstLine);
     }
 
-    private void RenderDecoration(BRenderList list, TreeNodeDecoration decoration, double x, double top)
+    /// <summary>
+    /// The height of the line the label sits on, which is the whole row unless
+    /// the secondary label takes a second line.
+    /// </summary>
+    private double FirstLineHeight =>
+        SecondaryLabelPlacement == TreeSecondaryLabelPlacement.BelowLabel
+            ? BTextMeasurer.GetLineHeight(_font) + 2
+            : _rowHeight;
+
+    private void RenderDecoration(
+        BRenderList list, TreeNodeDecoration decoration, double x, double top, double lineHeight)
     {
         if (decoration == TreeNodeDecoration.None)
             return;
@@ -207,8 +256,8 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             return;
         }
 
-        double size = Math.Max(4, _rowHeight / 3);
-        double y = top + ((_rowHeight - size) / 2);
+        double size = Math.Max(4, lineHeight / 3);
+        double y = top + ((lineHeight - size) / 2);
         switch (decoration)
         {
             case TreeNodeDecoration.Dirty:
