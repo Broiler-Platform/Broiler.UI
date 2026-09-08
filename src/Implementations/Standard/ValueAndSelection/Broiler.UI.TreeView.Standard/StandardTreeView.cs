@@ -52,7 +52,23 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     /// does, which for the Solution Explorer of a real repository is wrong by
     /// thousands of files.
     /// </summary>
-    private readonly StandardVerticalScrollbar _scrollbar = new();
+    private readonly StandardScrollbars _scrollbars = new();
+
+    /// <summary>
+    /// How far the rows are scrolled sideways, and the widest one seen so far.
+    ///
+    /// The width is a running maximum over the rows that have been rendered,
+    /// not a measurement of every row: this control paints the forty rows on
+    /// screen rather than the fifty thousand it has, and measuring them all to
+    /// size a scrollbar would give back the cost that virtualization is for.
+    /// The consequence is that the extent grows as a reader scrolls into wider
+    /// rows, which is a bar that settles rather than one that is wrong — and it
+    /// is reset whenever the row set changes, so a collapsed subtree does not
+    /// leave the bar sized for rows that are no longer there.
+    /// </summary>
+    private double _horizontalOffset;
+    private double _widestRow;
+    private int _measuredRowCount = -1;
 
     public BFontStyle Font
     {
@@ -105,8 +121,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         _warningColor = tokens.Warning;
         _informationColor = tokens.Info;
 
-        _scrollbar.Track = tokens.SurfaceDisabled;
-        _scrollbar.Thumb = tokens.BorderStrong;
+        _scrollbars.ApplyPaint(tokens.SurfaceDisabled, tokens.BorderStrong);
 
         // A theme whose surface and text sit at the extremes is high contrast,
         // whatever it is called. There, decorations carry a glyph as well as a
@@ -130,23 +145,38 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     {
         base.ArrangeCore(finalRect);
 
-        // The bar takes its width before the capacity is worked out, so the
-        // count is of rows that fit beside it rather than under it.
-        BRect content = _scrollbar.Layout(finalRect, Rows.Count * _rowHeight);
+        // The row set changed, so what was learnt about how wide the rows are
+        // no longer describes them.
+        if (_measuredRowCount != Rows.Count)
+        {
+            _measuredRowCount = Rows.Count;
+            _widestRow = 0;
+        }
+
+        // The bars take their thickness before the capacity is worked out, so
+        // the count is of rows that fit beside them rather than under them.
+        BRect content = _scrollbars.Layout(
+            finalRect, new BSize(_widestRow, Rows.Count * _rowHeight));
+
         VisibleRowCapacity = content.Height <= 0
             ? 0
             : Math.Max(1, (int)Math.Ceiling(content.Height / _rowHeight));
+
+        _horizontalOffset = Math.Clamp(_horizontalOffset, 0, _scrollbars.Horizontal.MaximumOffset);
     }
 
-    /// <summary>Where the rows go: the control's bounds, less the scrollbar.</summary>
+    /// <summary>Where the rows go: the control's bounds, less whichever bars are showing.</summary>
     public BRect ContentBounds =>
-        _scrollbar.ContentBounds.IsEmpty ? Bounds : _scrollbar.ContentBounds;
+        _scrollbars.ContentBounds.IsEmpty ? Bounds : _scrollbars.ContentBounds;
 
     /// <summary>True when there are more rows than fit, so the bar is showing.</summary>
-    public bool HasVerticalScrollbar => _scrollbar.IsVisible;
+    public bool HasVerticalScrollbar => _scrollbars.Vertical.IsVisible;
 
-    /// <summary>How far down the rows are scrolled, in layout units.</summary>
-    private double ScrollOffset => FirstVisibleRow * _rowHeight;
+    /// <summary>True when a row is wider than the pane, so the bar is showing.</summary>
+    public bool HasHorizontalScrollbar => _scrollbars.Horizontal.IsVisible;
+
+    /// <summary>How far the rows are scrolled, in layout units.</summary>
+    private BPoint ScrollOffset => new(_horizontalOffset, FirstVisibleRow * _rowHeight);
 
     protected override void RenderCore(UiRenderContext context)
     {
@@ -174,15 +204,19 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             list.PopClip();
         }
 
-        // Outside the clip, because the bar is beside the rows rather than
+        // Outside the clip, because the bars are beside the rows rather than
         // among them.
-        _scrollbar.Render(list, ScrollOffset);
+        _scrollbars.Render(list, ScrollOffset);
     }
 
     private void RenderRow(BRenderList list, TreeRow row, BRect bounds, double top, bool viewFocused)
     {
         TreeNodePresentation presentation = DataSource!.GetPresentation(row.Id);
-        double indent = bounds.Left + 4 + (row.Depth * _indentWidth);
+
+        // Everything in the row moves together with the horizontal offset,
+        // including the expander, so a row indented four levels can be read
+        // when the pane is narrower than the path that got to it.
+        double indent = bounds.Left + 4 + (row.Depth * _indentWidth) - _horizontalOffset;
 
         if (Selection.Contains(row.Id))
         {
@@ -249,6 +283,13 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         }
 
         RenderDecoration(list, presentation.Decoration, textLeft + advance + 8, top, firstLine);
+
+        // What this row would need to be read in full, learnt while it is being
+        // measured to draw anyway. See _widestRow for why it is a running
+        // maximum over the rows on screen rather than over all of them.
+        double needed = textLeft + advance + 24 + _horizontalOffset - bounds.Left;
+        if (needed > _widestRow)
+            _widestRow = needed;
     }
 
     /// <summary>
@@ -316,10 +357,12 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         if (_rowHeight <= 0)
             return -1;
 
-        // A point on the scrollbar is on no row. Without this a caller that
-        // asks directly — rather than going through the press handler, which
-        // offers the bar the point first — would be told the row beside it.
-        if (_scrollbar.IsVisible && point.X >= _scrollbar.TrackBounds.Left)
+        // A point on either bar is on no row. Without this a caller that asks
+        // directly — rather than going through the press handler, which offers
+        // the bars the point first — would be told the row beside it.
+        if (_scrollbars.Vertical.IsVisible && point.X >= _scrollbars.Vertical.TrackBounds.Left)
+            return -1;
+        if (_scrollbars.Horizontal.IsVisible && point.Y >= _scrollbars.Horizontal.TrackBounds.Top)
             return -1;
 
         int offset = (int)Math.Floor((point.Y - Bounds.Top) / _rowHeight);
@@ -348,10 +391,10 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
 
         if (input.MouseButtonTransition == MouseButtonTransition.Up)
         {
-            if (!_scrollbar.IsDragging)
+            if (!_scrollbars.IsDragging)
                 return false;
 
-            _scrollbar.EndDrag();
+            _scrollbars.EndDrag();
             Session?.ReleaseInputCapture(this);
             return true;
         }
@@ -361,10 +404,10 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
 
         // Before the rows, so a press on the bar scrolls rather than selecting
         // whatever row happens to be beside it.
-        if (_scrollbar.TryPress(input.Position, ScrollOffset, out double pressed))
+        if (_scrollbars.TryPress(input.Position, ScrollOffset, out BPoint pressed))
         {
             ScrollTo(pressed);
-            if (_scrollbar.IsDragging)
+            if (_scrollbars.IsDragging)
                 Session?.CaptureInput(this);
             return true;
         }
@@ -376,8 +419,10 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         TreeRow row = Rows[index];
 
         // Clicking the expander toggles without changing the selection, which
-        // is what lets a user explore the tree without losing their place.
-        double expanderLeft = Bounds.Left + 4 + (row.Depth * _indentWidth);
+        // is what lets a user explore the tree without losing their place. The
+        // horizontal offset is subtracted because the expander is drawn with
+        // the row rather than pinned to the pane.
+        double expanderLeft = Bounds.Left + 4 + (row.Depth * _indentWidth) - _horizontalOffset;
         if (row.HasChildren && input.Position.X >= expanderLeft &&
             input.Position.X < expanderLeft + _indentWidth)
         {
@@ -443,7 +488,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
 
     private bool OnPointerMove(UiInputEvent input)
     {
-        if (!_scrollbar.TryDrag(input.Position, ScrollOffset, out double dragged))
+        if (!_scrollbars.TryDrag(input.Position, ScrollOffset, out BPoint dragged))
             return false;
 
         ScrollTo(dragged);
@@ -451,22 +496,52 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     }
 
     /// <summary>
-    /// Puts the scroll offset back into rows, which is the only unit this tree
-    /// scrolls in. A bar that moved half a row would draw the rows half out of
-    /// their own rectangles, and the hit test divides by a whole row.
+    /// Applies a scroll offset. The vertical half is put back into rows, which
+    /// is the only unit this tree scrolls in vertically: a bar that left it half
+    /// way down a row would draw every row half out of its own rectangle, and
+    /// the hit test divides by a whole one. Sideways there is no such unit, so
+    /// the offset is taken as it comes.
     /// </summary>
-    private void ScrollTo(double offset)
+    private void ScrollTo(BPoint offset)
     {
-        if (_rowHeight <= 0)
-            return;
+        _horizontalOffset = Math.Clamp(offset.X, 0, _scrollbars.Horizontal.MaximumOffset);
+        if (_rowHeight > 0)
+            FirstVisibleRow = (int)Math.Round(offset.Y / _rowHeight);
 
-        FirstVisibleRow = (int)Math.Round(offset / _rowHeight);
+        Invalidate(UiInvalidationKind.Render);
     }
 
+    /// <summary>
+    /// The wheel scrolls rows, and sideways with Shift held or on a wheel that
+    /// tilts — the convention every editor and browser shares, and the only way
+    /// to reach a wide row on a mouse that has one wheel.
+    /// </summary>
     private bool OnWheel(UiInputEvent input)
     {
-        if (input.WheelAxis != MouseWheelAxis.Vertical)
-            return false;
+        bool sideways = input.WheelAxis == MouseWheelAxis.Horizontal ||
+            input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+
+        if (sideways)
+        {
+            if (!_scrollbars.Horizontal.IsVisible)
+                return false;
+
+            // Against the notch, like the vertical case: a positive notch
+            // scrolls the content towards its start.
+            double moved = input.WheelDeltaNotches * _indentWidth * 3;
+            if (moved == 0)
+                return false;
+
+            // A wheel tilted right scrolls right; a wheel turned up with shift
+            // scrolls left, which is the same sign the vertical axis uses.
+            double next = input.WheelAxis == MouseWheelAxis.Horizontal
+                ? _horizontalOffset + moved
+                : _horizontalOffset - moved;
+
+            ScrollTo(new BPoint(next, ScrollOffset.Y));
+            return true;
+        }
+
         int lines = (int)Math.Round(input.WheelDeltaNotches * 3);
         if (lines == 0)
             return false;

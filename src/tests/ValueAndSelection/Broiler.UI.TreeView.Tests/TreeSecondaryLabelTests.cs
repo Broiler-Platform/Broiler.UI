@@ -125,6 +125,51 @@ public sealed class TreeSecondaryLabelTests
         Assert.True(scene.Tree.FirstVisibleRow > 0, "the press paged towards itself");
     }
 
+    /// <summary>
+    /// A row wider than the pane is a row whose answer cannot be read. Shift
+    /// and the wheel is the convention every editor shares, and the only way to
+    /// reach it on a mouse with one wheel.
+    /// </summary>
+    [Fact(Timeout = 600000)]
+    public void A_Row_Wider_Than_The_Pane_Can_Be_Scrolled_To()
+    {
+        var wide = new LabelledTreeSource();
+        wide.Add("/", "/" + new string('w', 200));
+
+        using TreeScene scene = TreeStandardHarness.Create(wide);
+
+        // Two frames: the first learns how wide the row is while drawing it,
+        // and the second is laid out knowing.
+        scene.Render();
+        scene.Render();
+
+        Assert.True(scene.Tree.HasHorizontalScrollbar);
+        Assert.True(
+            scene.Tree.ContentBounds.Height < scene.Tree.Bounds.Height,
+            "the bar takes its height from the rows");
+
+        BPoint over = scene.RowPoint(0);
+        scene.Route.Dispatch(TreeStandardHarness.MouseWheel(over.X, over.Y, -2, shift: true));
+        scene.Render();
+
+        BRenderList list = scene.Render();
+        double scrolled = Assert.Single(TextAt(list, new string('w', 200))).X;
+        Assert.True(scrolled < scene.Tree.Bounds.Left, "the row moved left, off its own start");
+    }
+
+    /// <summary>Without Shift the same wheel scrolls rows, not columns.</summary>
+    [Fact(Timeout = 600000)]
+    public void The_Plain_Wheel_Still_Scrolls_Rows()
+    {
+        using TreeScene scene = TreeStandardHarness.Create(Many());
+        scene.Render();
+
+        BPoint over = scene.RowPoint(0);
+        scene.Route.Dispatch(TreeStandardHarness.MouseWheel(over.X, over.Y, -2, shift: false));
+
+        Assert.True(scene.Tree.FirstVisibleRow > 0);
+    }
+
     private static LabelledTreeSource Many()
     {
         var source = new LabelledTreeSource();
