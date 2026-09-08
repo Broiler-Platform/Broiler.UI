@@ -59,8 +59,26 @@
        platform-neutral set; the -Linux and -Windows variants add the sample
        hosts for that platform and select the matching runtime identifier.
        MSBuild only understands Debug and Release on its own, so the compound
-       names are decomposed here into a base configuration and a target OS. -->
-  <PropertyGroup>
+       names are decomposed here into a base configuration and a target OS.
+
+       ONLY WHEN NOBODY HAS DECOMPOSED IT ALREADY, and the condition below is
+       what says so. A consumer that composes this repository has its own copy
+       of this mapping, and the Import at the top of this file has already run
+       it by the time we get here. Doing it again appended the constants a
+       second time:
+
+         Broiler.UI at Release-Windows
+           ;RELEASE;WINDOWS;RELEASE;WINDOWS;TRACE;RELEASE_WINDOWS
+
+       Two identical conditional symbols are harmless to the compiler, which is
+       why this survived: nothing failed, and the constants list simply read
+       differently here than in every sibling component. $(BroilerBaseConfiguration)
+       is the decomposition's own output, so testing it for empty asks exactly
+       the right question and needs no knowledge of what the consumer's copy is
+       called. Standalone builds - including this repository's own CI, which
+       builds Release-Linux and Release-Windows - import nothing above, so the
+       property is empty and this still runs and is still what maps them. -->
+  <PropertyGroup Condition="'$(BroilerBaseConfiguration)' == ''">
     <BroilerBaseConfiguration Condition="'$(Configuration)' == 'Debug-Linux' Or '$(Configuration)' == 'Debug-Windows'">Debug</BroilerBaseConfiguration>
     <BroilerBaseConfiguration Condition="'$(Configuration)' == 'Release-Linux' Or '$(Configuration)' == 'Release-Windows'">Release</BroilerBaseConfiguration>
     <BroilerTargetOperatingSystem Condition="'$(Configuration)' == 'Debug-Linux' Or '$(Configuration)' == 'Release-Linux'">Linux</BroilerTargetOperatingSystem>
