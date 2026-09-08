@@ -128,6 +128,25 @@ internal static class TreeStandardHarness
             MouseButtonTransition.Up,
             InputEventSource.Synthetic);
 
+    /// <summary>A move with the left button held, as a drag delivers one.</summary>
+    public static MouseMoveEvent MouseMove(double x, double y) =>
+        new(
+            Header("mouse"),
+            InputPoint.ClientDeviceIndependentPixels(x, y),
+            MouseButtons.Left,
+            InputEventSource.Synthetic);
+
+    /// <summary>A wheel notch over a point, optionally with Shift for the sideways axis.</summary>
+    public static MouseWheelEvent MouseWheel(double x, double y, double notches, bool shift = false) =>
+        new(
+            Header("mouse"),
+            InputPoint.ClientDeviceIndependentPixels(x, y),
+            MouseButtons.None,
+            MouseWheelAxis.Vertical,
+            notches,
+            InputEventSource.Synthetic,
+            shift ? InputModifiers.Shift : InputModifiers.None);
+
     public static KeyboardKeyEvent Key(string name) =>
         new(
             Header("keyboard"),

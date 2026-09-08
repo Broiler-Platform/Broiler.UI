@@ -16,6 +16,31 @@ namespace Broiler.UI.CodeEditor.Standard;
 public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedControl
 {
     private readonly StringBuilder _lineBuffer = new(256);
+
+    /// <summary>
+    /// The bar down the right-hand edge.
+    ///
+    /// The editor scrolls by whole lines, so the bar reads and writes
+    /// Viewport.FirstVisibleLine through the line height; it takes width from
+    /// the text and none of its height, which is why the visible line capacity
+    /// is unchanged by it.
+    /// </summary>
+    private readonly StandardScrollbars _scrollbars = new();
+
+    /// <summary>
+    /// The widest line seen so far, in characters, and the snapshot it was
+    /// learnt from.
+    ///
+    /// A running maximum over the lines actually rendered rather than a
+    /// measurement of the document: this editor paints the forty lines on
+    /// screen rather than the ten thousand it holds, and walking them all to
+    /// size a scrollbar would give back what that is for. So the extent grows
+    /// as a reader scrolls into longer lines — a bar that settles rather than
+    /// one that is wrong — and it starts again whenever the text changes.
+    /// </summary>
+    private int _widestColumns;
+    private int _measuredVersion = -1;
+    private int _caretShownFor = -1;
     private BFontStyle _font = new("monospace", 15);
     private double _characterAdvance = 8;
     private double _lineHeight = 18;
@@ -81,6 +106,7 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
     {
         ArgumentNullException.ThrowIfNull(tokens);
         Palette = StandardCodeEditorPalette.FromTokens(tokens);
+        _scrollbars.ApplyPaint(tokens.SurfaceDisabled, tokens.BorderStrong);
     }
 
     protected override BSize MeasureCore(BSize availableSize)
@@ -99,11 +125,63 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
     {
         base.ArrangeCore(finalRect);
 
+        EnsureMetrics();
+
+        if (_measuredVersion != Snapshot.Version)
+        {
+            _measuredVersion = Snapshot.Version;
+            _widestColumns = 0;
+        }
+
+        // The gutter is not scrolled — it stays pinned while the text moves
+        // under it — so the width the bar has to cover is the text's, plus the
+        // gutter it can never reach.
+        _scrollbars.Layout(
+            finalRect,
+            new BSize(
+                GutterWidth + 4 + ((_widestColumns + 1) * _characterAdvance),
+                Snapshot.LineCount * _lineHeight));
+
         // The viewport follows the arranged height so the renderer and the
-        // caret-visibility logic agree on what "on screen" means.
+        // caret-visibility logic agree on what "on screen" means. The bar takes
+        // width and no height, so the count of lines that fit is unchanged by
+        // it — which is the whole reason a vertical bar is cheap to add here.
         int capacity = VisibleLineCapacity;
         if (Viewport.VisibleLineCount != capacity)
             Viewport = Viewport with { VisibleLineCount = capacity };
+    }
+
+    /// <summary>Where the text goes: the control's bounds, less whichever bars are showing.</summary>
+    public BRect ContentBounds =>
+        _scrollbars.ContentBounds.IsEmpty ? Bounds : _scrollbars.ContentBounds;
+
+    /// <summary>True when the document is longer than the window onto it.</summary>
+    public bool HasVerticalScrollbar => _scrollbars.Vertical.IsVisible;
+
+    /// <summary>True when a line is wider than the window onto it.</summary>
+    public bool HasHorizontalScrollbar => _scrollbars.Horizontal.IsVisible;
+
+    /// <summary>How far the text is scrolled, in layout units.</summary>
+    internal BPoint ScrollOffset => new(Viewport.HorizontalOffset, Viewport.FirstVisibleLine * _lineHeight);
+
+    /// <summary>The bars, for the input half of this control.</summary>
+    internal StandardScrollbars Scrollbars => _scrollbars;
+
+    /// <summary>
+    /// Applies a scroll offset. The vertical half is put back into whole lines,
+    /// which is the only unit this editor scrolls in vertically; sideways there
+    /// is no such unit, so the offset is taken as it comes.
+    /// </summary>
+    internal void ScrollTo(BPoint offset)
+    {
+        if (_lineHeight <= 0)
+            return;
+
+        Viewport = Viewport with
+        {
+            FirstVisibleLine = (int)Math.Round(offset.Y / _lineHeight),
+            HorizontalOffset = Math.Clamp(offset.X, 0, _scrollbars.Horizontal.MaximumOffset),
+        };
     }
 
     protected override void RenderCore(UiRenderContext context)
@@ -121,17 +199,21 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
             return;
 
         double gutter = GutterWidth;
-        if (gutter > 0)
-            list.FillRect(new BRect(bounds.Left, bounds.Top, gutter, bounds.Height), palette.GutterBackground);
 
         int firstLine = Math.Clamp(Viewport.FirstVisibleLine, 0, Math.Max(0, snapshot.LineCount - 1));
         int lastLine = Math.Min(snapshot.LineCount - 1, firstLine + VisibleLineCapacity - 1);
         int caretLine = snapshot.GetLineFromPosition(CaretPosition);
         int tabSize = IndentPolicy.TabSize;
+        EnsureCaretColumnVisible(snapshot, tabSize);
         int? matchingBracket = FindMatchingBracket(CaretPosition);
 
         double textLeft = bounds.Left + gutter + 4;
-        list.PushClip(bounds);
+        BRect content = ContentBounds;
+
+        // The text is clipped to the right of the gutter, because it is the only
+        // half of a line that scrolls: a line pushed left has to disappear under
+        // the numbers rather than across them.
+        list.PushClip(BRect.FromLTRB(content.Left + gutter, content.Top, content.Right, content.Bottom));
         try
         {
             for (int line = firstLine; line <= lastLine; line++)
@@ -140,12 +222,98 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
                 RenderLine(
                     list, snapshot, palette, line, top, textLeft, bounds, gutter,
                     tabSize, line == caretLine, matchingBracket);
+
+                // What this line would need to be read in full, learnt from the
+                // lines being drawn anyway. See _widestColumns.
+                int columns = VisualWidth(snapshot, line, tabSize);
+                if (columns > _widestColumns)
+                    _widestColumns = columns;
             }
         }
         finally
         {
             list.PopClip();
         }
+
+        // The gutter after the text and pinned to the left edge: it does not
+        // scroll, and drawing it last is what makes it cover the line that
+        // scrolled under it.
+        if (gutter > 0)
+        {
+            list.FillRect(new BRect(bounds.Left, bounds.Top, gutter, content.Height), palette.GutterBackground);
+            list.PushClip(new BRect(bounds.Left, content.Top, gutter, content.Height));
+            try
+            {
+                for (int line = firstLine; line <= lastLine; line++)
+                {
+                    RenderGutter(
+                        list, palette, line, bounds.Top + ((line - firstLine) * _lineHeight),
+                        bounds, gutter, line == caretLine);
+                }
+            }
+            finally
+            {
+                list.PopClip();
+            }
+        }
+
+        // Outside every clip: the bars are beside the text, not in it.
+        _scrollbars.Render(list, ScrollOffset);
+    }
+
+    /// <summary>
+    /// Brings the caret's column into view when the caret has moved.
+    ///
+    /// Only when it has moved, which is the whole of the care needed here: run
+    /// unconditionally it would undo the reader's own horizontal scrolling on
+    /// the very next frame, snapping the view back to a caret they had
+    /// deliberately scrolled away from.
+    ///
+    /// The vertical half of this lives on <c>UiCodeEditor.EnsureCaretVisible</c>
+    /// and stays there. It can be written without knowing a font, because a line
+    /// is a line; a column is a measurement, and the abstraction has no
+    /// character advance to measure one with.
+    /// </summary>
+    private void EnsureCaretColumnVisible(ICodeTextSnapshot snapshot, int tabSize)
+    {
+        if (_caretShownFor == CaretPosition || _characterAdvance <= 0)
+            return;
+
+        _caretShownFor = CaretPosition;
+
+        int line = snapshot.GetLineFromPosition(CaretPosition);
+        int start = snapshot.GetLineStart(line);
+        int length = snapshot.GetLineLength(line);
+        int column = length <= 0
+            ? 0
+            : CodeLineLayout.VisualColumn(
+                snapshot.GetText(start, length), Math.Clamp(CaretPosition - start, 0, length), tabSize);
+
+        double caret = column * _characterAdvance;
+        double window = Math.Max(0, ContentBounds.Width - GutterWidth - 4);
+        double offset = Viewport.HorizontalOffset;
+
+        // One character of margin on each side, so a caret at the edge is a
+        // caret you can see the character before and after.
+        if (caret < offset + _characterAdvance)
+            offset = Math.Max(0, caret - _characterAdvance);
+        else if (caret > offset + window - (_characterAdvance * 2))
+            offset = caret - window + (_characterAdvance * 2);
+
+        if (offset != Viewport.HorizontalOffset)
+            Viewport = Viewport with { HorizontalOffset = Math.Max(0, offset) };
+    }
+
+    /// <summary>
+    /// A line's width in visual columns, which is its length once tabs are
+    /// expanded — the unit the text is laid out in, so the one the bar has to
+    /// size itself from.
+    /// </summary>
+    private static int VisualWidth(ICodeTextSnapshot snapshot, int line, int tabSize)
+    {
+        int start = snapshot.GetLineStart(line);
+        int length = snapshot.GetLineLength(line);
+        return length <= 0 ? 0 : CodeLineLayout.VisualColumn(snapshot.GetText(start, length), length, tabSize);
     }
 
     private void RenderLine(
@@ -177,9 +345,6 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
         }
 
         RenderSelection(list, palette, line, lineStart, lineLength, span, top, textLeft, tabSize);
-
-        if (gutter > 0)
-            RenderGutter(list, palette, line, top, bounds, gutter, isCaretLine);
 
         RenderClassifiedText(list, palette, line, span, top, textLeft, tabSize);
         RenderDiagnostics(list, palette, line, lineStart, span, top, textLeft, tabSize);

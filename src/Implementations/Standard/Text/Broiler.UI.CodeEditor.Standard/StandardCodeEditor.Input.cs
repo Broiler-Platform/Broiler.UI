@@ -84,6 +84,17 @@ public sealed partial class StandardCodeEditor
         if (input.MouseButtonTransition == MouseButtonTransition.Down)
         {
             HasFocus = true;
+
+            // Before the caret, so a press on the bar scrolls rather than
+            // putting the caret on whatever line happens to be beside it.
+            if (Scrollbars.TryPress(input.Position, ScrollOffset, out BPoint pressed))
+            {
+                ScrollTo(pressed);
+                if (Scrollbars.IsDragging)
+                    Session?.CaptureInput(this);
+                return true;
+            }
+
             int position = HitTest(input.Position);
             bool extend = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
             Selection = extend ? Selection with { Focus = position } : CodeSelection.Caret(position);
@@ -91,10 +102,20 @@ public sealed partial class StandardCodeEditor
             return true;
         }
 
-        if (input.MouseButtonTransition == MouseButtonTransition.Up && _isDragging)
+        if (input.MouseButtonTransition == MouseButtonTransition.Up)
         {
-            _isDragging = false;
-            return true;
+            if (Scrollbars.IsDragging)
+            {
+                Scrollbars.EndDrag();
+                Session?.ReleaseInputCapture(this);
+                return true;
+            }
+
+            if (_isDragging)
+            {
+                _isDragging = false;
+                return true;
+            }
         }
 
         return false;
@@ -102,6 +123,12 @@ public sealed partial class StandardCodeEditor
 
     private bool OnPointerMove(UiInputEvent input)
     {
+        if (Scrollbars.TryDrag(input.Position, ScrollOffset, out BPoint dragged))
+        {
+            ScrollTo(dragged);
+            return true;
+        }
+
         if (!_isDragging)
             return false;
         Selection = Selection with { Focus = HitTest(input.Position) };
@@ -109,10 +136,36 @@ public sealed partial class StandardCodeEditor
         return true;
     }
 
+    /// <summary>
+    /// The wheel scrolls lines, and columns with Shift held or on a wheel that
+    /// tilts — the convention every editor and browser shares, and the only way
+    /// to reach the end of a long line on a mouse that has one wheel.
+    /// </summary>
     private bool OnPointerWheel(UiInputEvent input)
     {
-        if (input.WheelAxis != MouseWheelAxis.Vertical)
-            return false;
+        bool sideways = input.WheelAxis == MouseWheelAxis.Horizontal ||
+            input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+
+        if (sideways)
+        {
+            if (!Scrollbars.Horizontal.IsVisible)
+                return false;
+
+            // Six characters per notch: a line is read in columns, and three of
+            // them is a rate that makes a reader work for the end of a long one.
+            double moved = input.WheelDeltaNotches * CharacterAdvance * 6;
+            if (moved == 0)
+                return false;
+
+            // A wheel tilted right scrolls right; a wheel turned up with shift
+            // scrolls left, which is the same sign the vertical axis uses.
+            double next = input.WheelAxis == MouseWheelAxis.Horizontal
+                ? Viewport.HorizontalOffset + moved
+                : Viewport.HorizontalOffset - moved;
+
+            ScrollTo(new BPoint(next, ScrollOffset.Y));
+            return true;
+        }
 
         // Three lines per notch, the conventional rate; the sign is inverted
         // because a positive notch scrolls the content up.
