@@ -128,6 +128,14 @@ internal static class TreeStandardHarness
             MouseButtonTransition.Up,
             InputEventSource.Synthetic);
 
+    /// <summary>A move with the left button held, as a drag delivers one.</summary>
+    public static MouseMoveEvent MouseMove(double x, double y) =>
+        new(
+            Header("mouse"),
+            InputPoint.ClientDeviceIndependentPixels(x, y),
+            MouseButtons.Left,
+            InputEventSource.Synthetic);
+
     public static KeyboardKeyEvent Key(string name) =>
         new(
             Header("keyboard"),

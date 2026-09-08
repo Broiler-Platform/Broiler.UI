@@ -43,6 +43,17 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     private UiTimestamp _lastClickTime;
     private TreeNodeId _lastClickRow = TreeNodeId.None;
 
+    /// <summary>
+    /// The bar down the right-hand edge, and the rectangle it leaves the rows.
+    ///
+    /// A tree that virtualizes has always known how much it was not showing —
+    /// Rows.Count against VisibleRowCapacity — and never said so. A pane that
+    /// scrolls with no bar on it looks like a pane that ends where the last row
+    /// does, which for the Solution Explorer of a real repository is wrong by
+    /// thousands of files.
+    /// </summary>
+    private readonly StandardVerticalScrollbar _scrollbar = new();
+
     public BFontStyle Font
     {
         get => _font;
@@ -94,6 +105,9 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         _warningColor = tokens.Warning;
         _informationColor = tokens.Info;
 
+        _scrollbar.Track = tokens.SurfaceDisabled;
+        _scrollbar.Thumb = tokens.BorderStrong;
+
         // A theme whose surface and text sit at the extremes is high contrast,
         // whatever it is called. There, decorations carry a glyph as well as a
         // colour so a row's state does not depend on hue.
@@ -115,10 +129,24 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     protected override void ArrangeCore(BRect finalRect)
     {
         base.ArrangeCore(finalRect);
-        VisibleRowCapacity = finalRect.Height <= 0
+
+        // The bar takes its width before the capacity is worked out, so the
+        // count is of rows that fit beside it rather than under it.
+        BRect content = _scrollbar.Layout(finalRect, Rows.Count * _rowHeight);
+        VisibleRowCapacity = content.Height <= 0
             ? 0
-            : Math.Max(1, (int)Math.Ceiling(finalRect.Height / _rowHeight));
+            : Math.Max(1, (int)Math.Ceiling(content.Height / _rowHeight));
     }
+
+    /// <summary>Where the rows go: the control's bounds, less the scrollbar.</summary>
+    public BRect ContentBounds =>
+        _scrollbar.ContentBounds.IsEmpty ? Bounds : _scrollbar.ContentBounds;
+
+    /// <summary>True when there are more rows than fit, so the bar is showing.</summary>
+    public bool HasVerticalScrollbar => _scrollbar.IsVisible;
+
+    /// <summary>How far down the rows are scrolled, in layout units.</summary>
+    private double ScrollOffset => FirstVisibleRow * _rowHeight;
 
     protected override void RenderCore(UiRenderContext context)
     {
@@ -134,16 +162,21 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         int last = Math.Min(rows.Count - 1, first + VisibleRowCapacity - 1);
         bool focused = Session?.FocusedElement == this;
 
-        list.PushClip(bounds);
+        BRect content = ContentBounds;
+        list.PushClip(content);
         try
         {
             for (int i = first; i <= last; i++)
-                RenderRow(list, rows[i], bounds, bounds.Top + ((i - first) * _rowHeight), focused);
+                RenderRow(list, rows[i], content, content.Top + ((i - first) * _rowHeight), focused);
         }
         finally
         {
             list.PopClip();
         }
+
+        // Outside the clip, because the bar is beside the rows rather than
+        // among them.
+        _scrollbar.Render(list, ScrollOffset);
     }
 
     private void RenderRow(BRenderList list, TreeRow row, BRect bounds, double top, bool viewFocused)
@@ -282,6 +315,13 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     {
         if (_rowHeight <= 0)
             return -1;
+
+        // A point on the scrollbar is on no row. Without this a caller that
+        // asks directly — rather than going through the press handler, which
+        // offers the bar the point first — would be told the row beside it.
+        if (_scrollbar.IsVisible && point.X >= _scrollbar.TrackBounds.Left)
+            return -1;
+
         int offset = (int)Math.Floor((point.Y - Bounds.Top) / _rowHeight);
         int index = FirstVisibleRow + offset;
         return index >= 0 && index < Rows.Count ? index : -1;
@@ -293,6 +333,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         return input.Kind switch
         {
             UiInputEventKind.PointerButton => OnPointerButton(input),
+            UiInputEventKind.PointerMove => OnPointerMove(input),
             UiInputEventKind.PointerWheel => OnWheel(input),
             UiInputEventKind.KeyboardKey => OnKey(input),
             UiInputEventKind.TextInput => OnTextInput(input),
@@ -302,10 +343,30 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
 
     private bool OnPointerButton(UiInputEvent input)
     {
-        if (input.MouseButton != MouseButton.Left ||
-            input.MouseButtonTransition != MouseButtonTransition.Down)
-        {
+        if (input.MouseButton != MouseButton.Left)
             return false;
+
+        if (input.MouseButtonTransition == MouseButtonTransition.Up)
+        {
+            if (!_scrollbar.IsDragging)
+                return false;
+
+            _scrollbar.EndDrag();
+            Session?.ReleaseInputCapture(this);
+            return true;
+        }
+
+        if (input.MouseButtonTransition != MouseButtonTransition.Down)
+            return false;
+
+        // Before the rows, so a press on the bar scrolls rather than selecting
+        // whatever row happens to be beside it.
+        if (_scrollbar.TryPress(input.Position, ScrollOffset, out double pressed))
+        {
+            ScrollTo(pressed);
+            if (_scrollbar.IsDragging)
+                Session?.CaptureInput(this);
+            return true;
         }
 
         int index = HitTestRow(input.Position);
@@ -378,6 +439,28 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
 
         TimeSpan delta = Session.Clock.Now.Elapsed - _lastClickTime.Elapsed;
         return delta >= TimeSpan.Zero && delta <= DoubleClickWindow;
+    }
+
+    private bool OnPointerMove(UiInputEvent input)
+    {
+        if (!_scrollbar.TryDrag(input.Position, ScrollOffset, out double dragged))
+            return false;
+
+        ScrollTo(dragged);
+        return true;
+    }
+
+    /// <summary>
+    /// Puts the scroll offset back into rows, which is the only unit this tree
+    /// scrolls in. A bar that moved half a row would draw the rows half out of
+    /// their own rectangles, and the hit test divides by a whole row.
+    /// </summary>
+    private void ScrollTo(double offset)
+    {
+        if (_rowHeight <= 0)
+            return;
+
+        FirstVisibleRow = (int)Math.Round(offset / _rowHeight);
     }
 
     private bool OnWheel(UiInputEvent input)

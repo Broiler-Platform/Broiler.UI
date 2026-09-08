@@ -66,6 +66,72 @@ public sealed class TreeSecondaryLabelTests
         Assert.Equal(1, scene.Tree.HitTestRow(scene.RowPoint(1)));
     }
 
+    /// <summary>
+    /// A tree that virtualizes has always known how much it was not showing and
+    /// never said so. A pane that scrolls with no bar on it looks like a pane
+    /// that ends where its last row does.
+    /// </summary>
+    [Fact(Timeout = 600000)]
+    public void The_Bar_Appears_Only_When_There_Are_More_Rows_Than_Fit()
+    {
+        var few = new LabelledTreeSource();
+        few.Add("/", "/alpha", "/beta");
+        using (TreeScene small = TreeStandardHarness.Create(few))
+        {
+            small.Render();
+            Assert.False(small.Tree.HasVerticalScrollbar);
+            Assert.Equal(small.Tree.Bounds.Width, small.Tree.ContentBounds.Width, 3);
+        }
+
+        using TreeScene scene = TreeStandardHarness.Create(Many());
+        scene.Render();
+
+        Assert.True(scene.Tree.HasVerticalScrollbar);
+        Assert.True(
+            scene.Tree.ContentBounds.Width < scene.Tree.Bounds.Width,
+            "the bar takes its width from the rows");
+    }
+
+    /// <summary>
+    /// Dragging the thumb scrolls, and lands on a whole row — the tree renders
+    /// and hit-tests by row, so a bar that left it half way down one would draw
+    /// every row half out of its own rectangle.
+    /// </summary>
+    [Fact(Timeout = 600000)]
+    public void Dragging_The_Thumb_Scrolls_The_Rows()
+    {
+        using TreeScene scene = TreeStandardHarness.Create(Many());
+        scene.Render();
+
+        double right = scene.Tree.Bounds.Right - 2;
+        scene.Route.Dispatch(TreeStandardHarness.MouseDown(right, scene.Tree.Bounds.Top + 4));
+        scene.Route.Dispatch(TreeStandardHarness.MouseMove(right, scene.Tree.Bounds.Bottom));
+        scene.Route.Dispatch(TreeStandardHarness.MouseUp(right, scene.Tree.Bounds.Bottom));
+
+        Assert.True(scene.Tree.FirstVisibleRow > 0, "the thumb dragged the rows down");
+        Assert.Equal(0, scene.Tree.FirstVisibleRow % 1);
+    }
+
+    /// <summary>A press on the bar scrolls; it does not select the row beside it.</summary>
+    [Fact(Timeout = 600000)]
+    public void A_Press_On_The_Bar_Selects_Nothing()
+    {
+        using TreeScene scene = TreeStandardHarness.Create(Many());
+        scene.Render();
+
+        scene.Click(new BPoint(scene.Tree.Bounds.Right - 2, scene.Tree.Bounds.Bottom - 10));
+
+        Assert.Empty(scene.Tree.Selection);
+        Assert.True(scene.Tree.FirstVisibleRow > 0, "the press paged towards itself");
+    }
+
+    private static LabelledTreeSource Many()
+    {
+        var source = new LabelledTreeSource();
+        source.Add("/", [.. Enumerable.Range(0, 200).Select(index => $"/row{index}")]);
+        return source;
+    }
+
     private static LabelledTreeSource Source()
     {
         var source = new LabelledTreeSource();

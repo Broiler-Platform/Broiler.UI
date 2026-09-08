@@ -16,6 +16,16 @@ namespace Broiler.UI.CodeEditor.Standard;
 public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedControl
 {
     private readonly StringBuilder _lineBuffer = new(256);
+
+    /// <summary>
+    /// The bar down the right-hand edge.
+    ///
+    /// The editor scrolls by whole lines, so the bar reads and writes
+    /// Viewport.FirstVisibleLine through the line height; it takes width from
+    /// the text and none of its height, which is why the visible line capacity
+    /// is unchanged by it.
+    /// </summary>
+    private readonly StandardVerticalScrollbar _scrollbar = new();
     private BFontStyle _font = new("monospace", 15);
     private double _characterAdvance = 8;
     private double _lineHeight = 18;
@@ -81,6 +91,8 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
     {
         ArgumentNullException.ThrowIfNull(tokens);
         Palette = StandardCodeEditorPalette.FromTokens(tokens);
+        _scrollbar.Track = tokens.SurfaceDisabled;
+        _scrollbar.Thumb = tokens.BorderStrong;
     }
 
     protected override BSize MeasureCore(BSize availableSize)
@@ -99,11 +111,41 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
     {
         base.ArrangeCore(finalRect);
 
+        EnsureMetrics();
+        _scrollbar.Layout(finalRect, Snapshot.LineCount * _lineHeight);
+
         // The viewport follows the arranged height so the renderer and the
-        // caret-visibility logic agree on what "on screen" means.
+        // caret-visibility logic agree on what "on screen" means. The bar takes
+        // width and no height, so the count of lines that fit is unchanged by
+        // it — which is the whole reason a vertical bar is cheap to add here.
         int capacity = VisibleLineCapacity;
         if (Viewport.VisibleLineCount != capacity)
             Viewport = Viewport with { VisibleLineCount = capacity };
+    }
+
+    /// <summary>Where the text goes: the control's bounds, less the scrollbar.</summary>
+    public BRect ContentBounds =>
+        _scrollbar.ContentBounds.IsEmpty ? Bounds : _scrollbar.ContentBounds;
+
+    /// <summary>True when the document is longer than the window onto it.</summary>
+    public bool HasVerticalScrollbar => _scrollbar.IsVisible;
+
+    /// <summary>How far down the text is scrolled, in layout units.</summary>
+    internal double ScrollOffset => Viewport.FirstVisibleLine * _lineHeight;
+
+    /// <summary>The bar, for the input half of this control.</summary>
+    internal StandardVerticalScrollbar Scrollbar => _scrollbar;
+
+    /// <summary>
+    /// Puts a scroll offset back into whole lines, which is the only unit this
+    /// editor scrolls in.
+    /// </summary>
+    internal void ScrollTo(double offset)
+    {
+        if (_lineHeight <= 0)
+            return;
+
+        Viewport = Viewport with { FirstVisibleLine = (int)Math.Round(offset / _lineHeight) };
     }
 
     protected override void RenderCore(UiRenderContext context)
@@ -131,7 +173,7 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
         int? matchingBracket = FindMatchingBracket(CaretPosition);
 
         double textLeft = bounds.Left + gutter + 4;
-        list.PushClip(bounds);
+        list.PushClip(ContentBounds);
         try
         {
             for (int line = firstLine; line <= lastLine; line++)
@@ -146,6 +188,9 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
         {
             list.PopClip();
         }
+
+        // Outside the clip: the bar is beside the text, not in it.
+        _scrollbar.Render(list, ScrollOffset);
     }
 
     private void RenderLine(

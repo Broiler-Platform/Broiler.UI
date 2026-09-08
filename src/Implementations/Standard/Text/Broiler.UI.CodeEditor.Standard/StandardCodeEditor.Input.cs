@@ -84,6 +84,17 @@ public sealed partial class StandardCodeEditor
         if (input.MouseButtonTransition == MouseButtonTransition.Down)
         {
             HasFocus = true;
+
+            // Before the caret, so a press on the bar scrolls rather than
+            // putting the caret on whatever line happens to be beside it.
+            if (Scrollbar.TryPress(input.Position, ScrollOffset, out double pressed))
+            {
+                ScrollTo(pressed);
+                if (Scrollbar.IsDragging)
+                    Session?.CaptureInput(this);
+                return true;
+            }
+
             int position = HitTest(input.Position);
             bool extend = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
             Selection = extend ? Selection with { Focus = position } : CodeSelection.Caret(position);
@@ -91,10 +102,20 @@ public sealed partial class StandardCodeEditor
             return true;
         }
 
-        if (input.MouseButtonTransition == MouseButtonTransition.Up && _isDragging)
+        if (input.MouseButtonTransition == MouseButtonTransition.Up)
         {
-            _isDragging = false;
-            return true;
+            if (Scrollbar.IsDragging)
+            {
+                Scrollbar.EndDrag();
+                Session?.ReleaseInputCapture(this);
+                return true;
+            }
+
+            if (_isDragging)
+            {
+                _isDragging = false;
+                return true;
+            }
         }
 
         return false;
@@ -102,6 +123,12 @@ public sealed partial class StandardCodeEditor
 
     private bool OnPointerMove(UiInputEvent input)
     {
+        if (Scrollbar.TryDrag(input.Position, ScrollOffset, out double dragged))
+        {
+            ScrollTo(dragged);
+            return true;
+        }
+
         if (!_isDragging)
             return false;
         Selection = Selection with { Focus = HitTest(input.Position) };
