@@ -29,14 +29,22 @@ public sealed class StandardLegacyGraphicsInputAdapter
             IsButtonHeld(input.Buttons, input.ChangedButton) ? MouseButtonTransition.Down : MouseButtonTransition.Up,
             InputEventSource.Synthetic));
 
+    // The delta crosses unchanged, and that is deliberate rather than an oversight.
+    // Both sides take the raw Win32 value: Direct2DWindow.DispatchMouseWheel computes
+    // SignedHighWord(wParam) / WHEEL_DELTA and hands it over for either axis, and
+    // WindowsMouseInputDevice.DispatchWheel - which is what decides what
+    // MouseWheelAxis means to a consumer - computes the same expression. Positive is
+    // away from the user vertically and to the right horizontally on both sides, so
+    // negating the horizontal delta here would introduce an inversion, not fix one.
     public UiInputEvent FromMouseWheel(BMouseWheelEventArgs input) =>
         UiInputEvent.FromMouseWheel(new MouseWheelEvent(
             NextHeader(),
             ToInputPoint(input.Position),
             ToMouseButtons(input.Buttons),
-            MouseWheelAxis.Vertical,
+            input.IsHorizontal ? MouseWheelAxis.Horizontal : MouseWheelAxis.Vertical,
             input.Delta,
-            InputEventSource.Synthetic));
+            InputEventSource.Synthetic,
+            ToInputModifiers(input)));
 
     public UiInputEvent FromKey(BKeyEventArgs input, KeyboardKeyTransition transition = KeyboardKeyTransition.Down) =>
         UiInputEvent.FromKeyboardKey(new KeyboardKeyEvent(
@@ -91,6 +99,25 @@ public sealed class StandardLegacyGraphicsInputAdapter
             modifiers |= KeyboardModifierState.Shift;
         if (input.Alt)
             modifiers |= KeyboardModifierState.Alt;
+        return modifiers;
+    }
+
+    // Separate from ToModifiers(BKeyEventArgs) because a keyboard event reports
+    // KeyboardModifierState and a pointer event reports the device-neutral
+    // InputModifiers. Shift is the one that earns its keep: shift with a wheel is how
+    // a one-wheel mouse scrolls sideways, and a consumer that never sees the flag
+    // cannot tell that gesture from a plain vertical scroll. Alt is forwarded for
+    // completeness - the Win32 wheel wParam has no Alt bit, so Direct2DWindow always
+    // reports it false, but another producer of these args may not.
+    private static InputModifiers ToInputModifiers(BMouseWheelEventArgs input)
+    {
+        InputModifiers modifiers = InputModifiers.None;
+        if (input.Control)
+            modifiers |= InputModifiers.Control;
+        if (input.Shift)
+            modifiers |= InputModifiers.Shift;
+        if (input.Alt)
+            modifiers |= InputModifiers.Alt;
         return modifiers;
     }
 
