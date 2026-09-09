@@ -172,6 +172,56 @@ public sealed class Phase2StandardServicesTests
     }
 
     [Fact(Timeout = 600000)]
+    public void Legacy_Graphics_Adapter_Routes_The_Wheel_Axis_And_Leaves_The_Sign_Alone()
+    {
+#pragma warning disable CS0618
+        var adapter = new StandardLegacyGraphicsInputAdapter();
+
+        UiInputEvent vertical = adapter.FromMouseWheel(
+            new BMouseWheelEventArgs(new BPoint(5, 6), 1.0, BMouseButtons.None));
+        UiInputEvent rightward = adapter.FromMouseWheel(
+            new BMouseWheelEventArgs(new BPoint(5, 6), 1.0, BMouseButtons.None, isHorizontal: true));
+        UiInputEvent leftward = adapter.FromMouseWheel(
+            new BMouseWheelEventArgs(new BPoint(5, 6), -1.0, BMouseButtons.None, isHorizontal: true));
+#pragma warning restore CS0618
+
+        Assert.Equal(MouseWheelAxis.Vertical, vertical.WheelAxis);
+        Assert.Equal(MouseWheelAxis.Horizontal, rightward.WheelAxis);
+        Assert.Equal(MouseWheelAxis.Horizontal, leftward.WheelAxis);
+
+        // The notch keeps its sign across the boundary. Both sides carry the raw
+        // Win32 value - positive is away from the user vertically and to the right
+        // horizontally - so negating the horizontal delta would introduce an
+        // inversion rather than correct one.
+        Assert.Equal(1.0, vertical.WheelDeltaNotches);
+        Assert.Equal(1.0, rightward.WheelDeltaNotches);
+        Assert.Equal(-1.0, leftward.WheelDeltaNotches);
+    }
+
+    [Fact(Timeout = 600000)]
+    public void Legacy_Graphics_Adapter_Carries_The_Wheel_Modifiers()
+    {
+#pragma warning disable CS0618
+        var adapter = new StandardLegacyGraphicsInputAdapter();
+
+        UiInputEvent plain = adapter.FromMouseWheel(
+            new BMouseWheelEventArgs(new BPoint(0, 0), 1.0, BMouseButtons.None));
+        UiInputEvent shifted = adapter.FromMouseWheel(
+            new BMouseWheelEventArgs(new BPoint(0, 0), 1.0, BMouseButtons.None, shift: true));
+        UiInputEvent chorded = adapter.FromMouseWheel(
+            new BMouseWheelEventArgs(new BPoint(0, 0), 1.0, BMouseButtons.None, control: true, shift: true, alt: true));
+#pragma warning restore CS0618
+
+        // Shift with a wheel is how a one-wheel mouse scrolls sideways, so a consumer
+        // that never sees the flag cannot tell that chord from a plain scroll.
+        Assert.Equal(KeyboardModifierState.None, plain.KeyModifiers);
+        Assert.Equal(KeyboardModifierState.Shift, shifted.KeyModifiers);
+        Assert.Equal(
+            KeyboardModifierState.Control | KeyboardModifierState.Shift | KeyboardModifierState.Alt,
+            chorded.KeyModifiers);
+    }
+
+    [Fact(Timeout = 600000)]
     public void Touch_And_Pen_Events_Preserve_Contact_Data_At_The_UI_Boundary()
     {
         UiInputEvent touch = UiInputEvent.FromTouchContact(CreateTouch(11, 12));
