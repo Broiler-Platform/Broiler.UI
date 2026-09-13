@@ -67,21 +67,6 @@ jobs:
         with:
           submodules: true
 
-      # Broiler.Graphics, Broiler.Input, and Broiler.Documents are consumed as
-      # project references, so nothing builds without them. Each of the two
-      # Graphics checkouts needs its own Broiler.Media for the image
-      # abstraction. Naming the nested submodules explicitly rather than using
-      # --recursive keeps the Media -> Graphics cycle from being walked, and
-      # leaves Broiler.Documents' unused Broiler.DOM submodule unfetched.
-      #
-      # All three lines are load-bearing: a missing project reference is only a
-      # restore *warning*, and the build then fails on the missing types.
-      - name: Initialise nested submodules
-        run: |
-          git -C Broiler.Graphics submodule update --init Broiler.Media
-          git -C Broiler.Documents submodule update --init Broiler.Graphics
-          git -C Broiler.Documents/Broiler.Graphics submodule update --init Broiler.Media
-
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
