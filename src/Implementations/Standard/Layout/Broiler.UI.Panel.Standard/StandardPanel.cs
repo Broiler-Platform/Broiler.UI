@@ -1,5 +1,7 @@
 using System;
 using Broiler.Graphics;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.Panel.Standard;
 

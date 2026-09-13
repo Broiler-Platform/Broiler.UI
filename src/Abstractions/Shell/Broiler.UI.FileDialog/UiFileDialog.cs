@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
 using Broiler.UI.Dialog;
 using Broiler.UI.Window;
 

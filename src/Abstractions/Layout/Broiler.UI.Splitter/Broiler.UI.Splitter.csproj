@@ -14,12 +14,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI\Broiler.UI.csproj" />
-    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Broiler.UI.Splitter.Standard" />
     <InternalsVisibleTo Include="Broiler.UI.Splitter.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.2" />
   </ItemGroup>
 
 </Project>

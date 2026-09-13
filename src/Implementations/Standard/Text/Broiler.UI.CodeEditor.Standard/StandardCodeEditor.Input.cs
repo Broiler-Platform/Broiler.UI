@@ -1,5 +1,6 @@
 using System;
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
 using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.Input.Text;

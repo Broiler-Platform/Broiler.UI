@@ -1,5 +1,7 @@
 using System;
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
 using Broiler.UI.Button.Standard;
 using Broiler.UI.Tooltip.Standard;
 using Broiler.UI.Window.Standard;

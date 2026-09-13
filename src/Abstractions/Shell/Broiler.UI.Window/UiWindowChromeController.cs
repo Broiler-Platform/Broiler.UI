@@ -1,5 +1,6 @@
 using System;
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
 using Broiler.Input.Mouse;
 
 namespace Broiler.UI.Window;

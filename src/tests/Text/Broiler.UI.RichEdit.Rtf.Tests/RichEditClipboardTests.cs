@@ -1,3 +1,5 @@
+using Broiler.Graphics.Color;
+
 namespace Broiler.UI.RichEdit.Rtf.Tests;
 
 /// <summary>A concrete <see cref="UiRichEdit"/> with no rendering — enough to exercise the adapter.</summary>

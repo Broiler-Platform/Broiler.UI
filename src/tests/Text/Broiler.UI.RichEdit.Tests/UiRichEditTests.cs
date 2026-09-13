@@ -1,4 +1,5 @@
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.RichEdit.Tests;
 

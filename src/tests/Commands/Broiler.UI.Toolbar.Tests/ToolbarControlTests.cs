@@ -1,4 +1,7 @@
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Windowing;
 using Broiler.Input;
 using Broiler.Input.Keyboard;
 using Broiler.UI.Button.Standard;

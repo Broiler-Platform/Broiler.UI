@@ -1,4 +1,7 @@
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
 using static Broiler.UI.RichEdit.Standard.Tests.RichEditStandardHarness;
 
 namespace Broiler.UI.RichEdit.Standard.Tests;

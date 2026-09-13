@@ -1,4 +1,6 @@
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
 
 namespace Broiler.UI;
 

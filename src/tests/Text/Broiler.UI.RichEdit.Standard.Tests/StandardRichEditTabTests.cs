@@ -1,4 +1,7 @@
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Windowing;
 using Broiler.Input.Keyboard;
 using static Broiler.UI.RichEdit.Standard.Tests.RichEditStandardHarness;
 

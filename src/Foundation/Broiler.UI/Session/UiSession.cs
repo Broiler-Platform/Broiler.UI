@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
 
 namespace Broiler.UI;
 

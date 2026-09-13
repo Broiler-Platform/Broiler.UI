@@ -1,4 +1,6 @@
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
 using Broiler.UI.Standard;
 
 namespace Broiler.UI.FormatCodeView.Standard.Tests;

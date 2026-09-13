@@ -5,8 +5,13 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
 using Broiler.Graphics.Linux;
 using Broiler.Graphics.Linux.OpenGL;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
 using Broiler.UI.Standard;
 
 namespace Broiler.UI.Linux.Demo;

@@ -1,4 +1,6 @@
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
 using Broiler.UI.Dialog.Standard;
 using Broiler.UI.FileDialog;
 using Broiler.UI.FileDialog.Standard;

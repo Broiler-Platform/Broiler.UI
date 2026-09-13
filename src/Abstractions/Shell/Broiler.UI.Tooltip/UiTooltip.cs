@@ -1,5 +1,6 @@
 using System;
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
 using Broiler.UI.Window;
 
 namespace Broiler.UI.Tooltip;

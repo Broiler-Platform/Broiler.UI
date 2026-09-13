@@ -20,9 +20,7 @@
     input, or platform dependency.
   -->
   <ItemGroup>
-    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.Model\Broiler.Documents.Model.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI\Broiler.UI.csproj" />
-    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
   <!--
@@ -35,6 +33,10 @@
     <InternalsVisibleTo Include="Broiler.UI.RichEdit.Tests" />
     <InternalsVisibleTo Include="Broiler.UI.RichEdit.Standard" />
     <InternalsVisibleTo Include="Broiler.UI.RichEdit.Standard.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Broiler.Documents.Model" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.2" />
   </ItemGroup>
 
 </Project>

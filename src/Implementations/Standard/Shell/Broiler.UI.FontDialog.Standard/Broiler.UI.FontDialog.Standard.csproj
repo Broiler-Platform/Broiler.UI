@@ -13,6 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\..\Abstractions\Shell\Broiler.UI.FontDialog\Broiler.UI.FontDialog.csproj" />
     <ProjectReference Include="..\..\Commands\Broiler.UI.Button.Standard\Broiler.UI.Button.Standard.csproj" />
     <ProjectReference Include="..\..\ValueAndSelection\Broiler.UI.ComboBox.Standard\Broiler.UI.ComboBox.Standard.csproj" />
@@ -20,7 +24,6 @@
     <ProjectReference Include="..\..\ValueAndSelection\Broiler.UI.SpinBox.Standard\Broiler.UI.SpinBox.Standard.csproj" />
     <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
     <ProjectReference Include="..\..\Commands\Broiler.UI.ToggleButton.Standard\Broiler.UI.ToggleButton.Standard.csproj" />
-    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
 </Project>

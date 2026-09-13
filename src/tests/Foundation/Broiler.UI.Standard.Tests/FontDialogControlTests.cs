@@ -1,4 +1,7 @@
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
 using Broiler.UI.FontDialog;
 using Broiler.UI.FontDialog.Standard;
 using Broiler.UI.Standard;

@@ -13,10 +13,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(BroilerDocumentsRoot)\src\Broiler.Documents.FormatCodes\Broiler.Documents.FormatCodes.csproj" />
+    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\..\Abstractions\Text\Broiler.UI.FormatCodeView\Broiler.UI.FormatCodeView.csproj" />
     <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
-    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
 </Project>

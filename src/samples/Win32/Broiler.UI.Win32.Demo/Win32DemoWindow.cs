@@ -41,6 +41,14 @@ using Broiler.UI.Tooltip.Standard;
 using Broiler.UI.Toolbar.Standard;
 using Broiler.UI.Window;
 using Broiler.UI.Window.Standard;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Resources;
+using Broiler.Graphics.Windowing;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
+using Broiler.Graphics.Imaging;
 
 namespace Broiler.UI.Win32.Demo;
 

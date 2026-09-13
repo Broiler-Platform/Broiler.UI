@@ -13,13 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input\Broiler.Input.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Pen\Broiler.Input.Pen.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Text\Broiler.Input.Text.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Touch\Broiler.Input.Touch.csproj" />
+    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Input" Version="0.1.0-preview.4" />
+    <PackageReference Include="Broiler.Input.Keyboard" Version="0.1.0-preview.4" />
+    <PackageReference Include="Broiler.Input.Mouse" Version="0.1.0-preview.4" />
+    <PackageReference Include="Broiler.Input.Pen" Version="0.1.0-preview.4" />
+    <PackageReference Include="Broiler.Input.Text" Version="0.1.0-preview.4" />
+    <PackageReference Include="Broiler.Input.Touch" Version="0.1.0-preview.4" />
   </ItemGroup>
 
 </Project>

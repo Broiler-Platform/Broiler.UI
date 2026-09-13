@@ -1,5 +1,10 @@
 using System;
 using Broiler.Graphics;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
+using Broiler.Graphics.Windowing;
 using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.UI.Button;

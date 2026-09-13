@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Threading;
 using Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
 using Broiler.Input;
 using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;

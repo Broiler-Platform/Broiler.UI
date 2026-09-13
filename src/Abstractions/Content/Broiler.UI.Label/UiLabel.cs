@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Broiler.Graphics;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Text;
 
 namespace Broiler.UI.Label;
 

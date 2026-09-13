@@ -4,6 +4,9 @@ using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.UI.Standard;
 using Broiler.UI.Splitter.Standard;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Windowing;
 
 namespace Broiler.UI.Splitter.Tests;
 

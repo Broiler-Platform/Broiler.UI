@@ -1,6 +1,9 @@
 using System;
 using Broiler.Documents.Model;
 using Broiler.Graphics;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Text;
 
 namespace Broiler.UI.RichEdit;
 

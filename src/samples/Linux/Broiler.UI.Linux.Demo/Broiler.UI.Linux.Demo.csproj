@@ -16,15 +16,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics\Broiler.Graphics.csproj" />
-    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics.Linux\Broiler.Graphics.Linux.csproj" />
-    <ProjectReference Include="$(BroilerGraphicsRoot)\src\Broiler.Graphics.Linux.OpenGL\Broiler.Graphics.Linux.OpenGL.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input\Broiler.Input.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Keyboard.Linux\Broiler.Input.Keyboard.Linux.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Linux\Broiler.Input.Linux.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse.Linux\Broiler.Input.Mouse.Linux.csproj" />
+    <PackageReference Include="Broiler.Graphics.Linux.OpenGL" Version="0.1.0-preview.3" />
+    <PackageReference Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Window.Standard\Broiler.UI.Window.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Content\Broiler.UI.Label.Standard\Broiler.UI.Label.Standard.csproj" />
