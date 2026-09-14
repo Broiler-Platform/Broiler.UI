@@ -14,6 +14,6 @@
     <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.3" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Abstractions\Shell\Broiler.UI.Dialog\Broiler.UI.Dialog.csproj" />
+    <ProjectReference Include="..\Broiler.UI.Dialog\Broiler.UI.Dialog.csproj" />
   </ItemGroup>
 </Project>
