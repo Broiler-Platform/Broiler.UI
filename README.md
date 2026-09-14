@@ -65,7 +65,7 @@ In GitHub Actions use `secrets.GITHUB_TOKEN` rather than a personal token.
 
 ## Packages
 
-58 packages, all `net10.0`. Every one ships XML documentation and a `.snupkg` symbol
+60 packages, all `net10.0`. Every one ships XML documentation and a `.snupkg` symbol
 package, and is built deterministically with SourceLink.
 
 | Package | Role |
@@ -79,7 +79,7 @@ Each control type ships as a contract package and a `.Standard` implementation
 
 | Family | Controls |
 | --- | --- |
-| Shell | `Window`, `Dialog`, `Tooltip`, `FileDialog`, `FontDialog` |
+| Shell | `Window`, `Dialog`, `AboutDialog`, `Tooltip`, `FileDialog`, `FontDialog` |
 | Layout | `Panel`, `ScrollView`, `Splitter`, `TabView` |
 | Content | `Label`, `ImageView`, `ProgressBar` |
 | Commands | `Button`, `ToggleButton`, `Toolbar`, `Menu` |
@@ -116,6 +116,26 @@ and fails the build on a platform-specific reference, a project in the wrong dir
 an implementation reference from an abstraction, or a native handle on a public surface.
 
 ## Windows, dialogs, and chrome
+
+`StandardAboutDialog` (in `Broiler.UI.AboutDialog.Standard`) displays application metadata
+and a scrollable list of loaded Broiler component versions. The galleries open it from
+**Help → About controls**. OK or Enter accepts; Escape cancels; the title-bar close button
+closes the dialog.
+
+```csharp
+var about = new StandardAboutDialog();
+about.ProductName = "My application";          // optional override
+await about.ShowModal(mainWindow);
+```
+
+The product name and version default to the entry assembly. Component versions are a
+snapshot of loaded `Broiler.*` assemblies, using informational version (including prerelease
+labels), then file version, then assembly version. Build metadata such as commit hashes is
+omitted. Unused dependencies are not loaded just to list their versions. For plugins or
+other libraries, call `PopulateFromAssemblies(productAssembly, componentAssemblies)` with
+an explicit assembly list, or assign `ComponentVersions`. Assigning a dictionary copies it;
+assign again after changing the source. Calling `PopulateFromAssemblies()` refreshes the
+defaults and replaces manual overrides.
 
 An owned window or a dialog **breaks out into its own native top-level window by
 default** — it is a real OS window the user can move onto another monitor and manage from

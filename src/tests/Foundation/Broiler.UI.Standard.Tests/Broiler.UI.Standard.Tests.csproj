@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.AboutDialog.Standard\Broiler.UI.AboutDialog.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Window.Standard\Broiler.UI.Window.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Dialog.Standard\Broiler.UI.Dialog.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.FileDialog.Standard\Broiler.UI.FileDialog.Standard.csproj" />

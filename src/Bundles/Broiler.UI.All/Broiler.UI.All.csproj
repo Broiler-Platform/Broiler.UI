@@ -30,6 +30,7 @@
     <ProjectReference Include="..\..\Abstractions\Layout\Broiler.UI.ScrollView\Broiler.UI.ScrollView.csproj" />
     <ProjectReference Include="..\..\Abstractions\Layout\Broiler.UI.Splitter\Broiler.UI.Splitter.csproj" />
     <ProjectReference Include="..\..\Abstractions\Layout\Broiler.UI.TabView\Broiler.UI.TabView.csproj" />
+    <ProjectReference Include="..\..\Abstractions\Shell\Broiler.UI.AboutDialog\Broiler.UI.AboutDialog.csproj" />
     <ProjectReference Include="..\..\Abstractions\Shell\Broiler.UI.Dialog\Broiler.UI.Dialog.csproj" />
     <ProjectReference Include="..\..\Abstractions\Shell\Broiler.UI.FileDialog\Broiler.UI.FileDialog.csproj" />
     <ProjectReference Include="..\..\Abstractions\Shell\Broiler.UI.FontDialog\Broiler.UI.FontDialog.csproj" />
@@ -59,6 +60,7 @@
     <ProjectReference Include="..\..\Implementations\Standard\Layout\Broiler.UI.ScrollView.Standard\Broiler.UI.ScrollView.Standard.csproj" />
     <ProjectReference Include="..\..\Implementations\Standard\Layout\Broiler.UI.Splitter.Standard\Broiler.UI.Splitter.Standard.csproj" />
     <ProjectReference Include="..\..\Implementations\Standard\Layout\Broiler.UI.TabView.Standard\Broiler.UI.TabView.Standard.csproj" />
+    <ProjectReference Include="..\..\Implementations\Standard\Shell\Broiler.UI.AboutDialog.Standard\Broiler.UI.AboutDialog.Standard.csproj" />
     <ProjectReference Include="..\..\Implementations\Standard\Shell\Broiler.UI.Dialog.Standard\Broiler.UI.Dialog.Standard.csproj" />
     <ProjectReference Include="..\..\Implementations\Standard\Shell\Broiler.UI.FileDialog.Standard\Broiler.UI.FileDialog.Standard.csproj" />
     <ProjectReference Include="..\..\Implementations\Standard\Shell\Broiler.UI.FontDialog.Standard\Broiler.UI.FontDialog.Standard.csproj" />

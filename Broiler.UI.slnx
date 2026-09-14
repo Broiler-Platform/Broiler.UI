@@ -124,6 +124,12 @@
       <BuildType Project="Debug" Solution="Debug-Windows|*" />
       <BuildType Project="Release" Solution="Release-Windows|*" />
     </Project>
+    <Project Path="src/Abstractions/Shell/Broiler.UI.AboutDialog/Broiler.UI.AboutDialog.csproj">
+      <BuildType Project="Debug" Solution="Debug-Linux|*" />
+      <BuildType Project="Release" Solution="Release-Linux|*" />
+      <BuildType Project="Debug" Solution="Debug-Windows|*" />
+      <BuildType Project="Release" Solution="Release-Windows|*" />
+    </Project>
     <Project Path="src/Abstractions/Shell/Broiler.UI.FontDialog/Broiler.UI.FontDialog.csproj">
       <BuildType Project="Debug" Solution="Debug-Linux|*" />
       <BuildType Project="Release" Solution="Release-Linux|*" />
@@ -293,6 +299,12 @@
       <BuildType Project="Release" Solution="Release-Windows|*" />
     </Project>
     <Project Path="src/Implementations/Standard/Shell/Broiler.UI.FileDialog.Standard/Broiler.UI.FileDialog.Standard.csproj">
+      <BuildType Project="Debug" Solution="Debug-Linux|*" />
+      <BuildType Project="Release" Solution="Release-Linux|*" />
+      <BuildType Project="Debug" Solution="Debug-Windows|*" />
+      <BuildType Project="Release" Solution="Release-Windows|*" />
+    </Project>
+    <Project Path="src/Implementations/Standard/Shell/Broiler.UI.AboutDialog.Standard/Broiler.UI.AboutDialog.Standard.csproj">
       <BuildType Project="Debug" Solution="Debug-Linux|*" />
       <BuildType Project="Release" Solution="Release-Linux|*" />
       <BuildType Project="Debug" Solution="Debug-Windows|*" />

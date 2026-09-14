@@ -1,3 +1,4 @@
+using Broiler.UI.AboutDialog.Standard;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -465,7 +466,13 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         comboBox.SelectionChanged += (_, _) => SetStatus("ComboBox selected: " + (comboBoxControl.SelectedItem?.Text ?? "<none>"));
         listView.SelectionChanged += (_, _) => SetStatus("ListView selected: " + (listViewControl.SelectedItemId ?? "<none>"));
         tabView.SelectionChanged += (_, _) => SetStatus("TabView selected: " + (tabViewControl.SelectedTab?.Header ?? "<none>"));
-        menu.ItemInvoked += (_, e) => SetStatus("Menu invoked: " + e.Item.Text);
+        menu.ItemInvoked += (_, e) =>
+        {
+            if (e.Item.Id == "about")
+                ShowAboutDialog();
+            else
+                SetStatus("Menu invoked: " + e.Item.Text);
+        };
 
         var gallery = new GalleryContent(
             menu,
@@ -738,6 +745,20 @@ internal sealed class Win32DemoWindow : Direct2DWindow
     {
         if (radio.IsChecked)
             SetStatus("RadioButton selected: " + name);
+    }
+
+    private void ShowAboutDialog()
+    {
+        if (_rootWindow.IsDisposed || _rootWindow.IsClosed)
+            return;
+
+        var dialog = new StandardAboutDialog { ProductName = "Broiler.UI Control Gallery" };
+        BSize viewport = _host.ViewportSize;
+        double width = Math.Min(dialog.PreferredSize.Width, Math.Max(0, viewport.Width - 32));
+        double height = Math.Min(dialog.PreferredSize.Height, Math.Max(0, viewport.Height - 32));
+        _ = dialog.ShowModal(_rootWindow, new BRect(
+            Math.Max(0, (viewport.Width - width) / 2),
+            Math.Max(0, (viewport.Height - height) / 2), width, height));
     }
 
     private void ShowDialog()

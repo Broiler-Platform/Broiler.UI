@@ -1,141 +1,167 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Broiler.Graphics;
+using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
-using Broiler.UI.Dialog;
+using Broiler.Graphics.Text;
+using Broiler.Graphics.Windowing;
+using Broiler.Input.Keyboard;
+using Broiler.UI.Button.Standard;
+using Broiler.UI.Label.Standard;
 using Broiler.UI.ListView;
-using Broiler.UI.Button;
+using Broiler.UI.ListView.Standard;
+using Broiler.UI.Standard;
 using Broiler.UI.Window;
 
 namespace Broiler.UI.AboutDialog.Standard;
 
-/// <summary>
-/// Standard implementation of an About dialog. Displays the product name, version, and a list of component versions.
-/// </summary>
+/// <summary>A themed About dialog with a scrollable version list and an OK action.</summary>
 public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
 {
-    // UI elements
+    private readonly UiWindowChromeController _chrome;
     private readonly StandardLabel _titleLabel;
     private readonly StandardLabel _productLabel;
+    private readonly StandardLabel _componentsLabel;
     private readonly StandardListView _componentList;
     private readonly StandardButton _okButton;
 
-    // Layout bounds (computed during Arrange)
-    private BRect _titleBounds;
-    private BRect _productBounds;
-    private BRect _listBounds;
-    private BRect _okButtonBounds;
-
-    // Theming properties (exposed via IStandardThemedControl)
-    public BColor Background { get; set; } = StandardControlPaint.Surface;
-    public BColor TitleForeground { get; set; } = StandardControlPaint.Text;
-    public BColor TextForeground { get; set; } = StandardControlPaint.Text;
-    public BColor BorderColor { get; set; } = StandardControlPaint.Border;
-
     public StandardAboutDialog()
     {
-        // Default sizing – the dialog can be resized but we provide a reasonable preferred size.
-        PreferredSize = new BSize(460, 320);
-        MinimumSize = new BSize(380, 260);
-        CanResize = true;
-
-        // Title label (shows "About <ProductName>")
-        _titleLabel = new StandardLabel { PreferredSize = new BSize(0, 30) };
-        // Product label (shows "Version: X.Y.Z")
-        _productLabel = new StandardLabel { PreferredSize = new BSize(0, 24) };
-        // Component list – two columns: component name and version.
-        _componentList = new StandardListView
-        {
-            PreferredSize = new BSize(0, 180),
-            ItemHeight = 22,
-            ColumnHeaders = new[] { "Component", "Version" },
-            // The concrete UI will be populated in SyncContent().
-        };
-        // OK button to close the dialog.
+        _chrome = new UiWindowChromeController(this) { Metrics = UiWindowChromeMetrics.Compact };
+        _titleLabel = new StandardLabel { Font = BFontStyle.Default with { Size = 18, Weight = BFontWeight.SemiBold } };
+        _productLabel = new StandardLabel();
+        _componentsLabel = new StandardLabel();
+        _componentList = new StandardListView { ItemHeight = 24, CornerRadius = 0 };
         _okButton = new StandardButton
         {
             Text = "OK",
             IsDefault = true,
             PreferredSize = new BSize(80, 30),
+            PaddingY = 5,
         };
-
-        // Hook up OK button.
         _okButton.Clicked += (_, _) => Accept();
-
-        // Add children to the dialog hierarchy.
         AddChild(_titleLabel);
         AddChild(_productLabel);
+        AddChild(_componentsLabel);
         AddChild(_componentList);
         AddChild(_okButton);
+
+        // Capture after creating the controls so their assemblies are included too.
+        PopulateFromAssemblies();
     }
 
-    // Refresh UI whenever any of the public properties change.
-    public override void Invalidate(UiInvalidationKind kind = UiInvalidationKind.Render)
+    public BSize PreferredSize { get; set; } = new(620, 380);
+    public BColor Background { get; set; } = StandardControlPaint.Surface;
+    public BColor TitleBarBackground { get; set; } = StandardControlPaint.SurfaceAlt;
+    public BColor TitleForeground { get; set; } = StandardControlPaint.Text;
+    public BColor TextForeground { get; set; } = StandardControlPaint.Text;
+    public BColor BorderColor { get; set; } = StandardControlPaint.Border;
+    public StandardButton OkButton => _okButton;
+    public StandardListView ComponentList => _componentList;
+    public UiWindowChromeLayout ChromeLayout => _chrome.Layout;
+
+    public void ApplyTheme(StandardThemeTokens theme)
     {
-        base.Invalidate(kind);
-        if ((kind & UiInvalidationKind.Render) != 0)
-            SyncContent();
+        Background = theme.Surface;
+        TitleBarBackground = theme.SurfaceAlt;
+        TitleForeground = theme.Text;
+        TextForeground = theme.Text;
+        BorderColor = theme.Border;
+        foreach (IStandardThemedControl child in Children.OfType<IStandardThemedControl>())
+            child.ApplyTheme(theme);
+        Invalidate(UiInvalidationKind.Render);
     }
 
-    private void SyncContent()
+    protected override void OnContentChanged()
     {
-        // Title combines static word "About" with the product name.
-        _titleLabel.Text = $"About {ProductName}";
-        _titleLabel.Foreground = TitleForeground;
-
-        _productLabel.Text = $"Version: {ProductVersion}";
-        _productLabel.Foreground = TextForeground;
-
-        // Build list items from the component dictionary.
-        var items = ComponentVersions.Select(kv => new UiListViewItem(kv.Key, kv.Value)).ToArray();
-        _componentList.SetItems(items);
-        _componentList.Foreground = TextForeground;
-        _componentList.BorderColor = BorderColor;
+        _titleLabel.Text = string.IsNullOrWhiteSpace(ProductName) ? "About" : $"About {ProductName}";
+        _productLabel.Text = string.IsNullOrWhiteSpace(ProductVersion) ? "Version: Unknown" : $"Version: {ProductVersion}";
+        _componentsLabel.Text = ComponentVersions.Count == 0 ? "No component version information available." : "Component versions";
+        _componentList.SetItems(ComponentVersions.Select(component =>
+            new UiListItem(component.Key, $"{component.Key}  —  {component.Value}")));
     }
 
-    // Measure the dialog – use children measurements and compute desired size.
     protected override BSize MeasureCore(BSize availableSize)
     {
-        // Allow children to measure with unlimited space (they will size themselves).
         foreach (UiElement child in Children)
             child.Measure(availableSize);
-
-        // Desired size is the preferred size respecting the available space.
-        return new BSize(
-            ClampDesired(PreferredSize.Width, availableSize.Width),
-            ClampDesired(PreferredSize.Height, availableSize.Height));
+        return new BSize(ClampDesired(PreferredSize.Width, availableSize.Width), ClampDesired(PreferredSize.Height, availableSize.Height));
     }
 
-    // Arrange children within the final rectangle.
     protected override void ArrangeCore(BRect finalRect)
     {
-        // Compute layout constants.
-        double padding = 12;
-        double gap = 8;
-        double buttonHeight = 30;
-        double titleHeight = 30;
-        double productHeight = 24;
-        double listTop = finalRect.Top + padding + titleHeight + gap + productHeight + gap;
-        double listHeight = Math.Max(0, finalRect.Height - padding * 2 - titleHeight - productHeight - buttonHeight - gap * 4);
+        if (Session is not null)
+            BindViewport(new UiViewportBinding(finalRect.Size, Session.Host.Scale));
+        BRect client = StandardControlPaint.Inset(_chrome.UpdateLayout(finalRect).Content, 12);
+        double buttonHeight = Math.Min(30, client.Height);
+        double buttonWidth = Math.Min(80, client.Width);
+        double buttonTop = client.Bottom - buttonHeight;
+        _okButton.Arrange(new BRect(client.Right - buttonWidth, buttonTop, buttonWidth, buttonHeight));
 
-        _titleBounds = new BRect(finalRect.Left + padding, finalRect.Top + padding, finalRect.Width - padding * 2, titleHeight);
-        _productBounds = new BRect(finalRect.Left + padding, _titleBounds.Bottom + gap, finalRect.Width - padding * 2, productHeight);
-        _listBounds = new BRect(finalRect.Left + padding, listTop, finalRect.Width - padding * 2, listHeight);
-        _okButtonBounds = new BRect(finalRect.Right - padding - _okButton.PreferredSize.Width, finalRect.Bottom - padding - buttonHeight, _okButton.PreferredSize.Width, buttonHeight);
+        // Reserve the action row first so dismissal stays reachable in a small host viewport.
+        double contentBottom = Math.Max(client.Top, buttonTop - 8);
+        double top = client.Top;
+        ArrangeLabel(_titleLabel, 30);
+        ArrangeLabel(_productLabel, 24);
+        ArrangeLabel(_componentsLabel, 22);
+        _componentList.Arrange(new BRect(client.Left, top, client.Width, Math.Max(0, contentBottom - top)));
 
-        _titleLabel.Arrange(_titleBounds);
-        _productLabel.Arrange(_productBounds);
-        _componentList.Arrange(_listBounds);
-        _okButton.Arrange(_okButtonBounds);
+        void ArrangeLabel(StandardLabel label, double desiredHeight)
+        {
+            double height = Math.Min(desiredHeight, Math.Max(0, contentBottom - top));
+            label.Arrange(new BRect(client.Left, top, client.Width, height));
+            top = Math.Min(contentBottom, top + height + 8);
+        }
     }
 
-    // Rendering – simply delegate to children; background filled here.
-    protected override void RenderCore(UiRenderContext ctx)
+    protected override void RenderCore(UiRenderContext context)
     {
-        // Fill background.
-        ctx.Renderer.FillRectangle(Background, BRect.Empty);
-        // Children render themselves automatically after this call.
-        base.RenderCore(ctx);
+        double radius = IsBrokenOut ? 0 : 8;
+        StandardControlPaint.FillRounded(context.RenderList, Bounds, Background, radius);
+        UiWindowChromeLayout layout = _chrome.Layout;
+        if (layout.IsVisible)
+        {
+            StandardWindowChromePaint.FillTitleBar(context.RenderList, layout.TitleBar, TitleBarBackground, radius);
+            if (Icon is not null)
+                StandardWindowChromePaint.DrawIcon(context.RenderList, layout.Icon, Icon.Image);
+            StandardWindowChromePaint.DrawTitleText(context.RenderList, layout.Title, Title, BFontStyle.Default, TitleForeground);
+            StandardWindowChromePaint.DrawButton(context.RenderList, layout.CloseButton, StandardWindowChromeGlyph.Close,
+                _chrome.HotPart == UiWindowChromePart.Close, _chrome.PressedPart == UiWindowChromePart.Close, TitleForeground);
+        }
+        _titleLabel.Foreground = TitleForeground;
+        _productLabel.Foreground = TextForeground;
+        _componentsLabel.Foreground = TextForeground;
+        _componentList.Foreground = TextForeground;
+        _componentList.BorderColor = BorderColor;
+        base.RenderCore(context);
+        StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, radius, 1);
     }
+
+    protected override bool OnInput(UiInputEvent input)
+    {
+        if (_chrome.HandleInput(input) || base.OnInput(input))
+            return true;
+        if (input.Kind != UiInputEventKind.KeyboardKey || input.KeyTransition != KeyboardKeyTransition.Down)
+            return false;
+        if (IsKey(input, BVirtualKey.Escape, "Escape"))
+            return Cancel();
+        if (IsKey(input, BVirtualKey.Enter, "Enter"))
+        {
+            if (!_okButton.IsEnabled)
+                return false;
+            _okButton.Click();
+            return true;
+        }
+        return false;
+    }
+
+    protected override bool HitTestMoveGrip(BPoint position) =>
+        _chrome.Layout.HitTest(position) == UiWindowChromePart.TitleBar;
+
+    private static bool IsKey(UiInputEvent input, int code, string name) =>
+        input.NativeKeyCode == code || string.Equals(input.KeyName, name, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(input.KeyName, "VirtualKey:" + code.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+
+    private static double ClampDesired(double desired, double available) =>
+        double.IsInfinity(available) ? desired : Math.Min(desired, Math.Max(0, available));
 }
