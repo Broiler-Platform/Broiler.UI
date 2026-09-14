@@ -18,6 +18,8 @@
   </Folder>
   <Folder Name="/solution items/eng/">
     <File Path="eng/Broiler.Packaging.props" />
+    <File Path="eng/Broiler.Dependencies.props" />
+    <File Path="src/tests/Directory.Build.props" />
   </Folder>
   <Folder Name="/solution items/docs/">
     <File Path="docs/roadmap.md" />
@@ -494,12 +496,8 @@
       <Build Project="false" Solution="Debug-Linux|*" />
       <Build Project="false" Solution="Release-Linux|*" />
     </Project>
-    <Project Path="src/samples/WebAssembly/Broiler.UI.WebAssembly.Demo/Broiler.UI.WebAssembly.Demo.csproj">
-      <BuildType Project="Debug" Solution="Debug-Linux|*" />
-      <BuildType Project="Release" Solution="Release-Linux|*" />
-      <BuildType Project="Debug" Solution="Debug-Windows|*" />
-      <BuildType Project="Release" Solution="Release-Windows|*" />
-    </Project>
+    <!-- The browser demo has its own solution and still needs the Graphics source
+         backend/replay module. It is not part of package-based CI. -->
     <Project Path="src/samples/Win32/Broiler.UI.Win32.Demo/Broiler.UI.Win32.Demo.csproj">
       <BuildType Project="Debug" Solution="Debug-Linux|*" />
       <BuildType Project="Release" Solution="Release-Linux|*" />

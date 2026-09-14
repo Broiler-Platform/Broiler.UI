@@ -1,4 +1,4 @@
-﻿using System.Xml.Linq;
+using System.Xml.Linq;
 using System.Reflection;
 
 namespace Broiler.UI.Standard.Tests;
@@ -7,12 +7,6 @@ public sealed class StandardArchitectureTests
 {
     private static readonly string[] ExpectedReferences =
     [
-        "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Keyboard/Broiler.Input.Keyboard.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Mouse/Broiler.Input.Mouse.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Pen/Broiler.Input.Pen.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Text/Broiler.Input.Text.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Touch/Broiler.Input.Touch.csproj",
         "../Broiler.UI/Broiler.UI.csproj",
     ];
 
@@ -23,7 +17,9 @@ public sealed class StandardArchitectureTests
         XDocument project = XDocument.Load(projectPath);
 
         Assert.Equal("net10.0", project.Descendants("TargetFramework").Single().Value);
-        Assert.Empty(project.Descendants("PackageReference"));
+        Assert.Equal(new[] { "Broiler.Graphics" }, project.Descendants("PackageReference")
+            .Select(reference => (string?)reference.Attribute("Include"))
+            .OrderBy(reference => reference, StringComparer.Ordinal));
 
         string[] references = project
             .Descendants("ProjectReference")

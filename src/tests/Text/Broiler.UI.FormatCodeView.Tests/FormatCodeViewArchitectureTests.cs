@@ -13,12 +13,12 @@ public sealed class FormatCodeViewArchitectureTests
 
         Assert.Equal(
         [
-            "$(BroilerDocumentsRoot)/src/Broiler.Documents.FormatCodes/Broiler.Documents.FormatCodes.csproj",
-            "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
             "../../../Foundation/Broiler.UI/Broiler.UI.csproj",
         ],
             references);
-        Assert.Empty(project.Descendants("PackageReference"));
+        Assert.Equal(new[] { "Broiler.Documents.FormatCodes", "Broiler.Graphics" }, project.Descendants("PackageReference")
+            .Select(reference => (string?)reference.Attribute("Include"))
+            .OrderBy(reference => reference, StringComparer.Ordinal));
         Assert.DoesNotContain(references, reference =>
             reference.Contains("Standard", StringComparison.Ordinal) ||
             reference.Contains("DOM", StringComparison.OrdinalIgnoreCase) ||

@@ -16,10 +16,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.3" />
-    <PackageReference Include="Broiler.Graphics.Windows" Version="0.1.0-preview.3" />
-    <PackageReference Include="Broiler.Input.Camera.Windows" Version="0.1.0-preview.2" />
-    <PackageReference Include="Broiler.Input.Microphone.Windows" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Graphics" Version="$(BroilerSampleGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Graphics.Windows" Version="$(BroilerSampleGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Input.Camera.Windows" Version="$(BroilerSampleInputPackageVersion)" />
+    <PackageReference Include="Broiler.Input.Microphone.Windows" Version="$(BroilerSampleInputPackageVersion)" />
   </ItemGroup>
 
   <ItemGroup>

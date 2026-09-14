@@ -1,6 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
 
   <PropertyGroup>
+    <!-- This standalone source demo needs local backend checkouts until the
+         browser backend and its replay module are available as a package. -->
+    <BroilerGraphicsRoot Condition="'$(BroilerGraphicsRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\Broiler.Graphics</BroilerGraphicsRoot>
+    <BroilerInputRoot Condition="'$(BroilerInputRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\Broiler.Input</BroilerInputRoot>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>

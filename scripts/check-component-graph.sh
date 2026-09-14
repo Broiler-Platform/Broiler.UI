@@ -1,47 +1,10 @@
 #!/usr/bin/env bash
-#
-# Fails when one build graph produces two assemblies of the same name.
-#
-# This repository vendors Broiler.Graphics, Broiler.Input and Broiler.Documents so
-# it builds standalone, and those carry vendored copies of their own: Broiler.Media
-# and Broiler.Input beneath Broiler.Graphics, and Broiler.Graphics and Broiler.DOM
-# beneath Broiler.Documents. So the same component is present in this tree more than
-# once, and the graph is supposed to collapse each to one checkout through the
-# $(BroilerGraphicsRoot), $(BroilerMediaRoot) and $(BroilerInputRoot) properties in
-# Directory.Build.props. A reference written as a literal relative path escapes that
-# collapse, and then two projects with the same assembly name land in one output
-# directory.
-#
-# Nothing about that is loud. Both projects compile, the copy to the output directory
-# silently keeps one of them, and the failure arrives at runtime as a TypeLoadException
-# a long way from its cause -- naming a method that is missing rather than a build that
-# built the wrong thing. It has happened downstream, in Broiler.Browser, on a codec
-# whose base class disagreed with itself across two copies of one assembly. Debug and
-# Release had picked different winners, so it reproduced in one configuration and not
-# the other.
-#
-# This asks the question the build does not: across the whole project closure --
-# vendored checkouts included, not just the projects the .slnx lists -- does any output
-# assembly name come from more than one project file?
-#
-# It is the counterpart to the AssemblyMetadata guard in the test suite. That one
-# fails when this repository is built inside a consumer's tree, where the overridden
-# roots mean a green run proves something about their components rather than these.
-# This one fails when the graph is incoherent on its own terms. Between them, a green
-# build here is a green build of these components, once each.
-#
-# It does not build: GetTargetPath evaluates a project and reports what it would
-# produce, which is enough, and keeps this to seconds rather than minutes.
-#
+# Verify that each output assembly name comes from exactly one project in the
+# solution's restore graph. External Broiler components are NuGet dependencies;
+# UI projects must not reintroduce duplicate source checkouts.
 # Usage: scripts/check-component-graph.sh [solution ...]
-#        Defaults to every .slnx at the repository root.
-#
-#        $CONFIGURATION selects the configuration to evaluate, default Debug. It
-#        matters: the -Windows and -Linux configurations add sample hosts the base
-#        one does not, so a graph checked only in Debug leaves those projects out.
-#        CI passes the configuration it is about to build.
-#
-# Requires: dotnet, python3.
+# Defaults to root .slnx files; CONFIGURATION defaults to Debug.
+# Requires dotnet and python3. This evaluates projects without building them.
 
 set -uo pipefail
 
@@ -79,7 +42,7 @@ checked_total=0
 duplicates_found=0
 
 for solution in "${solutions[@]}"; do
-  echo "── $solution ($configuration)"
+  echo "â”€â”€ $solution ($configuration)"
 
   # NuGet's restore graph is the cheapest complete view of the closure: one
   # evaluation for the whole solution, and it descends through every
@@ -169,7 +132,7 @@ PY
   duplicates_found=1
   while IFS= read -r assembly; do
     [ -n "$assembly" ] || continue
-    annotate "$solution builds $assembly from more than one project. Route the duplicate through the component-root property in Directory.Build.props, so the graph keeps one."
+    annotate "$solution builds $assembly from more than one project. Keep one project per assembly and consume external components through packages."
     awk -F'|' -v a="$assembly" '$1 == a {print $2}' "$names" | sort -u | sed 's|^|        |'
   done <<<"$duplicated"
 done

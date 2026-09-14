@@ -63,7 +63,7 @@ public abstract class UiElement : IDisposable
             throw new ArgumentOutOfRangeException(nameof(index));
         if (ReferenceEquals(child, this) || IsDescendantOf(child))
             throw new InvalidOperationException("Adding the element would create a cycle.");
-        if (child.Parent is not null || (child.Session is not null && child.Session != Session))
+        if (child.Parent is not null || child.Session is not null)
             throw new InvalidOperationException("A UI element can belong to only one tree.");
 
         _children.Insert(index, child);
@@ -108,8 +108,7 @@ public abstract class UiElement : IDisposable
             return false;
 
         _children.RemoveAt(index);
-        if (child.Session is not null)
-            child.DetachFromSession();
+        child.Session?.DetachSubtree(child);
 
         child.Parent = null;
         OnChildRemoved(child);

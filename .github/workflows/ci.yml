@@ -5,96 +5,91 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      package-version:
+        description: Resolved preview version for a publish run
+        type: string
+        default: ''
 
 permissions:
   contents: read
+  packages: read
+
+env:
+  PACKAGE_VERSION: ${{ inputs.package-version }}
+  NuGetPackageSourceCredentials_broiler-github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }};ValidAuthenticationTypes=Basic
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     name: ${{ matrix.configuration }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-
     defaults:
       run:
         shell: bash
-
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Every packable assembly and every test runner. This is the
-          # configuration the published packages come from, so it also packs.
           - os: ubuntu-latest
             configuration: Release
             pack: true
-          # Adds the Linux sample host and selects the linux-x64 runtime
-          # identifier for it.
           - os: ubuntu-latest
             configuration: Release-Linux
             pack: false
-          # The neutral set plus the RichEdit Win32 sample host, which targets
-          # net10.0-windows. Adds no packable project - the other Win32 sample
-          # stays excluded from the solution until Broiler.Graphics.Windows
-          # grows secondary-window support - but it is where that one returns.
           - os: windows-latest
             configuration: Release-Windows
             pack: false
-
     steps:
       - name: Check out
         uses: actions/checkout@v7
-        with:
-          submodules: true
-
-      # Broiler.Graphics, Broiler.Input and Broiler.Documents are consumed as project
-      # references, so nothing builds without them, and Broiler.Graphics needs its own
-      # Broiler.Media for the image abstraction. Naming the nested submodules rather
-      # than using --recursive keeps the Media -> Graphics cycle from being walked.
-      #
-      # Broiler.Documents' own vendored Broiler.Graphics is deliberately absent.
-      # $(BroilerGraphicsRoot) points Broiler.Documents at the checkout above, so its
-      # copy is in no configuration's project closure -- verified by removing it and
-      # building clean. A missing project reference is only a restore *warning* and the
-      # build then fails on missing types, so if that ever stops being true the symptom
-      # will not name it; the graph check below catches the opposite mistake, a
-      # reference that escaped the property.
-      - name: Initialise nested submodules
-        run: |
-          git -C Broiler.Graphics submodule update --init Broiler.Media
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
-      # Cheap enough to hang off every matrix leg, and worth doing per leg: the
-      # -Windows and -Linux configurations add sample hosts the base one does not,
-      # so each configuration is a different graph. Evaluation only, no build.
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Test preview version selection
+        run: node --test eng/resolve-preview-version.test.mjs
+
       - name: Verify one assembly per name
-        run: ./scripts/check-component-graph.sh
+        run: bash ./scripts/check-component-graph.sh
         env:
           CONFIGURATION: ${{ matrix.configuration }}
 
       - name: Build
-        run: dotnet build Broiler.UI.slnx -c ${{ matrix.configuration }} --nologo
+        run: |
+          args=()
+          if [ -n "$PACKAGE_VERSION" ]; then
+            args+=("-p:Version=$PACKAGE_VERSION" "-p:PackageVersion=$PACKAGE_VERSION")
+          fi
+          dotnet build Broiler.UI.slnx -c "${{ matrix.configuration }}" --nologo "${args[@]}"
 
       - name: Test
-        run: dotnet test Broiler.UI.slnx -c ${{ matrix.configuration }} --no-build --nologo
+        shell: pwsh
+        run: ./eng/run-tests.ps1 -Configuration '${{ matrix.configuration }}'
 
-      # Proves the packages still build from this commit. Every Broiler.UI
-      # package is a plain net10.0 library, so one configuration covers the
-      # whole set. Publishing is a separate, deliberate action - see
-      # .github/workflows/publish.yml.
-      - name: Pack
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports-${{ matrix.configuration }}
+          path: test-results/
+          if-no-files-found: warn
+
+      - name: Pack and verify every package
         if: matrix.pack
-        run: |
-          dotnet pack Broiler.UI.slnx -c Release --no-build --nologo -o ./artifacts
-          echo "Packed:"
-          ls -1 ./artifacts
+        shell: pwsh
+        run: ./eng/pack.ps1 -Version $env:PACKAGE_VERSION
 
       - name: Upload packages
         if: matrix.pack

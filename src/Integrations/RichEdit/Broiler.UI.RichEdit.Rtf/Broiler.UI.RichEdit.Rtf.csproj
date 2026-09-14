@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Documents.Rtf" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Documents.Rtf" Version="$(BroilerDocumentsPackageVersion)" />
   </ItemGroup>
 
 </Project>

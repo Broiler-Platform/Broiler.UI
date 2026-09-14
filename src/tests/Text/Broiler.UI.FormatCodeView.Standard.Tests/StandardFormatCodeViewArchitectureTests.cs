@@ -5,7 +5,7 @@ namespace Broiler.UI.FormatCodeView.Standard.Tests;
 public sealed class StandardFormatCodeViewArchitectureTests
 {
     [Fact(Timeout = 600000)]
-    public void Standard_Implementation_Is_Platform_Neutral_And_Has_No_Runtime_Packages()
+    public void Standard_Implementation_Is_Platform_Neutral_And_References_Only_Graphics_Package()
     {
         XDocument project = XDocument.Load(ProjectPath());
         string[] references = project.Descendants("ProjectReference")
@@ -14,7 +14,9 @@ public sealed class StandardFormatCodeViewArchitectureTests
             .Cast<string>()
             .ToArray();
 
-        Assert.Empty(project.Descendants("PackageReference"));
+        Assert.Equal(new[] { "Broiler.Graphics" }, project.Descendants("PackageReference")
+            .Select(reference => (string?)reference.Attribute("Include"))
+            .OrderBy(reference => reference, StringComparer.Ordinal));
         Assert.Contains(references, reference => reference.Contains("Broiler.UI.FormatCodeView/", StringComparison.Ordinal));
         Assert.Contains(references, reference => reference.Contains("Broiler.UI.Standard/", StringComparison.Ordinal));
         Assert.DoesNotContain(references, reference =>
@@ -30,7 +32,6 @@ public sealed class StandardFormatCodeViewArchitectureTests
         {
             string candidate = Path.Combine(
                 directory.FullName,
-                "Broiler.UI",
                 "src",
                 "Implementations",
                 "Standard",

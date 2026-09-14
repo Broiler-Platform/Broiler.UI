@@ -48,11 +48,10 @@ Broiler-Platform GitHub Packages feed — and clears whatever the machine has co
 so a restore resolves identically everywhere. Package source mapping sends `Broiler.*` to
 either feed and everything else to nuget.org only.
 
-That mapping is load-bearing. GitHub Packages requires authentication **even for public
-packages** and answers `401` to an anonymous request, so an unmapped source would be
-queried for every package and break the restore. Because this repository takes its
-Broiler dependencies through the submodules as project references, nothing queries that
-feed today and no credentials are needed to build.
+Broiler dependencies are versioned NuGet references. The more specific `Broiler.*`
+mapping selects GitHub Packages, which requires authentication even for public packages.
+Configure credentials below before restoring; CI supplies its built-in token. To use
+nuget.org exclusively, use a separate config containing only that source.
 
 To actually pull `Broiler.*` from GitHub Packages you need a personal access token with
 the `read:packages` scope. Put it in your **user-level** config, never in the committed
@@ -175,43 +174,24 @@ src/samples/                     Win32, Linux, WebAssembly, and RichEdit sample 
 eng/                             vendored packaging metadata and package icon
 docs/                            roadmap and ADRs
 .github/workflows/               CI and publish pipelines
-Broiler.Graphics/                submodule; the neutral rendering core
-Broiler.Input/                   submodule; keyboard, mouse, pen, text, and touch
-Broiler.Documents/               submodule; the rich-text document model, RTF, format codes
 Broiler.UI.slnx                  solution over every project in src/
 ```
 
-Cross-component dependencies are git submodules at the repository root, so every project
-reference resolves inside a checkout of this repository. Two of them carry submodules of
-their own that this component needs: `Broiler.Graphics` takes `Broiler.Media` for the
-image abstraction, and `Broiler.Documents` takes its own `Broiler.Graphics` (which in
-turn takes `Broiler.Media`). Initialise those by name rather than recursing — `--recursive`
-would walk the `Media -> Graphics` cycle and fetch `Broiler.Documents`' unused
-`Broiler.DOM` as well.
+Cross-component runtime dependencies come from NuGet packages. Project references stay
+inside Broiler.UI. The browser source demo is separate; see its README for prerequisites.
 
-That leaves two checkouts of `Broiler.Graphics` on disk. Restore deduplicates them by
-package identity and resolves everything against this repository's own checkout, so
-exactly one `Broiler.Graphics.dll` reaches any package. Both submodules pin the same
-Graphics commit; keep them in step when either is bumped.
+`eng/Broiler.Dependencies.props` holds the Broiler dependency version pins, including
+separate versions for runtime libraries and sample backends. Projects still declare
+their own dependencies. Shared test SDK and xUnit references live in
+`src/tests/Directory.Build.props`.
 
 ## Building and testing
 
-Clone with submodules, or initialise them in an existing checkout:
+Clone normally, install the .NET 10 SDK, and configure the package feed credentials:
 
 ```bash
-git clone --recurse-submodules https://github.com/Broiler-Platform/Broiler.UI.git
+git clone https://github.com/Broiler-Platform/Broiler.UI.git
 ```
-
-```bash
-git submodule update --init
-git -C Broiler.Graphics submodule update --init Broiler.Media
-git -C Broiler.Documents submodule update --init Broiler.Graphics
-git -C Broiler.Documents/Broiler.Graphics submodule update --init Broiler.Media
-```
-
-All four lines are load-bearing. A project reference to a directory that is not there is
-only a *warning* during restore; the build then fails on missing types, which is a
-confusing way to discover an uninitialised submodule.
 
 The solution defines six configurations. `Debug`/`Release` build every packable assembly
 and every test suite. The `-Windows` and `-Linux` variants add the sample host for that
@@ -229,7 +209,7 @@ dotnet test Broiler.UI.slnx -c Release
 Tests are xUnit suites, so `dotnet test` discovers them directly. Alongside the
 behavioural suites, `Broiler.UI.Tests`, `Broiler.UI.Standard.Tests`, and
 `Broiler.UI.Toolbar.Tests` carry the architecture and topology tests that pin the
-repository layout and the exact project-reference set of the foundation assemblies —
+repository layout and the approved project and package dependencies —
 they fail if a directory moves without the rules moving with it.
 
 ## Samples
@@ -242,8 +222,10 @@ dotnet run --project src/samples/Linux/Broiler.UI.Linux.Demo -c Release-Linux --
 and can bridge first-round keyboard/mouse input from evdev when an X11 window has focus.
 Windows-only camera and microphone previews stay outside this Linux pass.
 
-`Broiler.UI.WebAssembly.Demo` builds under every configuration and vendors the canonical
-Canvas 2D replay module from `Broiler.Graphics.WebAssembly`.
+`Broiler.UI.WebAssembly.Demo` has its own solution under `src/samples/WebAssembly`.
+It still consumes the Graphics browser backend and replay module from source and is
+excluded from the main package-based solution and CI until those assets ship as a
+package. See the [browser demo README](src/samples/WebAssembly/Broiler.UI.WebAssembly.Demo/README.md).
 
 ```bash
 dotnet run --project src/samples/RichEdit.Win32/Broiler.UI.RichEdit.Win32.Demo -c Release-Windows
@@ -265,34 +247,42 @@ opts out and stays inside the main window.
 
 ## Packaging
 
-Every Broiler.UI package is a plain `net10.0` library, so one pack covers the whole set:
+Every Broiler.UI package is a plain `net10.0` library. Build, test, then pack and
+verify the full set (PowerShell 7):
 
-```bash
-dotnet pack Broiler.UI.slnx -c Release -o ./artifacts
+```powershell
+dotnet build Broiler.UI.slnx -c Release
+./eng/run-tests.ps1
+./eng/pack.ps1
 ```
 
-Test and sample projects never pack. `eng/Broiler.Packaging.props` is a vendored copy of
-the suite-wide packaging metadata and holds the version, which stays in lockstep across
-Broiler components during preview — edit the canonical file and re-run the sync script
-rather than editing the copy.
+`eng/pack.ps1` checks package identities, versions, internal dependencies, README,
+icon, assemblies, XML documentation, and symbol packages. Use an empty output directory;
+it rejects stale packages. Tests and samples never pack.
 
 ## Continuous integration and releases
 
-`.github/workflows/ci.yml` builds and tests three legs on every push and pull request —
-`Release` and `Release-Linux` on Ubuntu, `Release-Windows` on Windows — checking out the
-submodules and initialising the nested ones by name, and attaches the packed packages to
-each run.
+CI builds and tests `Release` and `Release-Linux` on Ubuntu and `Release-Windows` on
+Windows, checks the project graph, verifies every test suite produced a nonempty TRX
+report, and attaches test reports. The neutral Release leg packs and verifies all 58
+packages. External Broiler dependencies restore from the configured feed using
+`GITHUB_TOKEN`; no submodule initialization is needed.
 
-`.github/workflows/publish.yml` publishes. Run it manually to choose a feed (GitHub
-Packages or nuget.org); it defaults to a dry run that packs and attaches the packages
-without pushing. Pushing a `v*` tag publishes to nuget.org, and the tag must match the
-version in `eng/Broiler.Packaging.props`, which stays the source of truth for the suite
-version. Publishing to nuget.org needs a `NUGET_API_KEY` repository secret; GitHub
-Packages uses the built-in `GITHUB_TOKEN`.
+Publish reuses that CI workflow with one resolved preview version, then downloads its
+validated packages instead of rebuilding. Before a push, an isolated consumer restore
+checks that the packages' external dependencies exist on the selected destination feed.
 
-The published packages depend on `Broiler.Graphics`, `Broiler.Input.*`, and — for the
-rich-text and formatting-code family — `Broiler.Documents.*`, all at the same suite
-version, which have to be on the target feed for them to restore.
+Run Publish manually to choose GitHub Packages or nuget.org; the default is a dry run.
+The version resolver uses `eng/Broiler.Packaging.props` as a version floor, checks all
+shipping package IDs on nuget.org (and GitHub Packages when selected), and chooses the
+next unused `X.Y.Z-preview.N`. An optional `preview.N` suffix or `v*` tag must be unused,
+use the configured release line, and be at least that next preview. Tag pushes publish
+to nuget.org. Stable releases are not supported by this preview workflow.
+
+Publish runs are serialized across refs. Only the push job gets package write access;
+nuget.org needs the `NUGET_API_KEY` repository secret. Duplicate versions fail rather
+than being silently skipped. External Broiler dependency versions remain the versions
+specified in each project; they do not advance with UI's preview number.
 
 ## Preview status
 

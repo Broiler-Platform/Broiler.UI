@@ -36,10 +36,17 @@ scrolling, and text editing — behaves as in the Win32 sample.
 
 ## Publish and serve
 
+This source-based sample is outside the main solution and CI. It requires local
+Broiler.Graphics and Broiler.Input source checkouts; set `BroilerGraphicsRoot` and
+`BroilerInputRoot` when they are not under the Broiler.UI repository root. The
+Graphics checkout must include `Broiler.Graphics.WebAssembly` and its canonical
+`wwwroot/broiler.graphics.webassembly.js` module. The backend is not yet available
+from nuget.org, so the main package-based build cannot validate this sample.
+
 ```powershell
 dotnet workload install wasm-tools
 
-dotnet publish Broiler.UI/samples/WebAssembly/Broiler.UI.WebAssembly.Demo/Broiler.UI.WebAssembly.Demo.csproj `
+dotnet publish src/samples/WebAssembly/Broiler.UI.WebAssembly.Demo/Broiler.UI.WebAssembly.Demo.csproj `
   -c Release -p:PublishTrimmed=true -p:RunAOTCompilation=false `
   -o artifacts/wasm-gallery
 

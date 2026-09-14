@@ -16,9 +16,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics.Linux.OpenGL" Version="0.1.0-preview.3" />
-    <PackageReference Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.2" />
-    <PackageReference Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Graphics.Linux.OpenGL" Version="$(BroilerSampleGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Input.Keyboard.Linux" Version="$(BroilerSampleInputPackageVersion)" />
+    <PackageReference Include="Broiler.Input.Mouse.Linux" Version="$(BroilerSampleInputPackageVersion)" />
   </ItemGroup>
 
   <ItemGroup>

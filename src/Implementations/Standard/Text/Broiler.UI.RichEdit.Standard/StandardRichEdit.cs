@@ -51,9 +51,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     private readonly List<CellBox> _cells = [];
     private readonly Dictionary<InlineImage, BImageHandle> _imageHandles = new(ReferenceEqualityComparer.Instance);
     private RichTextDocument? _layoutDocument;
-    private BFontStyle? _layoutFont;
-    private double _layoutZoom = double.NaN;
-    private double _layoutWidth = double.NaN;
+    private LayoutSettings _layoutSettings;
+    private double _indentWidth = 24;
+    private double _tabStopWidth = DefaultTabStopWidth;
     private double _zoom = 1;
     private bool _layoutValid;
     private double _contentHeight;
@@ -190,7 +190,11 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// drawn in. It is the indent the PDF writer lays out with, so an indented or
     /// listed paragraph prints where it sits on screen.
     /// </summary>
-    public double IndentWidth { get; set; } = 24;
+    public double IndentWidth
+    {
+        get => _indentWidth;
+        set => SetLayoutSpacing(ref _indentWidth, value);
+    }
 
     /// <summary>
     /// The distance between the default tab stops a tab character advances to,
@@ -199,7 +203,11 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
     /// as in a plain one. It is the tab stop the PDF writer lays out with, so a
     /// tabbed paragraph prints where it sits on screen.
     /// </summary>
-    public double TabStopWidth { get; set; } = DefaultTabStopWidth;
+    public double TabStopWidth
+    {
+        get => _tabStopWidth;
+        set => SetLayoutSpacing(ref _tabStopWidth, value);
+    }
 
     public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
 
@@ -2220,24 +2228,33 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     private void EnsureLayout()
     {
-        double contentWidth = ContentWidth;
+        var settings = new LayoutSettings(ContentWidth, _zoom, Font, IndentWidth, TabStopWidth);
         if (_layoutValid &&
             ReferenceEquals(_layoutDocument, Document) &&
-            _layoutWidth == contentWidth &&
-            _layoutZoom == _zoom &&
-            Equals(_layoutFont, Font))
+            _layoutSettings == settings)
         {
             return;
         }
 
-        BuildLayout(contentWidth);
+        BuildLayout(settings.ContentWidth);
         _layoutValid = true;
         _layoutDocument = Document;
-        _layoutWidth = contentWidth;
-        _layoutZoom = _zoom;
-        _layoutFont = Font;
+        _layoutSettings = settings;
         _scrollY = ClampScroll(_scrollY);
     }
+
+    private void SetLayoutSpacing(ref double field, double value)
+    {
+        ThrowIfDisposed();
+        if (field.Equals(value))
+            return;
+        field = value;
+        _layoutValid = false;
+        Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+    }
+
+    private readonly record struct LayoutSettings(
+        double ContentWidth, double Zoom, BFontStyle Font, double IndentWidth, double TabStopWidth);
 
     private void BuildLayout(double contentWidth)
     {

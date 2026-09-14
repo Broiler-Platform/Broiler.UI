@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Xml.Linq;
 using Broiler.UI.Toolbar.Standard;
 
@@ -12,7 +12,6 @@ public sealed class ToolbarArchitectureTests
             "src/Abstractions/Commands/Broiler.UI.Toolbar/Broiler.UI.Toolbar.csproj",
             new[]
             {
-                "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
                 "../../../Foundation/Broiler.UI/Broiler.UI.csproj",
             },
         ],
@@ -20,7 +19,6 @@ public sealed class ToolbarArchitectureTests
             "src/Implementations/Standard/Commands/Broiler.UI.Toolbar.Standard/Broiler.UI.Toolbar.Standard.csproj",
             new[]
             {
-                "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
                 "../../../../Abstractions/Commands/Broiler.UI.Toolbar/Broiler.UI.Toolbar.csproj",
                 "../../../../Foundation/Broiler.UI.Standard/Broiler.UI.Standard.csproj",
             },
@@ -35,7 +33,9 @@ public sealed class ToolbarArchitectureTests
         XDocument project = XDocument.Load(projectPath);
 
         Assert.Equal("net10.0", project.Descendants("TargetFramework").Single().Value);
-        Assert.Empty(project.Descendants("PackageReference"));
+        Assert.Equal(new[] { "Broiler.Graphics" }, project.Descendants("PackageReference")
+            .Select(reference => (string?)reference.Attribute("Include"))
+            .OrderBy(reference => reference, StringComparer.Ordinal));
 
         string[] references = project
             .Descendants("ProjectReference")

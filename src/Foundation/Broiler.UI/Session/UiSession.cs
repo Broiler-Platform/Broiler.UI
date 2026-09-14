@@ -57,6 +57,7 @@ public sealed class UiSession : IDisposable
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(root);
+        ObjectDisposedException.ThrowIf(root.IsDisposed, root);
         if (root.Parent is not null)
             throw new InvalidOperationException("Root elements cannot already have a parent.");
         if (root.Session is not null)
@@ -75,17 +76,32 @@ public sealed class UiSession : IDisposable
         if (!_roots.Remove(root))
             return false;
 
-        if (FocusedElement is not null && (ReferenceEquals(FocusedElement, root) || FocusedElement.IsDescendantOf(root)))
-            SetFocus(null);
-        if (CapturedElement is not null && (ReferenceEquals(CapturedElement, root) || CapturedElement.IsDescendantOf(root)))
-            CapturedElement = null;
-        if (_lastPointerTarget is not null && (ReferenceEquals(_lastPointerTarget, root) || _lastPointerTarget.IsDescendantOf(root)))
-            _lastPointerTarget = null;
-        RemoveModalElements(root);
-
-        root.DetachFromSession();
+        DetachSubtree(root);
         Invalidate(root, UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         return true;
+    }
+
+    internal void DetachSubtree(UiElement root)
+    {
+        if (CapturedElement is not null && IsWithinSubtree(CapturedElement, root))
+            CapturedElement = null;
+        if (_lastPointerTarget is not null && IsWithinSubtree(_lastPointerTarget, root))
+            _lastPointerTarget = null;
+        RemoveModalElements(root);
+        foreach (TouchRoute route in _touchRoutes.Values)
+        {
+            if (route.Target is not null && IsWithinSubtree(route.Target, root))
+            {
+                // Keep a cancelled contact until release so its remaining events do
+                // not start targeting a different element. Also clears an in-flight
+                // dispatch's route when the handler itself detaches the subtree.
+                route.Target = null;
+                route.PointerFallbackCancelled = true;
+            }
+        }
+        if (FocusedElement is not null && IsWithinSubtree(FocusedElement, root))
+            SetFocus(null);
+        root.DetachFromSession();
     }
 
     public bool BringRootToFront(UiElement root) => MoveRoot(root, _roots.Count - 1);
@@ -378,26 +394,25 @@ public sealed class UiSession : IDisposable
         if (input.TouchContactState is not Broiler.Input.Touch.TouchContactState state)
             return false;
 
-        TouchRoute route;
+        TouchRoute? route;
         if (state == Broiler.Input.Touch.TouchContactState.Pressed)
         {
             UiElement? hit = ResolveDispatchTarget(input);
-            route = new TouchRoute(hit, PointerFallbackStarted: false, PointerFallbackCancelled: false);
+            route = new TouchRoute(hit);
             _touchRoutes[input.ContactId] = route;
         }
         else if (!_touchRoutes.TryGetValue(input.ContactId, out route))
         {
-            route = new TouchRoute(ResolveDispatchTarget(input), PointerFallbackStarted: false, PointerFallbackCancelled: false);
+            route = new TouchRoute(ResolveDispatchTarget(input));
         }
 
         bool handled = DispatchToTarget(input, route.Target);
 
-        if (state == Broiler.Input.Touch.TouchContactState.Pressed && !handled)
+        if (state == Broiler.Input.Touch.TouchContactState.Pressed && !handled && route.Target is not null)
         {
             UiInputEvent pointer = input.AsTouchPointerFallback();
             handled = DispatchToTarget(pointer, route.Target);
-            route = route with { PointerFallbackStarted = true };
-            _touchRoutes[input.ContactId] = route;
+            route.PointerFallbackStarted = true;
             _lastPointerTarget = route.Target;
         }
         else if (state == Broiler.Input.Touch.TouchContactState.Moved && route.PointerFallbackStarted && !route.PointerFallbackCancelled)
@@ -405,8 +420,7 @@ public sealed class UiSession : IDisposable
             if (handled)
             {
                 _ = DispatchToTarget(input.AsTouchPointerCancellation(), route.Target);
-                route = route with { PointerFallbackCancelled = true };
-                _touchRoutes[input.ContactId] = route;
+                route.PointerFallbackCancelled = true;
             }
             else
             {
@@ -431,10 +445,10 @@ public sealed class UiSession : IDisposable
         return handled;
     }
 
-    private static bool DispatchToTarget(UiInputEvent input, UiElement? target)
+    private bool DispatchToTarget(UiInputEvent input, UiElement? target)
     {
         UiElement? current = target;
-        while (current is not null)
+        while (current is not null && current.Session == this && !current.IsDisposed)
         {
             if (current.DispatchInput(input))
                 return true;
@@ -492,8 +506,10 @@ public sealed class UiSession : IDisposable
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-    private readonly record struct TouchRoute(
-        UiElement? Target,
-        bool PointerFallbackStarted,
-        bool PointerFallbackCancelled);
+    private sealed class TouchRoute(UiElement? target)
+    {
+        public UiElement? Target { get; set; } = target;
+        public bool PointerFallbackStarted { get; set; }
+        public bool PointerFallbackCancelled { get; set; }
+    }
 }

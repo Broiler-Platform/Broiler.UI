@@ -1,21 +1,10 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Xml.Linq;
 
 namespace Broiler.UI.Tests;
 
 public sealed class UiArchitectureTests
 {
-    private static readonly string[] ExpectedUiReferences =
-    [
-        "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Keyboard/Broiler.Input.Keyboard.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Mouse/Broiler.Input.Mouse.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Pen/Broiler.Input.Pen.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Text/Broiler.Input.Text.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input.Touch/Broiler.Input.Touch.csproj",
-        "$(BroilerInputRoot)/src/Broiler.Input/Broiler.Input.csproj",
-    ];
-
     [Fact(Timeout = 600000)]
     public void Ui_Project_Targets_Net10_And_Only_Platform_Neutral_Graphics_And_Input()
     {
@@ -23,10 +12,12 @@ public sealed class UiArchitectureTests
         XDocument project = XDocument.Load(projectPath);
 
         Assert.Equal("net10.0", project.Descendants("TargetFramework").Single().Value);
-        Assert.Empty(project.Descendants("PackageReference"));
+        Assert.Equal(new[] { "Broiler.Graphics", "Broiler.Input", "Broiler.Input.Keyboard", "Broiler.Input.Mouse", "Broiler.Input.Pen", "Broiler.Input.Text", "Broiler.Input.Touch" }, project.Descendants("PackageReference")
+            .Select(reference => (string?)reference.Attribute("Include"))
+            .OrderBy(reference => reference, StringComparer.Ordinal));
 
         string[] references = ProjectReferences(project);
-        Assert.Equal(ExpectedUiReferences, references);
+        Assert.Empty(references);
         Assert.DoesNotContain(references, reference => reference.Contains("Windows", StringComparison.Ordinal));
         Assert.DoesNotContain(references, reference => reference.Contains("Direct2D", StringComparison.Ordinal));
     }

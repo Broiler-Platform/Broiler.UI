@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Xml.Linq;
 
 namespace Broiler.UI.RichEdit.Standard.Tests;
@@ -7,8 +7,6 @@ public sealed class StandardRichEditArchitectureTests
 {
     private static readonly string[] ExpectedReferences =
     [
-        "$(BroilerDocumentsRoot)/src/Broiler.Documents.Model/Broiler.Documents.Model.csproj",
-        "$(BroilerGraphicsRoot)/src/Broiler.Graphics/Broiler.Graphics.csproj",
         "../../../../Abstractions/Text/Broiler.UI.RichEdit/Broiler.UI.RichEdit.csproj",
         "../../../../Foundation/Broiler.UI.Standard/Broiler.UI.Standard.csproj",
     ];
@@ -19,7 +17,9 @@ public sealed class StandardRichEditArchitectureTests
         XDocument project = XDocument.Load(StandardProjectPath());
 
         Assert.Equal("net10.0", project.Descendants("TargetFramework").Single().Value);
-        Assert.Empty(project.Descendants("PackageReference"));
+        Assert.Equal(new[] { "Broiler.Graphics" }, project.Descendants("PackageReference")
+            .Select(reference => (string?)reference.Attribute("Include"))
+            .OrderBy(reference => reference, StringComparer.Ordinal));
         Assert.Equal(ExpectedReferences, ProjectReferences(project));
     }
 
