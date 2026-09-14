@@ -19,7 +19,7 @@ namespace Broiler.UI.Standard.Tests;
 /// </remarks>
 public sealed class TooltipControllerTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Nothing_Appears_Before_The_Delay_Has_Passed()
     {
         Fixture fixture = Fixture.Create();
@@ -36,7 +36,7 @@ public sealed class TooltipControllerTests
         Assert.False(fixture.Tooltip.IsTooltipOpen);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Tooltip_Opens_Once_The_Delay_Has_Passed()
     {
         Fixture fixture = Fixture.Create();
@@ -52,7 +52,7 @@ public sealed class TooltipControllerTests
         Assert.False(fixture.Controller.IsWaiting);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Pointer_Over_Nothing_With_A_Tip_Closes_It()
     {
         Fixture fixture = Fixture.Create();
@@ -67,7 +67,7 @@ public sealed class TooltipControllerTests
         Assert.False(fixture.Tooltip.IsTooltipOpen);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Element_Without_A_Tip_Is_Not_A_Target()
     {
         Fixture fixture = Fixture.Create();
@@ -79,7 +79,7 @@ public sealed class TooltipControllerTests
         Assert.False(fixture.Controller.IsWaiting);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Moving_To_Another_Control_Restarts_The_Wait()
     {
         Fixture fixture = Fixture.Create();
@@ -101,7 +101,7 @@ public sealed class TooltipControllerTests
         Assert.Equal("Open (Ctrl+O)", fixture.Tooltip.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Dismiss_Closes_The_Tooltip_And_Stops_The_Wait()
     {
         Fixture fixture = Fixture.Create();

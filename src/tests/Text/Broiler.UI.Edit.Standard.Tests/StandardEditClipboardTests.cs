@@ -9,7 +9,7 @@ namespace Broiler.UI.Edit.Standard.Tests;
 
 public sealed class StandardEditClipboardTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Control_C_Copies_The_Selection_Without_Changing_The_Text()
     {
         EditScene scene = Create("Hello world");
@@ -21,7 +21,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("Hello world", scene.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Control_X_Cuts_The_Selection_And_Control_Z_Restores_It()
     {
         EditScene scene = Create("Hello world");
@@ -36,7 +36,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("Hello world", scene.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Control_V_Replaces_The_Selection_And_Leaves_The_Caret_After_The_Insert()
     {
         EditScene scene = Create("Hello world", clipboardText: "brave new");
@@ -49,7 +49,7 @@ public sealed class StandardEditClipboardTests
         Assert.False(scene.Edit.HasSelection);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Control_Insert_Copies_And_Shift_Insert_Pastes()
     {
         EditScene scene = Create("Hello world");
@@ -63,7 +63,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("Hello worldHello", scene.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Shift_Delete_Cuts_While_Plain_Delete_Still_Deletes_Forward()
     {
         EditScene scene = Create("Hello world");
@@ -79,7 +79,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("Hello ", scene.Host.ClipboardText);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Plain_Insert_Is_Left_To_The_Host()
     {
         EditScene scene = Create("Hello", clipboardText: "pasted");
@@ -88,7 +88,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("Hello", scene.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Password_Field_Neither_Copies_Nor_Cuts()
     {
         EditScene scene = Create("secret");
@@ -102,7 +102,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("secret", scene.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Read_Only_Field_Copies_But_Neither_Cuts_Nor_Pastes()
     {
         EditScene scene = Create("Hello world", clipboardText: "replacement");
@@ -117,7 +117,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("Hello world", scene.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Pasting_Multiple_Lines_Keeps_The_Single_Line_Field_On_One_Line()
     {
         EditScene scene = Create(string.Empty, clipboardText: "first\r\nsecond\tthird");
@@ -127,7 +127,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("firstsecondthird", scene.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Pasting_Stops_At_MaxLength()
     {
         EditScene scene = Create("abc", clipboardText: "defgh");
@@ -139,7 +139,7 @@ public sealed class StandardEditClipboardTests
         Assert.Equal("abcde", scene.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Copy_Without_A_Clipboard_Host_Reports_Unhandled_Rather_Than_Throwing()
     {
         var host = new TestHost(new BSize(400, 300));

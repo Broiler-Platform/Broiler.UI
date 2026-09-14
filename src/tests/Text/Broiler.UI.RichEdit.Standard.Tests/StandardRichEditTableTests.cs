@@ -64,7 +64,7 @@ public sealed class StandardRichEditTableTests
     private static BRenderCommand.FillRect[] Fills(BRenderList list) =>
         list.Commands.OfType<BRenderCommand.FillRect>().ToArray();
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Puts_The_Cells_Of_A_Row_Beside_Each_Other()
     {
         BRenderList list = Scene(Grid()).Session.RenderFrame();
@@ -78,7 +78,7 @@ public sealed class StandardRichEditTableTests
         Assert.Equal(left.Origin.X + 100, right.Origin.X, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Puts_The_Second_Row_Under_The_First()
     {
         BRenderList list = Scene(Grid()).Session.RenderFrame();
@@ -87,7 +87,7 @@ public sealed class StandardRichEditTableTests
         Assert.Equal(Text(list, "a1").Origin.X, Text(list, "a2").Origin.X, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Row_Is_As_Tall_As_Its_Tallest_Cell()
     {
         // The left cell wraps to three lines in a 100-point column; the right one
@@ -121,7 +121,7 @@ public sealed class StandardRichEditTableTests
         Assert.True(Text(list, "b1").Origin.Y < lastLineOfFirstRow, "the short cell was not at the row's top");
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Cell_Wraps_Into_Its_Own_Width()
     {
         RichTextDocument document = RichTextDocument.FromParagraphs([
@@ -144,7 +144,7 @@ public sealed class StandardRichEditTableTests
             Assert.True(text.Origin.X < 200, "a cell's text was laid out outside its column");
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Column_Span_Takes_The_Width_Of_Both_Columns()
     {
         RichTextDocument document = RichTextDocument.FromParagraphs([
@@ -173,7 +173,7 @@ public sealed class StandardRichEditTableTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Paints_A_Cells_Shading_Behind_Its_Text()
     {
         var green = BColor.FromArgb(0xFF, 0xAE, 0xCF, 0x00);
@@ -188,7 +188,7 @@ public sealed class StandardRichEditTableTests
         Assert.True(fill < text, "the shading was painted over the text");
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Draws_Only_The_Edges_A_Cell_States()
     {
         // Top only: a stroked box would draw the other three as well.
@@ -205,7 +205,7 @@ public sealed class StandardRichEditTableTests
         Assert.Equal(1, edge.Rect.Height, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Row_Span_Reaches_Down_Over_The_Rows_It_Covers()
     {
         RichTextDocument document = Grid(borders: CellBorders.All(Hairline), rowSpan: 2);
@@ -221,7 +221,7 @@ public sealed class StandardRichEditTableTests
         Assert.True(left.Rect.Height > rowHeight, "the merged cell was only as tall as its own row");
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Nested_Table_Is_Laid_Out_Inside_Its_Cell()
     {
         RichTextDocument document = RichTextDocument.FromParagraphs([
@@ -262,7 +262,7 @@ public sealed class StandardRichEditTableTests
         Assert.Equal(Text(list, "x").Origin.X + 100, Text(list, "outer").Origin.X, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Cell_Padding_Moves_The_Text_In_From_The_Edge()
     {
         RichTextDocument plain = Grid();
@@ -281,7 +281,7 @@ public sealed class StandardRichEditTableTests
         Assert.Equal(bare + 6, inset, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Grid_Wider_Than_The_Surface_Is_Scaled_To_Fit()
     {
         RichTextDocument document = Grid().WithTables([
@@ -301,7 +301,7 @@ public sealed class StandardRichEditTableTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Document_Without_Tables_Draws_No_Cells()
     {
         RichEditScene scene = Scene(RichTextDocument.FromPlainText("body"));
@@ -312,7 +312,7 @@ public sealed class StandardRichEditTableTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Typing_In_A_Cell_Keeps_The_Grid_Around_It()
     {
         RichEditScene scene = Scene(Grid());
@@ -341,7 +341,7 @@ public sealed class StandardRichEditTableTests
         return -1;
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Tall_Row_Span_Does_Not_Push_The_Next_Rows_Cells_Below_It()
     {
         // The CV-template shape, and the reason this test exists: a two-row table
@@ -399,7 +399,7 @@ public sealed class StandardRichEditTableTests
             $"the sidebar at {sidebar} started above the merged cell's first line at {first}");
         }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Row_Is_At_Least_As_Tall_As_The_Height_It_States()
     {
         // The empty tall first row a page-layout template states so that the
@@ -424,7 +424,7 @@ public sealed class StandardRichEditTableTests
         Assert.True(gap >= 120, $"row two started {gap} below row one, which asked for 120");
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Stated_Height_Is_A_Floor_And_Never_Clips_The_Rows_Content()
     {
         // A row taller than its stated height keeps the height its content needs.
@@ -455,7 +455,7 @@ public sealed class StandardRichEditTableTests
         Assert.True(gap > 20, $"row one was squeezed to {gap}, clipping the text it holds");
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Stated_Height_Scales_With_The_Zoom()
     {
         RichTextDocument document = Grid().WithTables([

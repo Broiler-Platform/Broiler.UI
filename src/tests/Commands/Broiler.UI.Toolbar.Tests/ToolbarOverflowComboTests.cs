@@ -58,7 +58,7 @@ public sealed class ToolbarOverflowComboTests
         return new Bar(session, toolbar, combo, second, new StandardInputRoute(session));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Combo_Box_Is_In_The_Drop_Down_To_Begin_With()
     {
         Bar bar = Create();
@@ -67,7 +67,7 @@ public sealed class ToolbarOverflowComboTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Its_List_Opens_Without_The_Bar_Shutting_Its_Own()
     {
         Bar bar = Create();
@@ -80,7 +80,7 @@ public sealed class ToolbarOverflowComboTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Choosing_From_Its_List_Selects_The_Value_And_Shuts_Both()
     {
         Bar bar = Create();
@@ -101,7 +101,7 @@ public sealed class ToolbarOverflowComboTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Its_List_Is_Drawn_Over_The_Drop_Down_It_Sits_In()
     {
         Bar bar = Create();
@@ -119,7 +119,7 @@ public sealed class ToolbarOverflowComboTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Its_Keyboard_Reaches_It_Through_The_Bar()
     {
         Bar bar = Create();
@@ -136,7 +136,7 @@ public sealed class ToolbarOverflowComboTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Dismissing_Its_List_Without_Choosing_Leaves_The_Value_Alone()
     {
         Bar bar = Create();
@@ -152,7 +152,7 @@ public sealed class ToolbarOverflowComboTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Ordinary_Button_Beside_It_Still_Runs_And_Shuts_The_Drop_Down()
     {
         Bar bar = Create();

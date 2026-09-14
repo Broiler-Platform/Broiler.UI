@@ -19,7 +19,7 @@ public sealed class ScrollbarTests
     /// A bar over a pane whose content fits is chrome that reports nothing, and
     /// it costs the pane its width for the privilege.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Bar_Shows_Only_When_Its_Axis_Does_Not_Fit()
     {
         var bars = new StandardScrollbars();
@@ -44,7 +44,7 @@ public sealed class ScrollbarTests
         Assert.True(bars.Horizontal.IsVisible);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Each_Bar_Takes_Its_Thickness_And_Sits_Beside_The_Content()
     {
         var bars = new StandardScrollbars();
@@ -74,7 +74,7 @@ public sealed class ScrollbarTests
     /// separately gives a pane that grows a bar, loses it because the bar it
     /// grew made room, and flickers between the two forever.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void One_Bar_Can_Be_The_Reason_The_Other_Is_Needed()
     {
         var bars = new StandardScrollbars();
@@ -96,7 +96,7 @@ public sealed class ScrollbarTests
     /// its floor — that share goes to nothing as a document grows, and a thumb
     /// of no length is one nobody can take hold of.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Thumb_Is_The_Viewports_Share_With_A_Floor()
     {
         var bars = new StandardScrollbars();
@@ -109,7 +109,7 @@ public sealed class ScrollbarTests
         Assert.Equal(18, bars.Vertical.ThumbBounds(0).Height, 3);
     }
 
-    [Theory(Timeout = 600000)]
+    [Theory]
     [InlineData(StandardScrollbarOrientation.Vertical)]
     [InlineData(StandardScrollbarOrientation.Horizontal)]
     public void The_Thumb_Runs_The_Track_As_The_Offset_Runs_Its_Range(StandardScrollbarOrientation orientation)
@@ -134,7 +134,7 @@ public sealed class ScrollbarTests
         Assert.Equal(vertical ? atEnd.Top : atEnd.Left, vertical ? past.Top : past.Left, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Press_Off_Every_Bar_Is_Not_Theirs_To_Answer()
     {
         var bars = new StandardScrollbars();
@@ -148,7 +148,7 @@ public sealed class ScrollbarTests
     }
 
     /// <summary>A press before or after the thumb pages towards it, and stays in range.</summary>
-    [Theory(Timeout = 600000)]
+    [Theory]
     [InlineData(StandardScrollbarOrientation.Vertical)]
     [InlineData(StandardScrollbarOrientation.Horizontal)]
     public void A_Press_On_The_Track_Pages_Towards_It(StandardScrollbarOrientation orientation)
@@ -171,7 +171,7 @@ public sealed class ScrollbarTests
     /// A drag takes hold where the pointer landed on the thumb, so the thumb
     /// moves with the pointer rather than jumping its own middle under it.
     /// </summary>
-    [Theory(Timeout = 600000)]
+    [Theory]
     [InlineData(StandardScrollbarOrientation.Vertical)]
     [InlineData(StandardScrollbarOrientation.Horizontal)]
     public void A_Drag_Keeps_The_Grip_It_Started_With(StandardScrollbarOrientation orientation)
@@ -203,7 +203,7 @@ public sealed class ScrollbarTests
         Assert.False(bar.TryDrag(grip, moved, out _));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Disabled_Bar_Never_Appears_However_Long_The_Content()
     {
         var bars = new StandardScrollbars();

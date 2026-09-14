@@ -24,7 +24,7 @@ public sealed class StandardRichEditCapitalizationTests
     private static IEnumerable<BTextRun> DrawnRuns(BRenderList list) =>
         list.Commands.OfType<BRenderCommand.DrawText>().Select(c => c.Text);
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void All_Caps_Draws_Capitals()
     {
         RichEditScene scene = WithSelectionAll("Elene Bartky");
@@ -36,7 +36,7 @@ public sealed class StandardRichEditCapitalizationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void All_Caps_Leaves_The_Stored_Text_Untouched()
     {
         RichEditScene scene = WithSelectionAll("Elene Bartky");
@@ -47,7 +47,7 @@ public sealed class StandardRichEditCapitalizationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Turning_All_Caps_Off_Restores_The_Original_Casing_On_Screen()
     {
         RichEditScene scene = WithSelectionAll("Elene Bartky");
@@ -66,7 +66,7 @@ public sealed class StandardRichEditCapitalizationTests
     /// run's size, letters typed in lower case are drawn as capitals at a reduced
     /// size.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Small_Caps_Draws_Lowercase_Letters_As_Smaller_Capitals()
     {
         RichEditScene scene = WithSelectionAll("Ab");
@@ -83,7 +83,7 @@ public sealed class StandardRichEditCapitalizationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Small_Caps_Leaves_The_Stored_Text_Untouched()
     {
         RichEditScene scene = WithSelectionAll("Ab");
@@ -94,7 +94,7 @@ public sealed class StandardRichEditCapitalizationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Two_Capitalization_Kinds_Replace_Each_Other()
     {
         RichEditScene scene = WithSelectionAll("Ab");
@@ -106,7 +106,7 @@ public sealed class StandardRichEditCapitalizationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Command_State_Reports_The_Active_Capitalization()
     {
         RichEditScene scene = WithSelectionAll("hello");
@@ -119,7 +119,7 @@ public sealed class StandardRichEditCapitalizationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Clearing_Formatting_Removes_Capitalization()
     {
         RichEditScene scene = WithSelectionAll("Elene Bartky");
@@ -157,7 +157,7 @@ public sealed class StandardRichEditCapitalizationTests
     }
 
     /// <summary>Small caps must not change how much room the text takes when nothing is capitalized.</summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Small_Caps_Of_An_All_Lowercase_Run_Is_Narrower_Than_All_Caps()
     {
         double small = TextWidth("hello", RichEditCommand.SmallCaps);

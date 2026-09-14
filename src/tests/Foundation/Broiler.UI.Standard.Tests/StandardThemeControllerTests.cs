@@ -7,7 +7,7 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class StandardThemeControllerTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Apply_ReThemes_A_Real_Control_Live()
     {
         StandardThemeTokens original = StandardControlPaint.Theme;
@@ -38,7 +38,7 @@ public sealed class StandardThemeControllerTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Apply_Walks_Whole_Tree_Counting_Only_Themed_Controls()
     {
         StandardThemeTokens original = StandardControlPaint.Theme;

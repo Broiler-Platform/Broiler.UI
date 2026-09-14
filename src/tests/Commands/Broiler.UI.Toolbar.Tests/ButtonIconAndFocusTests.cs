@@ -18,7 +18,7 @@ namespace Broiler.UI.Toolbar.Tests;
 /// </summary>
 public sealed class ButtonIconAndFocusTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Icon_Button_Draws_Its_Icon_Instead_Of_Its_Caption()
     {
         var host = new TestHost(new BSize(200, 80));
@@ -41,7 +41,7 @@ public sealed class ButtonIconAndFocusTests
         Assert.Equal("Save (Ctrl+S)", button.ToolTipText);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Icon_Button_Is_Measured_By_Its_Icon_Not_Its_Caption()
     {
         var host = new TestHost(new BSize(400, 80));
@@ -73,7 +73,7 @@ public sealed class ButtonIconAndFocusTests
         Assert.Equal(16 + (6 * 2), iconSize.Width, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Icon_Takes_The_Colour_The_Button_Resolved()
     {
         var host = new TestHost(new BSize(200, 80));
@@ -94,7 +94,7 @@ public sealed class ButtonIconAndFocusTests
         Assert.Contains(session.RenderFrame().Commands.OfType<BRenderCommand.FillRect>(), c => c.Color == button.DisabledForeground);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Toggle_Button_Takes_An_Icon_Too()
     {
         var host = new TestHost(new BSize(200, 80));
@@ -113,7 +113,7 @@ public sealed class ButtonIconAndFocusTests
         Assert.Equal("Bold", toggle.GetSemanticNode().Name);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Click_Focuses_Without_Drawing_A_Ring()
     {
         var host = new TestHost(new BSize(200, 80));
@@ -131,7 +131,7 @@ public sealed class ButtonIconAndFocusTests
             command => command.Color == button.FocusRing);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Key_Press_Brings_The_Ring_Back()
     {
         var host = new TestHost(new BSize(200, 80));
@@ -151,7 +151,7 @@ public sealed class ButtonIconAndFocusTests
             command => command.Color == button.FocusRing);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Session_That_Has_Seen_No_Input_Still_Rings_Its_Focus()
     {
         var host = new TestHost(new BSize(200, 80));

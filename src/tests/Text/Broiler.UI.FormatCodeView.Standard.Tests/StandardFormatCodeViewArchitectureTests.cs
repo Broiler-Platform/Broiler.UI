@@ -4,7 +4,7 @@ namespace Broiler.UI.FormatCodeView.Standard.Tests;
 
 public sealed class StandardFormatCodeViewArchitectureTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Implementation_Is_Platform_Neutral_And_References_Only_Graphics_Package()
     {
         XDocument project = XDocument.Load(ProjectPath());

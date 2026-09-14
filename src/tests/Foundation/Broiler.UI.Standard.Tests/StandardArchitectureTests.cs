@@ -10,7 +10,7 @@ public sealed class StandardArchitectureTests
         "../Broiler.UI/Broiler.UI.csproj",
     ];
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Project_Targets_Net10_And_References_Only_Ui_Graphics_And_Input_Abstractions()
     {
         string projectPath = Path.Combine(FindComponentRoot(), "src", "Foundation", "Broiler.UI.Standard", "Broiler.UI.Standard.csproj");
@@ -34,7 +34,7 @@ public sealed class StandardArchitectureTests
         Assert.DoesNotContain(references, reference => reference.Contains("Direct2D", StringComparison.Ordinal));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Assembly_Contains_No_Public_Concrete_Controls()
     {
         Type[] publicUiElements = typeof(StandardUiSessionBuilder).Assembly
@@ -45,7 +45,7 @@ public sealed class StandardArchitectureTests
         Assert.Empty(publicUiElements);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Assembly_Does_Not_Expose_Native_Handles_Or_Windows_Types()
     {
         Assert.Empty(FindForbiddenSurface(typeof(StandardUiSessionBuilder).Assembly.GetExportedTypes()));

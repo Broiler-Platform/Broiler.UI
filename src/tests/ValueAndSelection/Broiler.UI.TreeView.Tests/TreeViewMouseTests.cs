@@ -21,7 +21,7 @@ public sealed class TreeViewMouseTests
         return source;
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void One_Click_Selects_And_Does_Not_Activate()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());
@@ -32,7 +32,7 @@ public sealed class TreeViewMouseTests
         Assert.Empty(scene.Activated);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Double_Click_Activates_The_Row_It_Landed_On()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());
@@ -44,7 +44,7 @@ public sealed class TreeViewMouseTests
         Assert.Equal("/Readme.md", Assert.Single(scene.Activated));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Second_Click_After_The_Window_Is_Two_Single_Clicks()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());
@@ -56,7 +56,7 @@ public sealed class TreeViewMouseTests
         Assert.Empty(scene.Activated);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Quick_Click_On_The_Next_Row_Is_Not_A_Double_Click()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());
@@ -71,7 +71,7 @@ public sealed class TreeViewMouseTests
         Assert.Equal("/Readme.md", Assert.Single(scene.Tree.Selection).Value);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Third_Click_Does_Not_Activate_Again()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());
@@ -87,7 +87,7 @@ public sealed class TreeViewMouseTests
         Assert.Equal("/Readme.md", Assert.Single(scene.Activated));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Double_Click_On_A_Parent_Row_Expands_It()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());
@@ -102,7 +102,7 @@ public sealed class TreeViewMouseTests
         Assert.Equal(4, scene.Tree.Rows.Count);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Clicking_The_Expander_Toggles_Without_Selecting_Or_Activating()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());
@@ -120,7 +120,7 @@ public sealed class TreeViewMouseTests
         Assert.Empty(scene.Activated);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Enter_Still_Activates_The_Focused_Row()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());
@@ -131,7 +131,7 @@ public sealed class TreeViewMouseTests
         Assert.Equal("/Readme.md", Assert.Single(scene.Activated));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Click_Below_The_Last_Row_Activates_Nothing()
     {
         using TreeScene scene = TreeStandardHarness.Create(BuildTree());

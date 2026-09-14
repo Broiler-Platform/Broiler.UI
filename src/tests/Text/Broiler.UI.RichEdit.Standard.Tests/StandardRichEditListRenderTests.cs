@@ -36,7 +36,7 @@ public sealed class StandardRichEditListRenderTests
     private static BRenderCommand.DrawText Drawn(BRenderList list, string text) =>
         Assert.Single(Texts(list).Where(command => command.Text.Text == text));
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Bulleted_Paragraph_Draws_A_Bullet_In_Front_Of_Its_Text()
     {
         RichEditScene scene = Scene(
@@ -60,7 +60,7 @@ public sealed class StandardRichEditListRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Numbers_Count_Up_And_Restart_After_A_Paragraph_That_Is_Not_A_List_Item()
     {
         RichEditScene scene = Scene(
@@ -80,7 +80,7 @@ public sealed class StandardRichEditListRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Wrapped_Item_Is_Marked_Once_And_Its_Later_Lines_Hang_Under_The_First()
     {
         RichEditScene scene = Scene(
@@ -98,7 +98,7 @@ public sealed class StandardRichEditListRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Indent_Level_Moves_A_Paragraph_By_One_Indent_Width_Each()
     {
         RichEditScene scene = Scene(
@@ -114,7 +114,7 @@ public sealed class StandardRichEditListRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Items_Of_One_List_Line_Up_Where_It_Runs_From_Nine_Into_Ten()
     {
         RichEditScene scene = Scene(
@@ -128,7 +128,7 @@ public sealed class StandardRichEditListRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Selection_Of_An_Item_Starts_At_Its_Text()
     {
         RichEditScene scene = Scene(new BSize(400, 200), ("item", Bulleted()));
@@ -143,7 +143,7 @@ public sealed class StandardRichEditListRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Caret_In_An_Empty_Item_Sits_Where_That_Item_Would_Be_Typed()
     {
         RichEditScene scene = Scene(
@@ -162,7 +162,7 @@ public sealed class StandardRichEditListRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Bullet_In_A_Table_Cell_Sits_In_That_Cell_Rather_Than_At_The_Page_Margin()
     {
         // The CV-template shape: a two-column layout table whose right cell holds

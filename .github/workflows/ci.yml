@@ -62,6 +62,8 @@ jobs:
           dotnet build Broiler.UI.slnx -c Release --nologo "${args[@]}"
 
       - name: Test
+        # xUnit timeouts require async tests; bound the synchronous suite here.
+        timeout-minutes: 15
         shell: pwsh
         run: ./eng/run-tests.ps1 -Configuration Release
 

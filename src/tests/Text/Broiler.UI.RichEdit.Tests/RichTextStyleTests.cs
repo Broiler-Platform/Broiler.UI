@@ -5,7 +5,7 @@ namespace Broiler.UI.RichEdit.Tests;
 
 public sealed class RichTextStyleTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void ApplyInlineStyle_To_Middle_Splits_Into_Three_Runs()
     {
         RichTextDocument document = RichTextDocument.FromPlainText("Hello");
@@ -21,7 +21,7 @@ public sealed class RichTextStyleTests
         Doc.AssertNormalized(paragraph);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Applying_Same_Style_To_Whole_Paragraph_Yields_Single_Run()
     {
         RichTextDocument document = RichTextDocument.FromPlainText("Hello");
@@ -32,7 +32,7 @@ public sealed class RichTextStyleTests
         Assert.True(styled.Paragraphs[0].Runs[0].Style.Bold);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Reverting_A_Style_Merges_Runs_Back_Together()
     {
         RichTextDocument document = RichTextDocument.FromPlainText("Hello");
@@ -46,7 +46,7 @@ public sealed class RichTextStyleTests
         Doc.AssertNormalized(reverted);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void ClearFormatting_Resets_Runs_To_Default()
     {
         RichTextDocument document = RichTextDocument.FromPlainText("Hello");
@@ -60,7 +60,7 @@ public sealed class RichTextStyleTests
         Assert.Equal(InlineStyle.Default, cleared.Paragraphs[0].Runs[0].Style);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void InlineStyle_Delta_Only_Changes_Specified_Attributes()
     {
         var start = new InlineStyle { Bold = true, FontSize = 12f };
@@ -72,7 +72,7 @@ public sealed class RichTextStyleTests
         Assert.Equal(BColor.Blue, result.Foreground);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void ApplyInlineStyle_Across_Paragraphs_Styles_Each_Segment()
     {
         RichTextDocument document = RichTextDocument.FromPlainText("abc\ndef");
@@ -89,7 +89,7 @@ public sealed class RichTextStyleTests
         Doc.AssertNormalized(styled);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void StyleBefore_Inherits_Style_To_The_Left_Of_The_Caret()
     {
         RichTextDocument document = RichTextDocument.FromPlainText("Hello");
@@ -99,7 +99,7 @@ public sealed class RichTextStyleTests
         Assert.False(styled.InlineStyleAt(Doc.Pos(0, 5)).Bold);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void ApplyParagraphStyle_Applies_To_Touched_Paragraphs_Only()
     {
         RichTextDocument document = RichTextDocument.FromPlainText("a\nb\nc");
@@ -111,7 +111,7 @@ public sealed class RichTextStyleTests
         Assert.Equal(TextAlignment.Left, styled.Paragraphs[2].Style.Alignment);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Default_Paragraph_Style_Is_Single_Spaced()
     {
         RichTextParagraph paragraph = RichTextParagraph.Plain("x");

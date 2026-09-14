@@ -12,7 +12,7 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class ListViewControlTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_ListView_Allows_Selection_Handlers_To_Replace_Items()
     {
         var listView = new StandardListView
@@ -32,7 +32,7 @@ public sealed class ListViewControlTests
         Assert.Null(keyboardException);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_ListView_Reserves_Content_Bounds_And_Renders_Vertical_Scrollbar()
     {
         var listView = CreateOverflowingListView();
@@ -45,7 +45,7 @@ public sealed class ListViewControlTests
         Assert.Contains(renderList.Commands.OfType<BRenderCommand.FillRoundedRect>(), command => command.Color == listView.ScrollbarThumb);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_ListView_Clicking_Scrollbar_Track_Pages_Without_Selecting_Row()
     {
         var listView = CreateOverflowingListView();
@@ -57,7 +57,7 @@ public sealed class ListViewControlTests
         Assert.Null(listView.SelectedItemId);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_ListView_Dragging_Scrollbar_Thumb_Updates_Offset_And_Captures_Input()
     {
         var listView = CreateOverflowingListView();

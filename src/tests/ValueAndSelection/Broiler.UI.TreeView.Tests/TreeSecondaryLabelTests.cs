@@ -16,7 +16,7 @@ namespace Broiler.UI.TreeView.Tests;
 /// </summary>
 public sealed class TreeSecondaryLabelTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Inline_Is_The_Default_And_Keeps_One_Line_Rows()
     {
         using TreeScene scene = TreeStandardHarness.Create(Source());
@@ -33,7 +33,7 @@ public sealed class TreeSecondaryLabelTests
         Assert.True(secondary.X > label.X, "the secondary label sits after the label");
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Below_The_Label_Puts_It_On_Its_Own_Line()
     {
         using TreeScene scene = TreeStandardHarness.Create(Source());
@@ -54,7 +54,7 @@ public sealed class TreeSecondaryLabelTests
     /// height with it. A click that still divided by the one-line height would
     /// land on a row the user did not press.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Row_Height_And_The_Hit_Test_Follow_The_Placement()
     {
         using TreeScene scene = TreeStandardHarness.Create(Source());
@@ -73,7 +73,7 @@ public sealed class TreeSecondaryLabelTests
     /// never said so. A pane that scrolls with no bar on it looks like a pane
     /// that ends where its last row does.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Bar_Appears_Only_When_There_Are_More_Rows_Than_Fit()
     {
         var few = new LabelledTreeSource();
@@ -99,7 +99,7 @@ public sealed class TreeSecondaryLabelTests
     /// and hit-tests by row, so a bar that left it half way down one would draw
     /// every row half out of its own rectangle.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Dragging_The_Thumb_Scrolls_The_Rows()
     {
         using TreeScene scene = TreeStandardHarness.Create(Many());
@@ -115,7 +115,7 @@ public sealed class TreeSecondaryLabelTests
     }
 
     /// <summary>A press on the bar scrolls; it does not select the row beside it.</summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Press_On_The_Bar_Selects_Nothing()
     {
         using TreeScene scene = TreeStandardHarness.Create(Many());
@@ -132,7 +132,7 @@ public sealed class TreeSecondaryLabelTests
     /// and the wheel is the convention every editor shares, and the only way to
     /// reach it on a mouse with one wheel.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Row_Wider_Than_The_Pane_Can_Be_Scrolled_To()
     {
         var wide = new LabelledTreeSource();
@@ -160,7 +160,7 @@ public sealed class TreeSecondaryLabelTests
     }
 
     /// <summary>Without Shift the same wheel scrolls rows, not columns.</summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Plain_Wheel_Still_Scrolls_Rows()
     {
         using TreeScene scene = TreeStandardHarness.Create(Many());

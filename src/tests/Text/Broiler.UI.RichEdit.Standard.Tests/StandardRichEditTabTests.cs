@@ -35,7 +35,7 @@ public sealed class StandardRichEditTabTests
 
     // --- The key -----------------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Tab_Types_A_Tab_Into_Running_Text()
     {
         RichEditScene scene = Focused("ab");
@@ -48,7 +48,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void One_Press_Types_One_Tab_Even_Where_The_Platform_Also_Commits_It_As_Text()
     {
         // Windows raises WM_KEYDOWN and WM_CHAR for the same press; only the key
@@ -63,7 +63,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Tab_Replaces_The_Selection_It_Is_Typed_Over()
     {
         RichEditScene scene = Focused("abcd");
@@ -75,7 +75,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Shift_Tab_Takes_Back_The_Tab_In_Front_Of_The_Caret()
     {
         RichEditScene scene = Focused("ab");
@@ -89,7 +89,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Shift_Tab_With_No_Tab_To_Take_Back_Outdents_The_Paragraph()
     {
         RichEditScene scene = Focused();
@@ -104,7 +104,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Shift_Tab_On_An_Unindented_Paragraph_Leaves_The_Text_Alone()
     {
         RichEditScene scene = Focused("plain");
@@ -117,7 +117,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Theory(Timeout = 600000)]
+    [Theory]
     [InlineData(KeyboardModifierState.Control)]
     [InlineData(KeyboardModifierState.Alt)]
     public void A_Modified_Tab_Is_Left_For_The_Application(KeyboardModifierState modifiers)
@@ -133,7 +133,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Read_Only_Edit_Types_Nothing()
     {
         RichEditScene scene = Focused("ab");
@@ -148,7 +148,7 @@ public sealed class StandardRichEditTabTests
 
     // --- Lists and paragraph levels ----------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Tab_In_Front_Of_A_List_Item_Demotes_It_And_Shift_Tab_Promotes_It()
     {
         RichEditScene scene = Focused();
@@ -166,7 +166,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Tab_Inside_A_List_Item_Types_A_Tab_Rather_Than_Demoting_It()
     {
         RichEditScene scene = Focused();
@@ -181,7 +181,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Tab_Over_A_Selection_Of_Several_Paragraphs_Indents_Them_All()
     {
         RichEditScene scene = Focused("one\ntwo");
@@ -195,7 +195,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Shift_Tab_Over_A_Selection_Of_Several_Paragraphs_Outdents_Them_All()
     {
         RichEditScene scene = Focused("one\ntwo");
@@ -209,7 +209,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Tab_Is_One_Undo_Step()
     {
         RichEditScene scene = Focused("ab");
@@ -224,7 +224,7 @@ public sealed class StandardRichEditTabTests
 
     // --- Layout ------------------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Text_After_A_Tab_Starts_At_The_Next_Tab_Stop()
     {
         RichEditScene scene = Focused("a\tb");
@@ -238,7 +238,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Tab_Always_Advances_Even_From_A_Column_That_Is_Already_A_Tab_Stop()
     {
         RichEditScene scene = Focused("\t\tb");
@@ -251,7 +251,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Words_Of_Different_Lengths_Line_Up_On_The_Same_Tab_Stop()
     {
         RichEditScene scene = Focused("a\tone\nbcd\ttwo");
@@ -262,7 +262,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Tab_Is_Measured_From_Where_The_Paragraph_Text_Starts_Not_From_The_Control()
     {
         // An indented paragraph keeps its own tab grid, so tabbed text stays put
@@ -282,7 +282,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Caret_Sits_At_The_Tab_Stop_The_Tab_Reached()
     {
         RichEditScene scene = Focused("\tb");
@@ -298,7 +298,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Clicking_Past_A_Tab_Lands_On_The_Character_Drawn_There()
     {
         RichEditScene scene = Focused("\tbc");
@@ -312,7 +312,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Selection_Behind_A_Tab_Is_As_Wide_As_The_Gap_It_Opened()
     {
         RichEditScene scene = Focused("\t");
@@ -327,7 +327,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Tab_Wide_Enough_To_Overflow_The_Line_Wraps_The_Text_After_It()
     {
         // The tab reaches past the right edge on its own, so nothing can follow it
@@ -344,7 +344,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Tab_Draws_No_Glyphs_Of_Its_Own()
     {
         RichEditScene scene = Focused("a\tb");
@@ -357,7 +357,7 @@ public sealed class StandardRichEditTabTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Underline_Runs_Across_The_Gap_A_Tab_Opens()
     {
         RichEditScene scene = Focused();

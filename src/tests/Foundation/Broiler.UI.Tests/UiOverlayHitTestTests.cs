@@ -76,7 +76,7 @@ public sealed class UiOverlayHitTestTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Element_Answers_For_The_Overlay_It_Is_Showing()
     {
         using UiSession session = CreateSession();
@@ -89,7 +89,7 @@ public sealed class UiOverlayHitTestTests
         Assert.Same(showing, session.HitTest(new BPoint(20, 50)));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void It_Stops_Answering_Once_It_Is_Not_Showing()
     {
         using UiSession session = CreateSession();
@@ -104,7 +104,7 @@ public sealed class UiOverlayHitTestTests
         Assert.Same(board, session.HitTest(new BPoint(20, 50)));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Overlay_Beats_The_Box_It_Is_Drawn_Over()
     {
         // The sibling is later in the tree, so it is drawn after the element and
@@ -122,7 +122,7 @@ public sealed class UiOverlayHitTestTests
         Assert.Same(showing, session.HitTest(new BPoint(20, 50)));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Point_On_An_Overlays_Own_Child_Reaches_The_Child()
     {
         using UiSession session = CreateSession();
@@ -139,7 +139,7 @@ public sealed class UiOverlayHitTestTests
         Assert.Same(showing, session.HitTest(new BPoint(20, 55)));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Overlay_Opened_From_Inside_Another_One_Answers_First()
     {
         // A list opened from a control that is itself inside a drop-down is drawn
@@ -158,7 +158,7 @@ public sealed class UiOverlayHitTestTests
         Assert.Same(outer, session.HitTest(new BPoint(70, 92)));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Input_Is_Dispatched_To_The_Element_Showing_The_Overlay()
     {
         using UiSession session = CreateSession();
@@ -175,7 +175,7 @@ public sealed class UiOverlayHitTestTests
         Assert.Equal(1, item.InputCount);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Element_Showing_Nothing_Is_Hit_Exactly_As_It_Was()
     {
         using UiSession session = CreateSession();

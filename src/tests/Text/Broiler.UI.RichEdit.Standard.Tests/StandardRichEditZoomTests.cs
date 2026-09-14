@@ -34,7 +34,7 @@ public sealed class StandardRichEditZoomTests
 
     // --- The property ------------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Fresh_Surface_Reads_At_The_Size_The_Document_States()
     {
         RichEditScene scene = Create(new BSize(400, 200));
@@ -43,7 +43,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Theory(Timeout = 600000)]
+    [Theory]
     [InlineData(0, StandardRichEdit.MinimumZoom)]
     [InlineData(-4, StandardRichEdit.MinimumZoom)]
     [InlineData(0.01, StandardRichEdit.MinimumZoom)]
@@ -58,7 +58,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Theory(Timeout = 600000)]
+    [Theory]
     [InlineData(double.NaN)]
     [InlineData(double.PositiveInfinity)]
     public void A_Zoom_That_Is_Not_A_Number_Falls_Back_To_Full_Size(double requested)
@@ -73,7 +73,7 @@ public sealed class StandardRichEditZoomTests
 
     // --- Text --------------------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Documents_Points_Become_The_Controls_Pixels()
     {
         // The unit boundary, pinned. A document states type in points and this
@@ -91,7 +91,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Font_Chosen_Here_Round_Trips_Through_The_Document()
     {
         // The other direction, and the one that writes to a file: a size picked
@@ -112,7 +112,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Text_Is_Drawn_At_The_Zoomed_Size()
     {
         RichEditScene plain = Create(new BSize(400, 200), "sample");
@@ -125,7 +125,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Runs_Own_Size_Is_Scaled_Too_Rather_Than_Replaced()
     {
         RichEditScene scene = At(2);
@@ -141,7 +141,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Zoomed_Out_Far_Enough_Text_Is_Still_Drawn_At_A_Whole_Pixel()
     {
         RichEditScene scene = At(StandardRichEdit.MinimumZoom, "sample");
@@ -151,7 +151,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Column_Does_Not_Grow_With_The_Text_So_Zoomed_In_Text_Wraps_Sooner()
     {
         const string Text = "one two three four five six seven eight nine ten";
@@ -169,7 +169,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Padding_Is_The_Controls_Own_And_Stays_Where_It_Is()
     {
         RichEditScene scene = At(3, "sample");
@@ -180,7 +180,7 @@ public sealed class StandardRichEditZoomTests
 
     // --- Indents, tabs, markers -------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Indent_Is_Scaled_With_The_Text_It_Indents()
     {
         RichEditScene scene = At(2);
@@ -199,7 +199,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Tab_Reaches_A_Stop_That_Moved_With_The_Zoom()
     {
         RichEditScene scene = At(2, "a\tb", new BSize(900, 200));
@@ -211,7 +211,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_List_Marker_Keeps_Its_Item_At_The_Zoomed_Size()
     {
         RichEditScene scene = At(2, size: new BSize(600, 200));
@@ -237,7 +237,7 @@ public sealed class StandardRichEditZoomTests
 
     // --- Pictures ----------------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Picture_Is_Drawn_At_The_Zoomed_Size()
     {
         RichEditScene scene = At(1.5, size: new BSize(600, 300));
@@ -257,7 +257,7 @@ public sealed class StandardRichEditZoomTests
 
     // --- The page ----------------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Sheet_And_Its_Margins_Are_Scaled_With_What_Is_Written_On_Them()
     {
         var a4 = new PageGeometry(595.276, 841.89, 127.55, 56.7, 56.7, 56.7);
@@ -281,7 +281,7 @@ public sealed class StandardRichEditZoomTests
 
     // --- What follows the text --------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Clicking_Lands_On_The_Character_Under_The_Pointer_At_Any_Zoom()
     {
         RichEditScene plain = Create(new BSize(900, 200), "sample text");
@@ -305,7 +305,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Caret_Is_Published_At_The_Zoomed_Line_Height()
     {
         RichEditScene plain = Create(new BSize(400, 200), "sample");
@@ -327,7 +327,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Zooming_Keeps_The_Reader_Where_They_Were_Reading()
     {
         RichEditScene scene = Create(
@@ -349,7 +349,7 @@ public sealed class StandardRichEditZoomTests
 
     // --- The document is not touched --------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Zoom_Is_A_Property_Of_The_View_And_Never_Reaches_The_Document()
     {
         RichEditScene scene = Create(new BSize(400, 200));
@@ -368,7 +368,7 @@ public sealed class StandardRichEditZoomTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Returning_To_Full_Size_Draws_Exactly_What_Was_Drawn_Before()
     {
         RichEditScene scene = Create(new BSize(400, 200), "sample");

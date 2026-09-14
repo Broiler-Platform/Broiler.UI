@@ -41,7 +41,7 @@ public sealed class StandardRichEditAlignmentRenderTests
     private static double Advance(BRenderCommand.DrawText drawn) =>
         BTextMeasurer.MeasureAdvance(drawn.Text.Text, drawn.Text.Font);
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Centered_Paragraph_Sits_In_The_Middle_Of_Its_Column()
     {
         RichEditScene scene = Scene(
@@ -59,7 +59,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Right_Aligned_Paragraph_Ends_At_The_Right_Margin()
     {
         RichEditScene scene = Scene(
@@ -77,7 +77,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Indented_Paragraph_Is_Aligned_Inside_What_Its_Indent_Leaves()
     {
         RichEditScene scene = Scene(
@@ -93,7 +93,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Line_Too_Wide_For_Its_Column_Still_Starts_At_The_Margin()
     {
         // One unbreakable word wider than the column: the alignment slack is
@@ -110,7 +110,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Each_Wrapped_Line_Of_A_Centered_Paragraph_Is_Centered_On_Its_Own()
     {
         RichEditScene scene = Scene(
@@ -134,7 +134,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Caret_On_An_Empty_Centered_Line_Sits_Where_That_Line_Would_Be_Typed()
     {
         RichEditScene scene = Scene(
@@ -151,7 +151,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Selection_Of_A_Centered_Paragraph_Covers_Where_Its_Text_Is_Drawn()
     {
         RichEditScene scene = Scene(new BSize(400, 200), ("middle", Aligned(TextAlignment.Center)));
@@ -168,7 +168,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Centered_List_Item_Keeps_Its_Marker_Against_Its_Text()
     {
         RichEditScene scene = Scene(
@@ -186,7 +186,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Clicking_A_Centered_Line_Lands_On_The_Character_Under_The_Pointer()
     {
         RichEditScene scene = Scene(new BSize(400, 200), ("middle", Aligned(TextAlignment.Center)));
@@ -203,7 +203,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Centering_The_Caret_Paragraph_Redraws_It_Centered_Without_A_Selection()
     {
         // The reported symptom: aligning with nothing selected changed the model

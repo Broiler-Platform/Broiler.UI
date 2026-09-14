@@ -33,7 +33,7 @@ public sealed class StandardRichEditFloatingPictureTests
     private static BRenderCommand.DrawImage[] DrawnImages(BRenderList list) =>
         list.Commands.OfType<BRenderCommand.DrawImage>().ToArray();
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Draws_A_Floating_Picture_In_Its_Box()
     {
         RichEditScene scene = Scene(new BSize(400, 200), Picture());
@@ -48,7 +48,7 @@ public sealed class StandardRichEditFloatingPictureTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Draws_A_Floating_Picture_At_The_Box_The_Shape_States()
     {
         // A logo two thirds the width of its frame would be stretched to the
@@ -62,7 +62,7 @@ public sealed class StandardRichEditFloatingPictureTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Floating_Picture_In_The_Margin_Is_Drawn_On_The_Surface()
     {
         RichEditScene scene = Scene(new BSize(400, 200), Picture(x: -40));
@@ -75,7 +75,7 @@ public sealed class StandardRichEditFloatingPictureTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Floating_Picture_Is_Drawn_Under_The_Text()
     {
         RichEditScene scene = Scene(new BSize(400, 200), Picture());
@@ -89,7 +89,7 @@ public sealed class StandardRichEditFloatingPictureTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Floating_Picture_Hangs_From_The_Paragraph_It_Is_Anchored_To()
     {
         RichEditScene scene = Create(new BSize(400, 300));
@@ -108,7 +108,7 @@ public sealed class StandardRichEditFloatingPictureTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Floating_Picture_Keeps_Its_Handle_Across_Frames()
     {
         // A shape's picture is in the document without being in a paragraph. The
@@ -125,7 +125,7 @@ public sealed class StandardRichEditFloatingPictureTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Falls_Back_To_An_Outline_When_The_Picture_Cannot_Be_Decoded()
     {
         RichEditScene scene = Scene(new BSize(400, 200), Picture());
@@ -138,7 +138,7 @@ public sealed class StandardRichEditFloatingPictureTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Picture_Shape_Keeps_Its_Frame()
     {
         RichEditScene scene = Scene(

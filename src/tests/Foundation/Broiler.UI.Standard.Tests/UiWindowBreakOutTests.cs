@@ -15,7 +15,7 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class UiWindowBreakOutTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void CanBreakOut_Is_False_Without_Window_Host_Capability()
     {
         var host = new PlainHost();
@@ -33,7 +33,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Contains(child, owner.OwnedWindows);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void CanBreakOut_Is_False_For_A_Top_Level_Window()
     {
         var host = new FakeWindowHost();
@@ -45,7 +45,7 @@ public sealed class UiWindowBreakOutTests
         Assert.False(top.CanBreakOut);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Owned_Window_Breaks_Out_Automatically_When_The_Host_Supports_It()
     {
         var host = new FakeWindowHost();
@@ -74,7 +74,7 @@ public sealed class UiWindowBreakOutTests
         Assert.False(child.BreakOut());
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Break_Out_Asks_The_Host_For_Owner_Drawn_Chrome()
     {
         var host = new FakeWindowHost();
@@ -87,7 +87,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Equal(UiHostWindowChrome.Owner, Assert.Single(host.Created).Request.Chrome);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Manual_Mode_Keeps_The_Window_Logical_Until_BreakOut_Is_Called()
     {
         var host = new FakeWindowHost();
@@ -108,7 +108,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Single(host.Created);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Tooltips_Never_Break_Out_Automatically()
     {
         var host = new FakeWindowHost();
@@ -124,7 +124,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Contains(tooltip, owner.OwnedWindows);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Broken_Out_Window_Reuses_Origin_Session_Services()
     {
         var host = new FakeWindowHost();
@@ -145,7 +145,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Same(session.Factories, hosted.Factories);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Modal_Dialog_Breaks_Out_And_Blocks_Origin_Until_Completed()
     {
         var host = new FakeWindowHost();
@@ -170,7 +170,7 @@ public sealed class UiWindowBreakOutTests
         Assert.True(host.Created[0].IsDisposed);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Modeless_Dialog_Break_Out_Does_Not_Block_Origin()
     {
         var host = new FakeWindowHost();
@@ -186,7 +186,7 @@ public sealed class UiWindowBreakOutTests
         Assert.False(session.IsBlockedByExternalModal);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Modal_Dialog_Stays_Logical_In_Manual_Mode()
     {
         var host = new FakeWindowHost();
@@ -202,7 +202,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Contains(dialog, session.ModalElements);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Host_Window_Close_Request_Closes_And_Disposes_Everything()
     {
         var host = new FakeWindowHost();
@@ -225,7 +225,7 @@ public sealed class UiWindowBreakOutTests
         Assert.False(session.IsBlockedByExternalModal);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Closing_Broken_Out_Window_Programmatically_Tears_Down_Once()
     {
         var host = new FakeWindowHost();
@@ -245,7 +245,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Equal(1, created.DisposeCount);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Broken_Out_Dialog_Moves_Through_The_Window_Manager()
     {
         var host = new FakeWindowHost();
@@ -273,7 +273,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Equal(before, dialog.Placement);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Broken_Out_File_Dialog_Asks_For_A_Resizable_Host_Window()
     {
         var host = new FakeWindowHost();
@@ -292,7 +292,7 @@ public sealed class UiWindowBreakOutTests
         Assert.False(dialog.CanMaximize);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Broken_Out_Plain_Dialog_Asks_For_A_Fixed_Host_Window()
     {
         var host = new FakeWindowHost();
@@ -308,7 +308,7 @@ public sealed class UiWindowBreakOutTests
         Assert.Empty(host.Created[0].ResizeDrags);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Logical_Dialog_Still_Moves_Itself_By_Placement()
     {
         var host = new FakeWindowHost();

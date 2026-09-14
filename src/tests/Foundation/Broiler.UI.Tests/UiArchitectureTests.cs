@@ -5,7 +5,7 @@ namespace Broiler.UI.Tests;
 
 public sealed class UiArchitectureTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Ui_Project_Targets_Net10_And_Only_Platform_Neutral_Graphics_And_Input()
     {
         string projectPath = Path.Combine(FindComponentRoot(), "src", "Foundation", "Broiler.UI", "Broiler.UI.csproj");
@@ -22,13 +22,13 @@ public sealed class UiArchitectureTests
         Assert.DoesNotContain(references, reference => reference.Contains("Direct2D", StringComparison.Ordinal));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Runtime_Assemblies_Do_Not_Expose_Native_Handles_Or_Windows_Types()
     {
         Assert.Empty(FindForbiddenSurface(typeof(UiElement).Assembly.GetExportedTypes()));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Forbidden_Surface_Inspection_Fails_Against_Deliberate_Fixture()
     {
         string[] violations = FindForbiddenSurface([typeof(DeliberateNativeHandleFixture)]);

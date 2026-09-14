@@ -9,7 +9,7 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class FileDialogControlTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_Filters_Files_Appends_Default_Extension_And_Navigates_Up()
     {
         using var temp = new TempDirectory();
@@ -37,7 +37,7 @@ public sealed class FileDialogControlTests
         Assert.Equal(temp.Path, dialog.CurrentDirectory);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_Renders_Current_Directory_Line()
     {
         using var temp = new TempDirectory();
@@ -55,7 +55,7 @@ public sealed class FileDialogControlTests
         Assert.Contains(renderList.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == temp.Path);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_Picks_Named_File_Type_Filters_From_The_Combo_Box()
     {
         using var temp = new TempDirectory();
@@ -91,7 +91,7 @@ public sealed class FileDialogControlTests
         Assert.Equal(Path.Combine(temp.Path, "new.md"), dialog.SelectedPath);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_File_Type_Combo_Follows_The_Dialog_Selection()
     {
         var dialog = new StandardFileDialog();
@@ -113,7 +113,7 @@ public sealed class FileDialogControlTests
         Assert.Equal(0, dialog.FileTypeComboBox.SelectedIndex);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_Sort_Combo_Reorders_Files_And_Folders()
     {
         using var temp = new TempDirectory();
@@ -142,7 +142,7 @@ public sealed class FileDialogControlTests
         Assert.Equal(["beta.md", "gamma.rtf", "alpha.txt"], FileNames(dialog));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_Sort_Combo_Follows_The_Dialog_Sort_Order()
     {
         var dialog = new StandardFileDialog();
@@ -154,7 +154,7 @@ public sealed class FileDialogControlTests
         Assert.Equal("Sort: Size", dialog.SortComboBox.SelectedItem?.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_Is_Resizable_Unlike_A_Plain_Dialog()
     {
         var dialog = new StandardFileDialog();
@@ -167,7 +167,7 @@ public sealed class FileDialogControlTests
         Assert.False(dialog.CanMaximize);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_Keeps_Every_Label_Clear_Of_The_Control_It_Names()
     {
         var host = new TestHost();
@@ -239,7 +239,7 @@ public sealed class FileDialogControlTests
         File.SetLastWriteTimeUtc(path, lastWriteUtc);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_File_Dialog_Shows_Places_And_Descriptive_Chrome()
     {
         var host = new TestHost();

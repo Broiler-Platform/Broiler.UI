@@ -12,7 +12,7 @@ namespace Broiler.UI.Splitter.Tests;
 
 public sealed class StandardSplitterTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Value_Is_Clamped_Evented_And_Semantic()
     {
         var splitter = new StandardSplitter();
@@ -29,7 +29,7 @@ public sealed class StandardSplitterTests
         Assert.Contains("90", node.Name);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Keyboard_And_Pointer_Resize_Without_Host_Specific_Logic()
     {
         using SplitterScene scene = Create();
@@ -46,7 +46,7 @@ public sealed class StandardSplitterTests
         Assert.Equal(0.72, scene.Splitter.Value, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Theme_Render_And_Factory_Are_Deterministic()
     {
         using SplitterScene scene = Create();

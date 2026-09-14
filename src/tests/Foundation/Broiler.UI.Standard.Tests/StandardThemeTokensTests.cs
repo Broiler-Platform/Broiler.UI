@@ -5,7 +5,7 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class StandardThemeTokensTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Presets_Report_Their_Light_Or_Dark_Nature()
     {
         Assert.False(StandardThemeTokens.Light.IsDark);
@@ -15,7 +15,7 @@ public sealed class StandardThemeTokensTests
         Assert.Same(StandardThemeTokens.Light, StandardThemeTokens.Default);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Light_And_Dark_Differ_On_Core_Surfaces_And_Text()
     {
         Assert.NotEqual(StandardThemeTokens.Light.Surface, StandardThemeTokens.Dark.Surface);
@@ -45,7 +45,7 @@ public sealed class StandardThemeTokensTests
         AssertMeets(theme.FocusRing, theme.Surface, StandardContrast.AaLargeOrUi, theme, "FocusRing/Surface");
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Legacy_Four_Color_Constructor_Still_Works_And_Derives_Roles()
     {
         var tokens = new StandardThemeTokens(BColor.Black, BColor.White, BColor.Green, BColor.Red);
@@ -59,7 +59,7 @@ public sealed class StandardThemeTokensTests
         Assert.Equal(tokens.FocusRing, tokens.Focus);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Select_Routes_System_Preferences_To_The_Right_Preset()
     {
         Assert.Same(StandardThemeTokens.Light, StandardThemeTokens.Select(UiContrastPreference.NoPreference, dark: false));
@@ -68,7 +68,7 @@ public sealed class StandardThemeTokensTests
         Assert.Same(StandardThemeTokens.HighContrastDark, StandardThemeTokens.Select(UiContrastPreference.More, dark: true));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void ApplyTheme_ReColors_The_Shared_Control_Palette()
     {
         StandardThemeTokens original = StandardControlPaint.Theme;

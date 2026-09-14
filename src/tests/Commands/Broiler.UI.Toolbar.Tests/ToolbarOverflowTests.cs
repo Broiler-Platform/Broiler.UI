@@ -66,7 +66,7 @@ public sealed class ToolbarOverflowTests
 
     // --- What overflows ----------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Bar_With_Room_For_Everything_Overflows_Nothing()
     {
         Bar bar = Create(900);
@@ -79,7 +79,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Items_That_Do_Not_Fit_Move_Into_The_Drop_Down()
     {
         Bar bar = Create();
@@ -91,7 +91,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Nothing_Left_On_The_Bar_Is_Drawn_Past_Its_Edge()
     {
         Bar bar = Create();
@@ -112,7 +112,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Drop_Down_Holds_A_Tail_Of_The_Bar_In_Bar_Order()
     {
         Bar bar = Create();
@@ -125,7 +125,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Shut_Drop_Down_Leaves_Its_Items_Without_A_Box_Or_A_Glyph()
     {
         Bar bar = Create();
@@ -141,7 +141,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Clipping_Is_Still_Available_For_A_Host_That_Guarantees_Its_Width()
     {
         Bar bar = Create();
@@ -157,7 +157,7 @@ public sealed class ToolbarOverflowTests
 
     // --- Reaching them -----------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Chevron_Opens_The_Drop_Down_And_Its_Items_Are_Drawn()
     {
         Bar bar = Create();
@@ -179,7 +179,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Item_In_The_Drop_Down_Runs_When_It_Is_Clicked()
     {
         Bar bar = Create();
@@ -197,7 +197,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Press_That_Slides_Off_An_Item_Runs_Nothing()
     {
         Bar bar = Create();
@@ -217,7 +217,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Press_Somewhere_Else_Dismisses_The_Drop_Down()
     {
         Bar bar = Create();
@@ -231,7 +231,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Escape_Shuts_The_Drop_Down()
     {
         Bar bar = Create();
@@ -244,7 +244,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Arrowing_Along_The_Bar_Still_Reaches_Every_Item_On_It()
     {
         // The far end used to be clipped but focusable. It is behind a chevron
@@ -265,7 +265,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Arrowing_Back_Out_Of_The_Drop_Down_Shuts_It()
     {
         Bar bar = Create();
@@ -281,7 +281,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void An_Item_Focused_In_The_Drop_Down_Hears_Its_Own_Keys()
     {
         Bar bar = Create();
@@ -300,7 +300,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Drop_Down_Opened_From_The_Keyboard_Answers_A_Mouse_The_Same_Way()
     {
         Bar bar = Create();
@@ -321,7 +321,7 @@ public sealed class ToolbarOverflowTests
 
     // --- Where it is drawn -------------------------------------------------
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Drop_Down_Stays_Inside_The_Window()
     {
         Bar bar = Create();
@@ -336,7 +336,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Drop_Down_With_No_Room_Below_It_Opens_Upwards()
     {
         Bar bar = Create(viewportHeight: 200, barTop: 140);
@@ -353,7 +353,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Drop_Down_Too_Tall_For_The_Window_Flows_Into_Columns()
     {
         // A stack taller than the screen has a foot exactly as unreachable as the
@@ -376,7 +376,7 @@ public sealed class ToolbarOverflowTests
         bar.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Every_Item_In_A_Columned_Drop_Down_Is_Inside_It()
     {
         Bar bar = Create(viewportHeight: 220, buttons: 12);

@@ -13,7 +13,7 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class SpinBoxControlTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Steps_Within_Its_Range()
     {
         var spin = new StandardSpinBox { Minimum = 1, Maximum = 3, Value = 2 };
@@ -29,7 +29,7 @@ public sealed class SpinBoxControlTests
         Assert.Equal(1, spin.Value);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Clamps_A_Value_Set_Outside_Its_Range()
     {
         var spin = new StandardSpinBox { Minimum = 8, Maximum = 72, Value = 400 };
@@ -45,7 +45,7 @@ public sealed class SpinBoxControlTests
     /// The number is rounded to the decimals the box keeps rather than rejected, so the value and
     /// the text the user sees are never two different numbers.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Rounds_To_The_Decimals_It_Keeps()
     {
         var spin = new StandardSpinBox { Maximum = 100, DecimalPlaces = 1, Value = 10.46 };
@@ -62,7 +62,7 @@ public sealed class SpinBoxControlTests
     }
 
     /// <summary>A whole number reads as one: a size box shows "16", never "16.0".</summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Shows_No_Trailing_Zeros()
     {
         var spin = new StandardSpinBox { Maximum = 100, DecimalPlaces = 2, Value = 16 };
@@ -70,7 +70,7 @@ public sealed class SpinBoxControlTests
         Assert.Equal("16", spin.ValueText);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Takes_A_Typed_Number()
     {
         var spin = new StandardSpinBox { Maximum = 100 };
@@ -85,7 +85,7 @@ public sealed class SpinBoxControlTests
     /// and a box that rejected the whole entry — or wrote its own value back over it — would fight
     /// the caret.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Leaves_Unparsable_Text_Alone()
     {
         var spin = new StandardSpinBox { Maximum = 100, Value = 12 };
@@ -106,7 +106,7 @@ public sealed class SpinBoxControlTests
     /// culture whose decimal separator is a comma. Taking it from the host is what made an earlier
     /// version of this pass on a German machine and fail on CI.
     /// </remarks>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Takes_Either_Decimal_Separator()
     {
         var comma = (CultureInfo)CultureInfo.InvariantCulture.Clone();
@@ -117,7 +117,7 @@ public sealed class SpinBoxControlTests
         Assert.Equal((true, 12.5), ParseUnder(comma, "12,5"));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Steps_From_The_Keyboard()
     {
         var fixture = SpinFixture.Create(value: 5);
@@ -136,7 +136,7 @@ public sealed class SpinBoxControlTests
     /// Pressing the up arrow steps up, and the focus lands in the text half so that what the user
     /// types next goes where the caret is.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Steps_From_Its_Arrows()
     {
         var fixture = SpinFixture.Create(value: 5);
@@ -152,7 +152,7 @@ public sealed class SpinBoxControlTests
     }
 
     /// <summary>A press in the text half is the edit's, not a step.</summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Does_Not_Step_From_A_Press_In_The_Text()
     {
         var fixture = SpinFixture.Create(value: 5);
@@ -162,7 +162,7 @@ public sealed class SpinBoxControlTests
         Assert.Equal(5, fixture.Spin.Value);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Steps_From_The_Wheel()
     {
         var fixture = SpinFixture.Create(value: 5);
@@ -176,7 +176,7 @@ public sealed class SpinBoxControlTests
         Assert.Equal(5, fixture.Spin.Value);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Ignores_Everything_While_Disabled()
     {
         var fixture = SpinFixture.Create(value: 5);
@@ -189,7 +189,7 @@ public sealed class SpinBoxControlTests
         Assert.False(fixture.Spin.Edit.IsEnabled);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Draws_Both_Arrows()
     {
         var fixture = SpinFixture.Create(value: 5);
@@ -200,7 +200,7 @@ public sealed class SpinBoxControlTests
         Assert.Equal(2, renderList.Commands.OfType<BRenderCommand.FillTriangle>().Count());
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Spin_Box_Reports_Its_Value_To_Accessibility()
     {
         var spin = new StandardSpinBox { Maximum = 100, Value = 24 };

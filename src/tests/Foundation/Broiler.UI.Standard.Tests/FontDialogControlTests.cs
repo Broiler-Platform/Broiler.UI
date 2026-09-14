@@ -11,7 +11,7 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class FontDialogControlTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Updates_Selected_Font_From_Controls()
     {
         var dialog = new StandardFontDialog();
@@ -32,7 +32,7 @@ public sealed class FontDialogControlTests
     /// The size box steps rather than being retyped, which is the whole point of it being a spin
     /// box: the arrows and Up/Down move the size without the user selecting the old one first.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Steps_The_Size()
     {
         var dialog = new StandardFontDialog { SelectedFont = new BFontStyle("Alpha Sans", 16) };
@@ -51,7 +51,7 @@ public sealed class FontDialogControlTests
     /// A size kept in half points survives the round trip through the box. The box formats without
     /// trailing zeros, so 10.5 reads as "10.5" and 16 as "16".
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Keeps_A_Half_Point_Size()
     {
         var dialog = new StandardFontDialog { SelectedFont = new BFontStyle("Alpha Sans", 10.5) };
@@ -60,7 +60,7 @@ public sealed class FontDialogControlTests
         Assert.Equal("10.5", dialog.SizeSpin.Edit.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Shows_The_Weight_As_A_Named_Choice()
     {
         var dialog = new StandardFontDialog { SelectedFont = new BFontStyle("Alpha Sans", 16, BFontWeight.SemiBold) };
@@ -73,7 +73,7 @@ public sealed class FontDialogControlTests
         Assert.Equal("Black", dialog.WeightCombo.SelectedItem?.Text);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Carries_Underline_And_Strikethrough()
     {
         var dialog = new StandardFontDialog();
@@ -93,7 +93,7 @@ public sealed class FontDialogControlTests
     /// A font list is as long as the host's font set and a preview is worth the room, so this
     /// dialog opts out of <see cref="UiDialog"/>'s fixed-size default.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Can_Be_Resized()
     {
         var dialog = new StandardFontDialog();
@@ -105,7 +105,7 @@ public sealed class FontDialogControlTests
     /// Every control has to stay inside the dialog at any size the user drags it to, including one
     /// well under what the layout was designed against.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Lays_Out_At_Any_Size()
     {
         var dialog = new StandardFontDialog();
@@ -126,7 +126,7 @@ public sealed class FontDialogControlTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Renders_Selected_Font_Preview()
     {
         var host = new TestHost();
@@ -156,7 +156,7 @@ public sealed class FontDialogControlTests
     /// dialog decides, and the two it left out are the two a user turns on to see what they look
     /// like.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Draws_The_Decorations_In_The_Preview()
     {
         var host = new TestHost();
@@ -176,7 +176,7 @@ public sealed class FontDialogControlTests
         Assert.Equal(plain + 2, CountRules(session.RenderFrame(), dialog));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Standard_Font_Dialog_Adds_Selected_Custom_Family_To_List()
     {
         var dialog = new StandardFontDialog();
@@ -193,7 +193,7 @@ public sealed class FontDialogControlTests
     /// no host font source registered the built-in names stand in, which is what this asserts —
     /// a test box's own font set is not something to assert against.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Font_Dialog_Lists_The_Host_Font_Families()
     {
         BSystemFonts.Use(() => ["Zeta Display", "Alpha Sans"]);
@@ -214,7 +214,7 @@ public sealed class FontDialogControlTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Font_Dialog_Result_Value_Round_Trips_Fonts()
     {
         var font = new BFontStyle("Family|With\\Escapes", 13.5, BFontWeight.SemiBold, BFontSlant.Oblique);
@@ -232,7 +232,7 @@ public sealed class FontDialogControlTests
     /// The decorations were appended to the result value rather than woven into it, so a value
     /// written before they existed still parses — as a font with neither.
     /// </summary>
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Font_Dialog_Reads_A_Result_Value_Without_Decorations()
     {
         bool parsed = UiFontDialog.TryParseFontValue(

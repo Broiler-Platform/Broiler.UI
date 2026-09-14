@@ -17,7 +17,7 @@ namespace Broiler.UI.Toolbar.Tests;
 /// </remarks>
 public sealed class ToolbarGroupBreakTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Gap_Opens_Space_And_Draws_No_Rule()
     {
         var host = new TestHost(new BSize(400, 64));
@@ -43,7 +43,7 @@ public sealed class ToolbarGroupBreakTests
             command => command.Color == toolbar.SeparatorColor);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Separator_Still_Opens_Space_And_Draws_Its_Rule()
     {
         var host = new TestHost(new BSize(400, 64));
@@ -62,7 +62,7 @@ public sealed class ToolbarGroupBreakTests
             command => command.Color == toolbar.SeparatorColor);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Legacy_Separator_Api_Round_Trips_Through_The_Break_Kind()
     {
         var host = new TestHost(new BSize(400, 64));
@@ -82,7 +82,7 @@ public sealed class ToolbarGroupBreakTests
         Assert.False(toolbar.GetSeparatorBefore(third));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Break_Is_Forgotten_With_The_Child_It_Belonged_To()
     {
         var host = new TestHost(new BSize(400, 64));

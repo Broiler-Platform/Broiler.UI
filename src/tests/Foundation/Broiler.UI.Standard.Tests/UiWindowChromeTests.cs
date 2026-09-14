@@ -21,7 +21,7 @@ namespace Broiler.UI.Standard.Tests;
 /// </summary>
 public sealed class UiWindowChromeTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Logical_Subwindow_Always_Draws_Its_Own_Title_Bar()
     {
         var host = new PlainHost();
@@ -34,7 +34,7 @@ public sealed class UiWindowChromeTests
         Assert.True(child.IsTitleBarVisible);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Root_Window_Leaves_The_Title_Bar_To_A_Host_Without_The_Chrome_Capability()
     {
         var host = new PlainHost();
@@ -45,7 +45,7 @@ public sealed class UiWindowChromeTests
         Assert.False(window.IsTitleBarVisible);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Root_Window_Draws_Its_Own_Title_Bar_When_The_Host_Suppresses_The_Frame()
     {
         var host = new FakeChromeHost { Chrome = UiHostWindowChrome.Owner };
@@ -59,7 +59,7 @@ public sealed class UiWindowChromeTests
         Assert.True(window.ShowsCloseButton);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Broken_Out_Window_Draws_No_Title_Bar_Over_A_System_Chrome_Host()
     {
         var host = new FakeWindowHost { ChromeOverride = UiHostWindowChrome.System };
@@ -76,7 +76,7 @@ public sealed class UiWindowChromeTests
         Assert.False(child.IsTitleBarVisible);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Broken_Out_Window_Draws_Its_Own_Title_Bar_Over_A_Frameless_Host()
     {
         var host = new FakeWindowHost();
@@ -90,7 +90,7 @@ public sealed class UiWindowChromeTests
         Assert.True(child.IsTitleBarVisible);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Chrome_Mode_None_Suppresses_The_Title_Bar_Entirely()
     {
         var host = new FakeChromeHost { Chrome = UiHostWindowChrome.Owner };
@@ -102,7 +102,7 @@ public sealed class UiWindowChromeTests
         Assert.False(UiWindowChromeLayout.Create(window, new BRect(0, 0, 400, 300), UiWindowChromeMetrics.Default).IsVisible);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Chrome_Layout_Packs_System_Buttons_Against_The_Right_Edge()
     {
         var host = new FakeChromeHost { Chrome = UiHostWindowChrome.Owner };
@@ -125,7 +125,7 @@ public sealed class UiWindowChromeTests
         Assert.Equal(268, layout.Title.Right);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Chrome_Layout_Reserves_Space_For_The_Window_Icon()
     {
         var host = new FakeChromeHost { Chrome = UiHostWindowChrome.Owner };
@@ -146,7 +146,7 @@ public sealed class UiWindowChromeTests
         Assert.Equal(31, layout.Title.Left);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Chrome_Hit_Test_Prefers_Buttons_Over_The_Title_Bar()
     {
         var host = new FakeChromeHost { Chrome = UiHostWindowChrome.Owner };
@@ -166,7 +166,7 @@ public sealed class UiWindowChromeTests
         Assert.Equal(UiWindowChromePart.None, layout.HitTest(new BPoint(120, 100)));
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Close_Button_Closes_The_Window()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, _) = CreateChromeWindow();
@@ -180,7 +180,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Maximize_Button_Toggles_The_Native_Window_State()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, _) = CreateChromeWindow();
@@ -198,7 +198,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Minimize_Button_Minimizes_The_Native_Window()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, _) = CreateChromeWindow();
@@ -210,7 +210,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Press_Outside_The_Button_It_Started_On_Runs_No_Command()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, _) = CreateChromeWindow();
@@ -226,7 +226,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Title_Bar_Press_Hands_The_Drag_To_The_Window_Manager()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, _) = CreateChromeWindow();
@@ -238,7 +238,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Second_Title_Bar_Press_Within_The_Double_Click_Window_Maximizes()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, ManualClock clock) = CreateChromeWindow();
@@ -254,7 +254,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Slow_Second_Title_Bar_Press_Starts_Another_Drag_Instead()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, ManualClock clock) = CreateChromeWindow();
@@ -270,7 +270,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_State_Change_Made_By_The_Window_Manager_Is_Adopted_Without_Echoing_Back()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, _) = CreateChromeWindow();
@@ -283,7 +283,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Title_And_Icon_Reach_The_Chrome_Host()
     {
         (UiSession session, StandardWindow window, FakeChromeHost host, _) = CreateChromeWindow();
@@ -298,7 +298,7 @@ public sealed class UiWindowChromeTests
         }
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Broken_Out_Window_Adopts_The_Title_And_Icon_It_Already_Had()
     {
         var host = new FakeWindowHost();
@@ -320,7 +320,7 @@ public sealed class UiWindowChromeTests
         Assert.Same(pixels, created.Icon);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Dialog_Reserves_No_Title_Bar_Height_When_The_Platform_Draws_One()
     {
         var host = new FakeWindowHost { ChromeOverride = UiHostWindowChrome.System };
@@ -343,7 +343,7 @@ public sealed class UiWindowChromeTests
         Assert.Equal(10, content.Bounds.Top);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Dialog_Reserves_The_Title_Bar_It_Draws_Itself()
     {
         var host = new FakeWindowHost();
@@ -363,7 +363,7 @@ public sealed class UiWindowChromeTests
         Assert.Equal(40, content.Bounds.Top);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Dialog_Offers_Only_A_Close_Button_By_Default()
     {
         var host = new FakeWindowHost();

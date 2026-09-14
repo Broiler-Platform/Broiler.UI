@@ -44,7 +44,7 @@ public sealed class StandardRichEditShapeTests
         return -1;
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Margin_Shape_Moves_The_Text_Column_Over()
     {
         RichEditScene plain = Scene(new BSize(400, 200));
@@ -60,7 +60,7 @@ public sealed class StandardRichEditShapeTests
         withStripe.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Document_Without_Margin_Content_Keeps_The_Full_Width()
     {
         RichEditScene plain = Scene(new BSize(400, 200));
@@ -76,7 +76,7 @@ public sealed class StandardRichEditShapeTests
         inside.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Margin_Shape_Is_Drawn_On_The_Surface()
     {
         RichEditScene scene = Scene(
@@ -92,7 +92,7 @@ public sealed class StandardRichEditShapeTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Gradient_Is_Banded_Rather_Than_Flat()
     {
         RichEditScene scene = Scene(
@@ -106,7 +106,7 @@ public sealed class StandardRichEditShapeTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Shape_Is_Drawn_Under_The_Text()
     {
         RichEditScene scene = Scene(
@@ -122,7 +122,7 @@ public sealed class StandardRichEditShapeTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Shapes_Own_Text_Is_Drawn_Inside_It()
     {
         RichEditScene scene = Scene(
@@ -142,7 +142,7 @@ public sealed class StandardRichEditShapeTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Shape_Anchored_To_A_Later_Paragraph_Hangs_From_It()
     {
         RichEditScene scene = Create(new BSize(400, 300));
@@ -162,7 +162,7 @@ public sealed class StandardRichEditShapeTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Document_With_No_Shapes_Draws_None()
     {
         RichEditScene scene = Scene(new BSize(400, 200));

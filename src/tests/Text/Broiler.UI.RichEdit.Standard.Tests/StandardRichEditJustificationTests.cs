@@ -50,7 +50,7 @@ public sealed class StandardRichEditJustificationTests
         return last.Origin.X + BTextMeasurer.MeasureAdvance(last.Text.Text.TrimEnd(), last.Text.Font);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Wrapped_Justified_Line_Reaches_The_Right_Margin()
     {
         RichEditScene scene = Scene(new BSize(200, 300), Wrapping, Justified);
@@ -68,7 +68,7 @@ public sealed class StandardRichEditJustificationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Last_Line_Of_A_Justified_Paragraph_Is_Left_Ragged()
     {
         RichEditScene scene = Scene(new BSize(200, 300), Wrapping, Justified);
@@ -83,7 +83,7 @@ public sealed class StandardRichEditJustificationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Justified_Paragraph_That_Fits_On_One_Line_Is_Not_Stretched()
     {
         RichEditScene scene = Scene(new BSize(400, 200), "short line", Justified);
@@ -96,7 +96,7 @@ public sealed class StandardRichEditJustificationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Line_With_No_Spaces_Is_Not_Prised_Apart()
     {
         // Too long to fit, so it is hard-broken across lines that hold no space
@@ -115,7 +115,7 @@ public sealed class StandardRichEditJustificationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Caret_Follows_The_Widened_Text()
     {
         RichEditScene scene = Scene(new BSize(200, 300), Wrapping, Justified);
@@ -141,7 +141,7 @@ public sealed class StandardRichEditJustificationTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Clicking_A_Stretched_Line_Lands_On_The_Character_Under_The_Pointer()
     {
         RichEditScene scene = Scene(new BSize(200, 300), Wrapping, Justified);

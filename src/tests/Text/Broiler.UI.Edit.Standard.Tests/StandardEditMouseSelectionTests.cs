@@ -15,7 +15,7 @@ namespace Broiler.UI.Edit.Standard.Tests;
 /// </summary>
 public sealed class StandardEditMouseSelectionTests
 {
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Press_Places_The_Caret_And_Clears_The_Mark()
     {
         EditScene scene = Create("Hello world");
@@ -27,7 +27,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.False(scene.Edit.HasSelection);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Dragging_Right_Marks_From_The_Press_Point_To_The_Pointer()
     {
         EditScene scene = Create("Hello world");
@@ -40,7 +40,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(8, scene.Edit.CaretIndex);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Dragging_Left_Marks_Backwards_And_Leaves_The_Caret_At_The_Start()
     {
         EditScene scene = Create("Hello world");
@@ -54,7 +54,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(8, scene.Edit.SelectionAnchor);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Drag_Back_Over_The_Anchor_Collapses_The_Mark()
     {
         EditScene scene = Create("Hello world");
@@ -67,7 +67,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(4, scene.Edit.CaretIndex);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Drag_Past_The_Right_Edge_Marks_To_The_End_Of_The_Text()
     {
         EditScene scene = Create("Hello world");
@@ -79,7 +79,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(11, scene.Edit.SelectionEnd);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Drag_Past_The_Left_Edge_Marks_To_The_Start_Of_The_Text()
     {
         EditScene scene = Create("Hello world");
@@ -92,7 +92,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(0, scene.Edit.CaretIndex);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Move_After_The_Release_No_Longer_Marks()
     {
         EditScene scene = Create("Hello world");
@@ -106,7 +106,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(6, scene.Edit.SelectionEnd);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Release_Gives_Up_The_Input_Capture()
     {
         EditScene scene = Create("Hello world");
@@ -118,7 +118,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Null(scene.Session.CapturedElement);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Shift_Click_Extends_The_Mark_From_The_Existing_Anchor()
     {
         EditScene scene = Create("Hello world");
@@ -132,7 +132,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(9, scene.Edit.SelectionEnd);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void Shift_Click_Before_The_Anchor_Marks_Backwards()
     {
         EditScene scene = Create("Hello world");
@@ -147,7 +147,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(1, scene.Edit.CaretIndex);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Double_Click_Selects_All_Of_The_Text()
     {
         EditScene scene = Create("Hello world");
@@ -162,7 +162,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(11, scene.Edit.CaretIndex);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Double_Click_Selects_All_Of_A_Password_Field()
     {
         EditScene scene = Create("secret");
@@ -177,7 +177,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(6, scene.Edit.SelectionEnd);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Second_Click_After_The_Double_Click_Window_Only_Places_The_Caret()
     {
         EditScene scene = Create("Hello world");
@@ -191,7 +191,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(4, scene.Edit.CaretIndex);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Second_Click_Far_From_The_First_Only_Places_The_Caret()
     {
         EditScene scene = Create("Hello world");
@@ -205,7 +205,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(9, scene.Edit.CaretIndex);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Drag_After_A_Double_Click_Keeps_The_Whole_Field_Marked()
     {
         EditScene scene = Create("Hello world");
@@ -220,7 +220,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(11, scene.Edit.SelectionEnd);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Marked_Range_Is_Painted_Behind_The_Text()
     {
         EditScene scene = Create("Hello world");
@@ -236,7 +236,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.Equal(scene.TextX(5), highlight.Rect.Right, 3);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Disabled_Edit_Does_Not_Mark_On_A_Drag()
     {
         EditScene scene = Create("Hello world");
@@ -248,7 +248,7 @@ public sealed class StandardEditMouseSelectionTests
         Assert.False(scene.Edit.HasSelection);
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Right_To_Left_Edit_Marks_From_The_Point_The_Glyphs_Are_Drawn_At()
     {
         EditScene scene = Create("Hello world");

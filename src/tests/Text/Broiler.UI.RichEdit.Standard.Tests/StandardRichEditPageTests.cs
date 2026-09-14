@@ -33,7 +33,7 @@ public sealed class StandardRichEditPageTests
     private static BRenderCommand.FillRect[] Fills(BRenderList list) =>
         list.Commands.OfType<BRenderCommand.FillRect>().ToArray();
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Text_Starts_At_The_Documents_Left_Margin()
     {
         RichEditScene scene = Scene(new BSize(900, 400), A4Letterhead);
@@ -46,7 +46,7 @@ public sealed class StandardRichEditPageTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Sheet_Is_Centred_In_The_Control()
     {
         RichEditScene scene = Scene(new BSize(900, 400), A4Letterhead);
@@ -59,7 +59,7 @@ public sealed class StandardRichEditPageTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Window_Narrower_Than_The_Paper_Shows_Its_Left_Edge()
     {
         // Centring half the sheet out of view would hide the margin the letterhead
@@ -73,7 +73,7 @@ public sealed class StandardRichEditPageTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Document_Without_A_Page_Is_Laid_Out_As_Before()
     {
         RichEditScene withPage = Scene(new BSize(900, 400), A4Letterhead);
@@ -88,7 +88,7 @@ public sealed class StandardRichEditPageTests
         plain.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Document_Without_A_Page_Paints_No_Sheet()
     {
         RichEditScene scene = Scene(new BSize(900, 400), page: null);
@@ -99,7 +99,7 @@ public sealed class StandardRichEditPageTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void A_Shape_In_The_Margin_Lands_On_The_Sheet()
     {
         // The stripe is anchored 111.8pt left of a column that starts 127.55pt in,
@@ -118,7 +118,7 @@ public sealed class StandardRichEditPageTests
         scene.Session.Dispose();
     }
 
-    [Fact(Timeout = 600000)]
+    [Fact]
     public void The_Text_Column_Is_The_Documents_Own_Width()
     {
         RichEditScene wide = Scene(new BSize(900, 400), A4Letterhead);
