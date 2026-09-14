@@ -36,7 +36,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Broiler.Documents.Model" Version="$(BroilerDocumentsPackageVersion)" />
-    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.3" />
   </ItemGroup>
 
 </Project>

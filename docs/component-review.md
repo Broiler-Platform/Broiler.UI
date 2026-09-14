@@ -73,7 +73,8 @@ original failure modes.
   package artifacts. Inputs/secrets pass through environment variables;
   publishing is serialized across refs, and write permission belongs only to
   the publishing job. Duplicate package versions fail.
-- Retained Release, Release-Linux, and Release-Windows coverage and graph checks.
+- CI now runs Release on a single Ubuntu runner, including graph checks and packaging;
+  platform-specific configurations remain available for local sample builds.
   Each test suite must produce a fresh, nonempty TRX report. Reports are uploaded
   even on failure.
 - Removed broken submodule initialization and obsolete root metadata. Updated

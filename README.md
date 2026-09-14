@@ -262,10 +262,11 @@ it rejects stale packages. Tests and samples never pack.
 
 ## Continuous integration and releases
 
-CI builds and tests `Release` and `Release-Linux` on Ubuntu and `Release-Windows` on
-Windows, checks the project graph, verifies every test suite produced a nonempty TRX
-report, and attaches test reports. The neutral Release leg packs and verifies all 58
-packages. External Broiler dependencies restore from the configured feed using
+CI builds and tests `Release` on a single Ubuntu runner, checks the project graph,
+verifies every test suite produced a nonempty TRX report, and attaches test reports.
+The same runner packs and verifies all 58 platform-neutral NuGet packages once.
+Platform-specific sample configurations remain available for local builds; CI runs
+the platform-neutral Release solution. External Broiler dependencies restore using
 `GITHUB_TOKEN`; no submodule initialization is needed.
 
 Publish reuses that CI workflow with one resolved preview version, then downloads its
