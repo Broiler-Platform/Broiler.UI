@@ -284,7 +284,7 @@ it rejects stale packages. Tests and samples never pack.
 
 CI builds and tests `Release` on a single Ubuntu runner, checks the project graph,
 verifies every test suite produced a nonempty TRX report, and attaches test reports.
-The same runner packs and verifies all 58 platform-neutral NuGet packages once.
+The same runner packs and verifies all 60 platform-neutral NuGet packages once.
 Platform-specific sample configurations remain available for local builds; CI runs
 the platform-neutral Release solution. External Broiler dependencies restore using
 `GITHUB_TOKEN`; no submodule initialization is needed.

@@ -53,6 +53,7 @@
     <DefineConstants Condition="'$(BroilerTargetOperatingSystem)' == 'Windows'">$(DefineConstants);WINDOWS</DefineConstants>
   </PropertyGroup>
 
+
   <!-- Component-owned overrides. These are evaluated AFTER the packaging import
        above and therefore win, which is the extension point the vendored file
        documents. The shared default points at a GitHub profile; a published
@@ -60,6 +61,7 @@
   <PropertyGroup>
     <PackageProjectUrl>https://github.com/Broiler-Platform/Broiler.UI</PackageProjectUrl>
     <PackageTags>broiler;ui;controls;widgets;retained-mode</PackageTags>
+    <PackageReleaseNotes>Initial preview release of Broiler.UI (0.1.0-preview.1): platform-neutral retained-mode UI component for Broiler application chrome and widgets, standard control implementations, RichEdit, and Formatting Codes view.</PackageReleaseNotes>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
   </PropertyGroup>
