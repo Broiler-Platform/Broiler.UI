@@ -69,6 +69,9 @@ try {
                 if (!@($zip.Entries | Where-Object FullName -like 'lib/*.dll').Count) { throw "Missing assembly in $path." }
                 if (!@($zip.Entries | Where-Object FullName -like 'lib/*.xml').Count) { throw "Missing API documentation in $path." }
                 if ($metadata.IncludeSymbols -eq 'true' -and !(Test-Path ($path -replace '\.nupkg$', '.snupkg'))) { throw "Missing symbols for $path." }
+            } elseif (Test-Path ($path -replace '\.nupkg$', '.snupkg')) {
+                # nuget.org rejects a symbol package without PDBs, so a dependencies-only package must not produce one.
+                throw "Unexpected symbol package for dependencies-only $path; set IncludeSymbols=false."
             }
         } finally { $zip.Dispose() }
     }
