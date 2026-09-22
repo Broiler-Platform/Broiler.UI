@@ -9,7 +9,7 @@ public sealed class RichTextDocumentTests
 
         Assert.Equal(1, document.ParagraphCount);
         Assert.Equal(string.Empty, document.PlainText);
-        Assert.Equal(Doc.Pos(0, 0), document.Start);
+        Assert.Equal(Doc.Pos(0, 0), RichTextDocument.Start);
         Assert.Equal(Doc.Pos(0, 0), document.End);
     }
 
@@ -30,7 +30,7 @@ public sealed class RichTextDocumentTests
     {
         RichTextDocument document = RichTextDocument.Empty;
 
-        RichTextEditResult result = document.InsertText(document.Start, "one\ntwo\nthree");
+        RichTextEditResult result = document.InsertText(RichTextDocument.Start, "one\ntwo\nthree");
 
         Assert.Equal(3, result.Document.ParagraphCount);
         Assert.Equal("one\ntwo\nthree", result.Document.PlainText);
@@ -42,7 +42,7 @@ public sealed class RichTextDocumentTests
     {
         RichTextDocument document = RichTextDocument.Empty;
 
-        RichTextEditResult result = document.InsertText(document.Start, "a\r\nb\rc");
+        RichTextEditResult result = document.InsertText(RichTextDocument.Start, "a\r\nb\rc");
 
         Assert.Equal(3, result.Document.ParagraphCount);
         Assert.Equal("a\nb\nc", result.Document.PlainText);

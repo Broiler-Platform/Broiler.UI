@@ -54,7 +54,7 @@ public sealed class RichEditClipboardTests
     private static TestRichEdit Editor(RichTextDocument document)
     {
         var editor = new TestRichEdit { Document = document };
-        editor.Selection = new RichTextRange(document.Start, document.End); // select all
+        editor.Selection = new RichTextRange(RichTextDocument.Start, document.End); // select all
         return editor;
     }
 
@@ -135,10 +135,10 @@ public sealed class RichEditClipboardTests
         };
 
         // Select the first four characters ("keep").
-        RichTextPosition end = editor.Document.Start;
+        RichTextPosition end = RichTextDocument.Start;
         for (int i = 0; i < 4; i++)
             end = editor.Document.PositionRightOf(end);
-        editor.Selection = new RichTextRange(editor.Document.Start, end);
+        editor.Selection = new RichTextRange(RichTextDocument.Start, end);
 
         string rtf = RichEditClipboard.SelectionToRtf(editor);
 

@@ -14,12 +14,12 @@ public sealed class StandardRichEditStyledRenderTests
     {
         RichEditScene scene = Create(new BSize(320, 160), text);
         scene.Session.SetFocus(scene.Edit);
-        scene.Edit.Selection = new RichTextRange(scene.Edit.Document.Start, scene.Edit.Document.End);
+        scene.Edit.Selection = new RichTextRange(RichTextDocument.Start, scene.Edit.Document.End);
         return scene;
     }
 
     private static void Collapse(RichEditScene scene) =>
-        scene.Edit.Selection = RichTextRange.Caret(scene.Edit.Document.Start);
+        scene.Edit.Selection = RichTextRange.Caret(RichTextDocument.Start);
 
     private static IEnumerable<BTextRun> DrawnRuns(BRenderList list) =>
         list.Commands.OfType<BRenderCommand.DrawText>().Select(c => c.Text);
@@ -149,7 +149,7 @@ public sealed class StandardRichEditStyledRenderTests
         scene.Session.SetFocus(scene.Edit);
         scene.Edit.Selection = new RichTextRange(new RichTextPosition(0, 0), new RichTextPosition(0, 2));
         scene.Edit.ExecuteCommand(RichEditCommand.Bold);
-        scene.Edit.Selection = RichTextRange.Caret(scene.Edit.Document.Start);
+        scene.Edit.Selection = RichTextRange.Caret(RichTextDocument.Start);
 
         BRenderList list = scene.Session.RenderFrame();
         BTextRun[] runs = DrawnRuns(list).ToArray();

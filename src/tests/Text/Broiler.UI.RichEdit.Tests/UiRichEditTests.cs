@@ -55,7 +55,7 @@ public sealed class UiRichEditTests
         edit.SetPlainText("hello");
         edit.Events.Clear();
 
-        edit.Selection = new RichTextRange(edit.Document.Start, edit.Document.End);
+        edit.Selection = new RichTextRange(RichTextDocument.Start, edit.Document.End);
 
         Assert.Equal(new[] { "SelectionChanged" }, edit.Events);
         Assert.False(edit.Selection.IsEmpty);
@@ -123,7 +123,7 @@ public sealed class UiRichEditTests
         edit.SetPlainText("hello");
         host.Invalidations.Clear();
 
-        edit.Selection = new RichTextRange(edit.Document.Start, edit.Document.End);
+        edit.Selection = new RichTextRange(RichTextDocument.Start, edit.Document.End);
 
         Assert.Single(host.Invalidations);
         Assert.Equal(UiInvalidationKind.Render | UiInvalidationKind.Semantic, host.Invalidations[0].Kind);

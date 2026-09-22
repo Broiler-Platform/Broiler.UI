@@ -1605,7 +1605,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         }
         if (IsKey(input, BVirtualKey.Home, "Home"))
         {
-            MoveFocusTo(control ? Document.Start : VisualLineStart(Selection.Focus), shift);
+            MoveFocusTo(control ? RichTextDocument.Start : VisualLineStart(Selection.Focus), shift);
             return true;
         }
         if (IsKey(input, BVirtualKey.End, "End"))
@@ -1776,7 +1776,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     private void SelectAllInternal()
     {
-        Selection = new RichTextRange(Document.Start, Document.End);
+        Selection = new RichTextRange(RichTextDocument.Start, Document.End);
         EnsureCaretVisible();
     }
 
@@ -1795,7 +1795,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         int target = index + direction;
         if (target < 0)
         {
-            MoveFocusTo(Document.Start, extend);
+            MoveFocusTo(RichTextDocument.Start, extend);
             return;
         }
         if (target >= _lines.Count)
