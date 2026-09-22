@@ -74,7 +74,7 @@ internal static class FormatCodeViewStandardHarness
     }
 
     public static FormatCodeProjection Project(string text) =>
-        new FormatCodeProjector().Project(RichTextDocument.FromPlainText(text));
+        FormatCodeProjector.Project(RichTextDocument.FromPlainText(text));
 
     public static InputEventHeader Header(string id) =>
         new(InputDeviceId.FromOpaqueValue(id), new InputTimestamp(1, TimeSpan.TicksPerSecond, "format-codes"), 1);

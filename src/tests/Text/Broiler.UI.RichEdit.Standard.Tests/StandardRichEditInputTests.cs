@@ -93,7 +93,7 @@ public sealed class StandardRichEditInputTests
         Assert.Equal(scene.Edit.Document.End, scene.Edit.Selection.Focus);
 
         scene.Route.Dispatch(Key("Home", BVirtualKey.Home, KeyboardKeyTransition.Down, KeyboardModifierState.Control));
-        Assert.Equal(scene.Edit.Document.Start, scene.Edit.Selection.Focus);
+        Assert.Equal(RichTextDocument.Start, scene.Edit.Selection.Focus);
         scene.Session.Dispose();
     }
 
@@ -116,7 +116,7 @@ public sealed class StandardRichEditInputTests
 
         scene.Route.Dispatch(Key("A", BVirtualKey.A, KeyboardKeyTransition.Down, KeyboardModifierState.Control));
 
-        Assert.Equal(scene.Edit.Document.Start, scene.Edit.Selection.Anchor);
+        Assert.Equal(RichTextDocument.Start, scene.Edit.Selection.Anchor);
         Assert.Equal(scene.Edit.Document.End, scene.Edit.Selection.Focus);
         scene.Session.Dispose();
     }
@@ -181,7 +181,7 @@ public sealed class StandardRichEditInputTests
     {
         string text = string.Join("\n", Enumerable.Range(0, 40).Select(i => "row" + i));
         RichEditScene scene = Focused(text, new BSize(200, 100));
-        scene.Edit.Selection = RichTextRange.Caret(scene.Edit.Document.Start);
+        scene.Edit.Selection = RichTextRange.Caret(RichTextDocument.Start);
 
         scene.Route.Dispatch(Key("PageDown", BVirtualKey.PageDown));
 

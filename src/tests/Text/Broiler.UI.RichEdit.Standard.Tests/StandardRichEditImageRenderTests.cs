@@ -165,7 +165,7 @@ public sealed class StandardRichEditImageRenderTests
         RichEditScene scene = WithImage(Image(), before: "ab");
         scene.Session.RenderFrame();
 
-        scene.Edit.Selection = RichTextRange.Caret(scene.Edit.Document.Start);
+        scene.Edit.Selection = RichTextRange.Caret(RichTextDocument.Start);
         scene.Edit.ExecuteCommand(RichEditCommand.InsertText, "xy");
         scene.Session.RenderFrame();
 

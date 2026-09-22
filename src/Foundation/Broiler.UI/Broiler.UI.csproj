@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.3" />
+    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
     <PackageReference Include="Broiler.Input" Version="$(BroilerInputPackageVersion)" />
     <PackageReference Include="Broiler.Input.Keyboard" Version="$(BroilerInputPackageVersion)" />
     <PackageReference Include="Broiler.Input.Mouse" Version="$(BroilerInputPackageVersion)" />

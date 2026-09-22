@@ -102,7 +102,7 @@ public sealed class UiFormatCodeViewTests
             [RichTextParagraph.Create("x", new InlineStyle { Bold = true })]);
         var view = new TestFormatCodeView
         {
-            Projection = new FormatCodeProjector().Project(document),
+            Projection = FormatCodeProjector.Project(document),
         };
         FormatCodeNavigationRequestedEventArgs? raised = null;
         view.NavigationRequested += (_, args) => raised = args;
@@ -111,7 +111,7 @@ public sealed class UiFormatCodeViewTests
 
         Assert.NotNull(raised);
         Assert.Equal(FormatCodeTokenKind.InlineCode, raised.Token?.Kind);
-        Assert.Equal(document.Start, raised.Mapping.DocumentPosition);
+        Assert.Equal(RichTextDocument.Start, raised.Mapping.DocumentPosition);
         Assert.NotNull(raised.Mapping.AffectedRange);
     }
 
@@ -123,7 +123,7 @@ public sealed class UiFormatCodeViewTests
             [RichTextParagraph.Create("x", InlineStyle.Default, style)]);
         var view = new TestFormatCodeView
         {
-            Projection = new FormatCodeProjector().Project(document),
+            Projection = FormatCodeProjector.Project(document),
         };
         view.SetSelection(0, 7);
 
@@ -143,12 +143,12 @@ public sealed class UiFormatCodeViewTests
         RichTextDocument document = RichTextDocument.FromPlainText("x");
         var view = new TestFormatCodeView
         {
-            Projection = new FormatCodeProjector().Project(
+            Projection = FormatCodeProjector.Project(
                 document,
                 new FormatCodeProjectionOptions
                 {
                     PendingStyle = new FormatCodePendingStyle(
-                        document.Start,
+                        RichTextDocument.Start,
                         new InlineStyle { Bold = true }),
                 }),
         };
@@ -158,10 +158,10 @@ public sealed class UiFormatCodeViewTests
     }
 
     private static FormatCodeProjection Project(string text) =>
-        new FormatCodeProjector().Project(RichTextDocument.FromPlainText(text));
+        FormatCodeProjector.Project(RichTextDocument.FromPlainText(text));
 
     private static FormatCodeProjection ProjectBold(string text) =>
-        new FormatCodeProjector().Project(RichTextDocument.FromParagraphs(
+        FormatCodeProjector.Project(RichTextDocument.FromParagraphs(
             [RichTextParagraph.Create(text, new InlineStyle { Bold = true })]));
 
     private static UiSession CreateSession(TestHost host) =>

@@ -17,7 +17,7 @@ public sealed class StandardRichEditCapitalizationTests
     {
         RichEditScene scene = Create(new BSize(640, 200), text);
         scene.Session.SetFocus(scene.Edit);
-        scene.Edit.Selection = new RichTextRange(scene.Edit.Document.Start, scene.Edit.Document.End);
+        scene.Edit.Selection = new RichTextRange(RichTextDocument.Start, scene.Edit.Document.End);
         return scene;
     }
 
