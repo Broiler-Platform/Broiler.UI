@@ -13,6 +13,9 @@
     <SuppressDependenciesWhenPacking>false</SuppressDependenciesWhenPacking>
     <IsPackable>true</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- No assembly means no PDB: a .snupkg would be empty, and nuget.org
+         rejects it with 400 "does not contain any symbol (.pdb) files". -->
+    <IncludeSymbols>false</IncludeSymbols>
     <!-- NU5128: a dependency group with no matching lib folder is expected
          for a dependencies-only meta-package. -->
     <NoWarn>$(NoWarn);NU5128</NoWarn>
