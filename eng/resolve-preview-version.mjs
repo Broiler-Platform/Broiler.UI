@@ -88,12 +88,17 @@ async function main() {
   if (!['nuget', 'github'].includes(target)) throw new Error(`Unknown target '${target}'.`);
   // NuGet.org is the baseline even when publishing to GitHub Packages.
   const published = await readVersions('https://api.nuget.org/v3/index.json', packageIds);
-  if (target === 'github') {
-    const { GITHUB_REPOSITORY_OWNER: owner, GITHUB_ACTOR: actor, GITHUB_TOKEN: token } = process.env;
-    if (!owner || !actor || !token) throw new Error('GitHub feed lookup requires owner, actor, and token.');
+  // Always query GitHub Packages so the resolved version is the cumulative
+  // maximum across all feeds, preventing collisions when feeds are out of sync.
+  const { GITHUB_REPOSITORY_OWNER: owner, GITHUB_ACTOR: actor, GITHUB_TOKEN: token } = process.env;
+  if (owner && actor && token) {
     const authorization = `Basic ${Buffer.from(`${actor}:${token}`).toString('base64')}`;
     published.push(...await readVersions(
       `https://nuget.pkg.github.com/${owner}/index.json`, packageIds, { authorization }));
+  } else if (target === 'github') {
+    throw new Error('GitHub feed lookup requires owner, actor, and token.');
+  } else {
+    console.warn('Warning: GitHub Packages credentials not available; version resolution uses NuGet.org only.');
   }
   const tag = process.env.GITHUB_EVENT_NAME === 'push'
     ? (process.env.GITHUB_REF || '').replace(/^refs\/tags\//, '') : '';

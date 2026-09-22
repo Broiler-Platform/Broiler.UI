@@ -48,6 +48,19 @@ test('all packages contribute, including a partially published newer preview', a
   assert.equal(chooseVersion('0.1.0-preview.1', versions), '0.1.0-preview.3');
 });
 
+test('cumulative resolution across feeds picks the global maximum', () => {
+  // GitHub Packages has preview.3, NuGet.org has preview.2.
+  // Publishing to NuGet.org must produce preview.4 (next after global max),
+  // not preview.3 (next after NuGet.org max alone).
+  const nugetVersions = ['0.1.0-preview.1', '0.1.0-preview.2'];
+  const githubVersions = ['0.1.0-preview.1', '0.1.0-preview.2', '0.1.0-preview.3'];
+  const combined = [...nugetVersions, ...githubVersions];
+  assert.equal(chooseVersion('0.1.0-preview.1', combined), '0.1.0-preview.4');
+
+  // Verify that without GitHub versions, only NuGet.org max is used (the bug).
+  assert.equal(chooseVersion('0.1.0-preview.1', nugetVersions), '0.1.0-preview.3');
+});
+
 test('feed failures and malformed responses stop publication', async () => {
   for (const response of [401, 403, 429, 500, {}, { versions: [2] }]) {
     await assert.rejects(readVersions('https://feed/index.json', ['Core'], {}, fakeFeed({
