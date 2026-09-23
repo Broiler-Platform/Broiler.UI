@@ -28,7 +28,7 @@ namespace Broiler.UI.RichEdit.Standard;
 /// through the <see cref="UiRichEdit"/> command surface and its single undo model.
 /// No native control or OS API is used.
 /// </summary>
-public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTextEditor
+public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTextEditor
 {
     public void ApplyTheme(StandardThemeTokens theme)
     {
@@ -40,6 +40,11 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         SelectionBackground = theme.AccentSoft;
         SecondarySelectionBackground = theme.Warning;
         CaretColor = theme.Text;
+        ContextMenuBackground = theme.Surface;
+        ContextMenuForeground = theme.Text;
+        ContextMenuDisabledForeground = theme.TextDisabled;
+        ContextMenuHighlight = theme.AccentSoft;
+        ContextMenuBorderColor = theme.Border;
     }
 
     private readonly List<VisualLine> _lines = [];
@@ -336,12 +341,20 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         renderList.PopClip();
         DrawScrollbar(renderList);
         PublishCaret(focused);
+        if (IsContextMenuOpen)
+            context.Defer(RenderContextMenu);
     }
 
     protected override bool OnInput(UiInputEvent input)
     {
         if (!IsEnabled)
+        {
+            CloseContextMenu();
             return false;
+        }
+
+        if (IsContextMenuOpen && HandleContextMenuInput(input))
+            return true;
 
         return input.Kind switch
         {
@@ -368,6 +381,7 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     protected override void OnDetached()
     {
+        CloseContextMenu();
         if (Session?.Host is IUiTextInputHost textInput)
             textInput.ClearCaret(this);
 
@@ -375,6 +389,12 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
         // released here rather than kept for a session that cannot draw them.
         ReleaseImages();
         base.OnDetached();
+    }
+
+    protected override UiSemanticNode GetSemanticNodeCore()
+    {
+        UiSemanticNode node = base.GetSemanticNodeCore();
+        return IsContextMenuOpen ? node with { Children = [CreateContextMenuSemanticNode()] } : node;
     }
 
     // --- Rendering ---------------------------------------------------------
@@ -1387,6 +1407,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
     private bool HandlePointerButton(UiInputEvent input)
     {
+        if (input.MouseButton == MouseButton.Right)
+            return HandleContextMenuPointerRequest(input);
+
         if (input.MouseButton != MouseButton.Left)
             return false;
 
@@ -1551,6 +1574,9 @@ public sealed class StandardRichEdit : UiRichEdit, IStandardThemedControl, IUiTe
 
         bool control = input.KeyModifiers.HasFlag(KeyboardModifierState.Control);
         bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+
+        if (IsContextMenuKey(input, shift))
+            return OpenContextMenuAtCaret();
 
         if (control && HandleControlChord(input))
             return true;
