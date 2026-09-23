@@ -12,23 +12,23 @@ public sealed class RichTextEditorTests
         var editor = new RichTextEditor(document);
         RichTextPosition start = MoveRight(document, 2);
         RichTextPosition end = MoveRight(document, 4);
-        editor.SetCaret(document.Start);
+        editor.SetCaret(RichTextDocument.Start);
 
         Assert.True(editor.ReplaceText(new RichTextRange(start, end), "XY"));
         Assert.Equal("abXYef", editor.GetPlainText());
         Assert.Single(editor.UndoStack);
-        Assert.Equal(document.Start, editor.UndoStack[0].BeforeSelection.Focus);
+        Assert.Equal(RichTextDocument.Start, editor.UndoStack[0].BeforeSelection.Focus);
 
         Assert.True(editor.Undo());
         Assert.Equal("abcdef", editor.GetPlainText());
-        Assert.Equal(document.Start, editor.Selection.Focus);
+        Assert.Equal(RichTextDocument.Start, editor.Selection.Focus);
         Assert.True(editor.Redo());
         Assert.Equal("abXYef", editor.GetPlainText());
     }
 
     private static RichTextPosition MoveRight(RichTextDocument document, int count)
     {
-        RichTextPosition position = document.Start;
+        RichTextPosition position = RichTextDocument.Start;
         for (int i = 0; i < count; i++)
             position = document.PositionRightOf(position);
         return position;

@@ -44,7 +44,7 @@ public sealed class StandardFormatCodeViewInputTests
         RichTextDocument document = RichTextDocument.FromParagraphs(
             [RichTextParagraph.Create("x", new InlineStyle { Bold = true })]);
         using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
-            new BSize(320, 100), new FormatCodeProjector().Project(document));
+            new BSize(320, 100), FormatCodeProjector.Project(document));
         scene.View.IsEditable = true;
         scene.Session.SetFocus(scene.View);
         FormatCodeEditRequestedEventArgs? edit = null;
@@ -133,7 +133,7 @@ public sealed class StandardFormatCodeViewInputTests
             [RichTextParagraph.Create("hello", new InlineStyle { Bold = true })]);
         using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
             new BSize(320, 100),
-            new FormatCodeProjector().Project(document));
+            FormatCodeProjector.Project(document));
         scene.Session.RenderFrame();
         FormatCodeNavigationRequestedEventArgs? navigation = null;
         scene.View.NavigationRequested += (_, args) => navigation = args;

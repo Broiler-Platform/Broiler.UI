@@ -11,7 +11,7 @@
     <Description>Platform-neutral Broiler about dialog abstraction.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.3" />
+    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Broiler.UI.Dialog\Broiler.UI.Dialog.csproj" />

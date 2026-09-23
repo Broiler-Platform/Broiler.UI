@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics" Version="0.1.0-preview.3" />
+    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
   </ItemGroup>
 
 </Project>

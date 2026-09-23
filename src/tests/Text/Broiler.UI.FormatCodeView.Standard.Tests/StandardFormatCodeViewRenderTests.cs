@@ -14,7 +14,7 @@ public sealed class StandardFormatCodeViewRenderTests
             [RichTextParagraph.Create("x", new InlineStyle { Bold = true })]);
         using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
             new BSize(320, 100),
-            new FormatCodeProjector().Project(document));
+            FormatCodeProjector.Project(document));
 
         BRenderList list = scene.Session.RenderFrame();
         BRenderCommand.DrawText[] text = list.Commands.OfType<BRenderCommand.DrawText>().ToArray();
