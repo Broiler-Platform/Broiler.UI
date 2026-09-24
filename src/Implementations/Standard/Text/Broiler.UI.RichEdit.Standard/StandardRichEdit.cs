@@ -1143,11 +1143,49 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
             return cached;
 
         BImageHandle handle = BImageHandle.Invalid;
-        if (Session?.Host is IUiImageHost imageHost && !image.Data.IsEmpty)
-            handle = Create(imageHost, image);
+        if (Session?.Host is IUiImageHost imageHost)
+        {
+            if (image.Resource.TryGetPixels(out BPixelBuffer? pixels))
+                handle = CreateFromSamples(imageHost, image, pixels);
+            else if (!image.Data.IsEmpty)
+                handle = Create(imageHost, image);
+        }
 
         _imageHandles[image] = handle;
         return handle;
+    }
+
+    /// <summary>
+    /// The handle for a picture held as decoded samples, which is how a picture
+    /// recovered from inside a container arrives - a PDF image is the case that
+    /// matters. It has no encoded bytes, and waiting for some drew every such
+    /// picture as its outline.
+    /// </summary>
+    /// <remarks>
+    /// The samples go to the host as they are. A crop or a mask is applied to
+    /// them here first, in the same managed pass an encoded picture's
+    /// presentation takes, but with nothing to decode and nothing to encode
+    /// again. So no codec is involved at all, and a shaped picture is shaped
+    /// even where none is composed.
+    /// </remarks>
+    private static BImageHandle CreateFromSamples(IUiImageHost host, InlineImage image, BPixelBuffer pixels)
+    {
+        if (image.Presentation.IsDefault)
+            return host.CreateImage(pixels);
+
+        // Copied rather than wrapped: the resource is shared across the
+        // document and immutable, and a bitmap is mutable by API.
+        using var samples = new BBitmap(pixels.Width, pixels.Height, (byte[])pixels.Rgba.Clone(), takeOwnership: true);
+        BBitmap presented = image.Presentation.Apply(samples);
+        try
+        {
+            return host.CreateImage(presented.ToPixelBuffer());
+        }
+        finally
+        {
+            if (!ReferenceEquals(presented, samples))
+                presented.Dispose();
+        }
     }
 
     /// <summary>

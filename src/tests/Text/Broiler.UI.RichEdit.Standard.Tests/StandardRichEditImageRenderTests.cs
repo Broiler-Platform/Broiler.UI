@@ -1,6 +1,8 @@
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
 using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Resources;
 using static Broiler.UI.RichEdit.Standard.Tests.RichEditStandardHarness;
 
 namespace Broiler.UI.RichEdit.Standard.Tests;
@@ -234,5 +236,80 @@ public sealed class StandardRichEditImageRenderTests
         Assert.Single(list.Commands.OfType<BRenderCommand.DrawImage>());
         Assert.Equal(Bytes, scene.Host.LastEncodedImage);
         scene.Session.Dispose();
+    }
+
+    [Fact]
+    public void A_Picture_Held_As_Samples_Is_Drawn_From_Its_Samples()
+    {
+        // A PDF image arrives decoded, with no bytes for the host to decode, and
+        // was drawn as its outline for want of them.
+        BPixelBuffer samples = Samples(4, 2);
+        RichEditScene scene = WithImage(new InlineImage(BImageResource.FromPixels(samples), width: 60, height: 40));
+
+        BRenderCommand.DrawImage drawn = Assert.Single(DrawnImages(scene.Session.RenderFrame()));
+
+        Assert.Equal(60, drawn.Destination.Width, 3);
+        Assert.Equal(40, drawn.Destination.Height, 3);
+        Assert.Equal(1, scene.Host.CreatedImages);
+        Assert.Same(samples, scene.Host.LastSamples);
+        Assert.Empty(scene.Host.LastEncodedImage);
+        scene.Session.Dispose();
+    }
+
+    [Fact]
+    public void A_Shaped_Picture_Held_As_Samples_Is_Shaped_Without_A_Codec()
+    {
+        // Samples need no decoding, so the mask is applied even here, where no
+        // codec is composed: the corners are cleared and the middle is kept.
+        RichEditScene scene = WithImage(new InlineImage(
+            BImageResource.FromPixels(Samples(8, 8)),
+            width: 8,
+            height: 8,
+            presentation: new ImagePresentation { Mask = ImageMask.Ellipse }));
+
+        Assert.Single(DrawnImages(scene.Session.RenderFrame()));
+
+        BPixelBuffer shaped = Assert.IsType<BPixelBuffer>(scene.Host.LastSamples);
+        Assert.Equal(0, Alpha(shaped, 0, 0));
+        Assert.Equal(255, Alpha(shaped, 4, 4));
+        scene.Session.Dispose();
+    }
+
+    [Fact]
+    public void A_Host_That_Takes_No_Samples_Draws_The_Outline()
+    {
+        // The capability's default, for a host written before it: no handle, so
+        // the picture is drawn as it was before - as its outline.
+        IUiImageHost host = new EncodedOnlyImageHost();
+
+        Assert.False(host.CreateImage(Samples(2, 2)).IsValid);
+    }
+
+    /// <summary>An opaque picture of one colour, as decoded samples.</summary>
+    private static BPixelBuffer Samples(int width, int height)
+    {
+        byte[] rgba = new byte[width * height * 4];
+        for (int i = 0; i < rgba.Length; i += 4)
+        {
+            rgba[i] = 0x30;
+            rgba[i + 1] = 0x60;
+            rgba[i + 2] = 0x90;
+            rgba[i + 3] = 0xFF;
+        }
+
+        return new BPixelBuffer(width, height, rgba);
+    }
+
+    private static byte Alpha(BPixelBuffer pixels, int x, int y) =>
+        pixels.Rgba[(((y * pixels.Width) + x) * 4) + 3];
+
+    /// <summary>A host that takes encoded bytes and knows nothing of samples.</summary>
+    private sealed class EncodedOnlyImageHost : IUiImageHost
+    {
+        public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage) => BImageHandle.FromId(1, new BSize(1, 1));
+
+        public void ReleaseImage(BImageHandle image)
+        {
+        }
     }
 }
