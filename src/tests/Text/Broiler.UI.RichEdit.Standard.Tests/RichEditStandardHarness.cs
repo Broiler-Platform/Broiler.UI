@@ -1,5 +1,6 @@
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
 using Broiler.Graphics.RenderList;
 using Broiler.Graphics.Resources;
 using Broiler.Input;
@@ -74,6 +75,22 @@ internal sealed class TestHost : IUiHost, IUiClipboardHost, IUiTextInputHost, IU
             return BImageHandle.Invalid;
 
         return BImageHandle.FromId(++_nextImageId, size);
+    }
+
+    /// <summary>
+    /// The samples of the last picture handed over as samples rather than bytes,
+    /// or null when none was.
+    /// </summary>
+    public BPixelBuffer? LastSamples { get; private set; }
+
+    public BImageHandle CreateImage(BPixelBuffer pixels)
+    {
+        CreatedImages++;
+        LastSamples = pixels;
+        if (ImagePixelSize is null)
+            return BImageHandle.Invalid;
+
+        return BImageHandle.FromId(++_nextImageId, new BSize(pixels.Width, pixels.Height));
     }
 
     public void ReleaseImage(BImageHandle image) => ReleasedImages++;
