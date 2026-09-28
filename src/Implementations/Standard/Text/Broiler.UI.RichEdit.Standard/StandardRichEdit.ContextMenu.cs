@@ -308,36 +308,29 @@ public sealed partial class StandardRichEdit
 
     /// <summary>
     /// Whether a point falls inside the current selection, which decides whether
-    /// a right-click keeps the selection or moves the caret to the click.
+    /// a right-click keeps the selection or moves the caret to the click. The
+    /// selection is measured exactly as it is painted, so what a click treats as
+    /// selected is what the user sees selected.
     /// </summary>
     private bool IsPointInSelection(BPoint point)
     {
-        if (Selection.IsEmpty || !InnerBounds.Contains(point))
+        RichTextRange selection = Selection;
+        if (selection.IsEmpty || !InnerBounds.Contains(point))
             return false;
 
         EnsureLayout();
-        foreach (VisualLine line in _lines)
+        RichEditViewport view = View;
+        foreach (VisualLine line in _layout.Lines)
         {
-            double top = ContentTop + line.Top - _scrollY;
+            double top = view.ToControlY(line.Top);
             if (point.Y < top || point.Y >= top + line.Height)
                 continue;
 
-            var start = new RichTextPosition(line.ParagraphIndex, line.Start);
-            var end = new RichTextPosition(line.ParagraphIndex, line.End);
-            if (Selection.End < start || Selection.Start > end)
-                continue;
-
-            int from = Selection.Start.ParagraphIndex == line.ParagraphIndex
-                ? Math.Clamp(Selection.Start.Offset, line.Start, line.End) : line.Start;
-            int to = Selection.End.ParagraphIndex == line.ParagraphIndex
-                ? Math.Clamp(Selection.End.Offset, line.Start, line.End) : line.End;
-            RichTextParagraph paragraph = Document.Paragraphs[line.ParagraphIndex];
-            double left = LineLeft(line) + AdvanceInLine(line, paragraph, from);
-            double right = LineLeft(line) + AdvanceInLine(line, paragraph, to);
-            if (right <= left && Selection.Start <= start && Selection.End >= end)
-                right = left + BTextMeasurer.MeasureAdvance(" ", ZoomedFont);
-            if (point.X >= left && point.X <= right)
+            if (_layout.TrySelectionSpan(line, selection, view.ContentLeft, out double left, out double width) &&
+                point.X >= left && point.X <= left + width)
+            {
                 return true;
+            }
         }
 
         return false;
