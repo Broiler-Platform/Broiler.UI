@@ -34,6 +34,7 @@ namespace Broiler.UI.RichEdit.Win32.Demo;
 internal sealed class RichEditDemoWindow : Direct2DWindow
 {
     private readonly DemoHost _host;
+    private readonly StandardQueuedUiDispatcher _dispatcher;
     private readonly UiSession _session;
     private readonly StandardRichEdit _edit;
     private readonly StandardLabel _status;
@@ -56,8 +57,14 @@ internal sealed class RichEditDemoWindow : Direct2DWindow
         })
     {
         _host = new DemoHost(this);
+
+        // Work that finishes on another thread comes back through this queue: posting wakes the
+        // window with a message, and the queue runs on the window's own thread when that message
+        // arrives. Draining before each frame as well picks up anything posted before the native
+        // window existed, when there was no window to send the message to.
+        _dispatcher = new StandardQueuedUiDispatcher(() => PostToUiThread(DrainDispatcher));
         _session = new StandardUiSessionBuilder()
-            .WithDispatcher(new ImmediateUiDispatcher())
+            .WithDispatcher(_dispatcher)
             .Build(_host);
 
         _edit = new StandardRichEdit
@@ -96,7 +103,26 @@ internal sealed class RichEditDemoWindow : Direct2DWindow
     protected override BRenderList? BuildRenderList(BSize clientSize)
     {
         _host.Update(clientSize, DpiScale);
+        DrainDispatcher();
         return _session.RenderFrame();
+    }
+
+    /// <summary>
+    /// Runs the work other threads posted back to the UI. A callback that throws is logged
+    /// rather than taking the window down, which is how Direct2DWindow treats callbacks
+    /// posted to it; the ones after it stay queued, and run on the next drain the dispatcher
+    /// has already asked for.
+    /// </summary>
+    private void DrainDispatcher()
+    {
+        try
+        {
+            _dispatcher.Drain();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(ex);
+        }
     }
 
     protected override void OnResized(BSize clientSize, double dpiScale)

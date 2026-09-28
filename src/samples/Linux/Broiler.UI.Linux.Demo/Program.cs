@@ -22,7 +22,7 @@ internal static class Program
     private static readonly TimeSpan OffscreenPollInterval = TimeSpan.FromMilliseconds(1);
     private static readonly TimeSpan AnimationInterval = TimeSpan.FromMilliseconds(100);
 
-    private static async Task<int> Main(string[] args)
+    private static int Main(string[] args)
     {
         LinuxUiDemoOptions options = LinuxUiDemoOptions.Parse(args);
         if (options.ShowHelp)
@@ -51,7 +51,9 @@ internal static class Program
             shutdown.Cancel();
         };
 
-        await RunOpenGlUiDemoAsync(options, shutdown.Token).ConfigureAwait(false);
+        // The render loop is async, but the UI it drives has one thread: the loop's
+        // continuations are kept on this one, which also owns the session's dispatcher.
+        UiThreadSynchronizationContext.Run(() => RunOpenGlUiDemoAsync(options, shutdown.Token));
         return 0;
     }
 
@@ -69,12 +71,15 @@ internal static class Program
             Console.WriteLine("evdev input requested, but no focus-capable X11 window exists; input is disabled.");
 
         using LinuxUiDemoHost host = new(renderer, surface);
-        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        // No wake callback: the loop drains the queue on every tick of its timer, so work
+        // another thread posts back waits at most one frame interval.
+        StandardQueuedUiDispatcher dispatcher = new();
+        using UiSession session = new StandardUiSessionBuilder().WithDispatcher(dispatcher).Build(host);
         LinuxUiDemoRoot root = new();
         session.AddRoot(root);
 
         await using LinuxUiDemoInputCoordinator input = new(canUseEvdev, Console.WriteLine, externalPointer: x11Window is not null);
-        await input.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        await input.InitializeAsync(cancellationToken);
 
         DateTimeOffset start = DateTimeOffset.UtcNow;
         DateTimeOffset nextAnimationUpdate = DateTimeOffset.MinValue;
@@ -84,12 +89,17 @@ internal static class Program
         do
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // Work other threads posted back to the UI runs here, between frames, where
+            // nothing is walking the element tree.
+            dispatcher.Drain();
+
             bool processedWindowEvents = false;
             if (x11Window is not null)
             {
                 processedWindowEvents = x11Window.ProcessPendingEvents();
                 bool inputActive = options.IgnoreInputFocus || x11Window.IsFocused;
-                await input.SetActiveAsync(inputActive, cancellationToken).ConfigureAwait(false);
+                await input.SetActiveAsync(inputActive, cancellationToken);
             }
 
             input.SetViewport(host.ViewportSize);
@@ -132,9 +142,9 @@ internal static class Program
         }
         while (!input.QuitRequested &&
                (x11Window is null || !x11Window.IsCloseRequested) &&
-               await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false));
+               await timer.WaitForNextTickAsync(cancellationToken));
 
-        await input.SetActiveAsync(false, cancellationToken).ConfigureAwait(false);
+        await input.SetActiveAsync(false, cancellationToken);
         using BBitmap bitmap = ReadSurface(surface);
         Console.WriteLine("OpenGL UI demo:");
         Console.WriteLine("  presentation: " + PresentationState(surface));
