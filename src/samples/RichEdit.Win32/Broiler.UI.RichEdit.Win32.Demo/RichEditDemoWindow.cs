@@ -336,7 +336,7 @@ internal sealed class RichEditDemoWindow : Direct2DWindow
 
     private void BoldFirstParagraph()
     {
-        RichTextPosition start = _edit.Document.Start;
+        RichTextPosition start = RichTextDocument.Start;
         RichTextPosition end = _edit.Document.ParagraphEnd(start);
         SelectAndRun(start, end, RichEditCommand.Bold);
     }
@@ -374,7 +374,7 @@ internal sealed class RichEditDemoWindow : Direct2DWindow
     private RichTextPosition ParagraphStartAt(int index)
     {
         RichTextDocument document = _edit.Document;
-        RichTextPosition position = document.Start;
+        RichTextPosition position = RichTextDocument.Start;
         for (int i = 0; i < index; i++)
         {
             RichTextPosition paragraphEnd = document.ParagraphEnd(position);
