@@ -2,13 +2,14 @@
 
 [![CI](https://github.com/Broiler-Platform/Broiler.UI/actions/workflows/ci.yml/badge.svg)](https://github.com/Broiler-Platform/Broiler.UI/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Broiler-Platform/Broiler.UI/blob/main/LICENSE)
+[![NuGet](https://img.shields.io/nuget/vpre/Broiler.UI.svg)](https://www.nuget.org/packages/Broiler.UI)
 
 Broiler.UI is the platform-neutral retained-mode UI component for Broiler application
 chrome and general-purpose widgets. It owns the neutral UI root, the shared Standard
 control infrastructure, and one contract/implementation pair per control type — each in
 its own assembly, so an application takes only the controls it uses.
 
-Controls draw through the platform-neutral `Broiler.Graphics` core and take input through
+Controls draw through the platform-neutral `Broiler.Graphics` core and receive input through
 the `Broiler.Input` abstractions. No UI runtime assembly references a native backend.
 
 > **Preview release.** `0.1.0-preview.1` is the first published preview. Public APIs and
@@ -19,7 +20,7 @@ the `Broiler.Input` abstractions. No UI runtime assembly references a native bac
 
 ## Installation
 
-Preview packages need an explicit prerelease opt-in:
+All Broiler.UI packages and external dependencies are published directly to [NuGet.org](https://www.nuget.org/packages?q=Broiler.UI). Preview packages require an explicit prerelease flag:
 
 ```bash
 dotnet add package Broiler.UI --prerelease
@@ -41,32 +42,54 @@ needs. To take the whole toolkit at once:
 dotnet add package Broiler.UI.All --prerelease
 ```
 
-### Consuming Broiler packages from GitHub Packages
+### Package Restore from NuGet.org
 
-`NuGet.config` in the repository root pins two sources — nuget.org and the
-Broiler-Platform GitHub Packages feed — and clears whatever the machine has configured,
-so a restore resolves identically everywhere. Package source mapping sends `Broiler.*` to
-either feed and everything else to nuget.org only.
+Every Broiler component — including `Broiler.Graphics`, `Broiler.Input`, `Broiler.Documents`, and all `Broiler.UI.*` packages — resolves from **NuGet.org**. No personal access tokens, GitHub Packages credentials, or private package feeds are required. The repository's [`NuGet.config`](NuGet.config) configures `https://api.nuget.org/v3/index.json` as the exclusive package source with package source mapping.
 
-Broiler dependencies are versioned NuGet references. The more specific `Broiler.*`
-mapping selects GitHub Packages, which requires authentication even for public packages.
-Configure credentials below before restoring; CI supplies its built-in token. To use
-nuget.org exclusively, use a separate config containing only that source.
+## Quick Start
 
-To actually pull `Broiler.*` from GitHub Packages you need a personal access token with
-the `read:packages` scope. Put it in your **user-level** config, never in the committed
-one:
+Creating and displaying standard controls with Broiler.UI:
 
-```bash
-dotnet nuget update source broiler-github --username <github-user> --password <pat> --store-password-in-clear-text --configfile "$APPDATA/NuGet/NuGet.Config"
+```csharp
+using Broiler.UI;
+using Broiler.UI.Button.Standard;
+using Broiler.UI.Label.Standard;
+using Broiler.UI.Panel.Standard;
+using Broiler.UI.Window.Standard;
+
+// Create a window with owner-drawn chrome
+var window = new StandardWindow
+{
+    Title = "Broiler Application",
+    CanMinimize = true,
+    CanMaximize = true
+};
+
+// Compose controls inside a panel
+var panel = new StandardPanel();
+
+var label = new StandardLabel
+{
+    Text = "Welcome to Broiler.UI!"
+};
+
+var button = new StandardButton
+{
+    Text = "Click Me"
+};
+button.Clicked += (sender, args) =>
+{
+    label.Text = "Button clicked!";
+};
+
+panel.AddChild(label);
+panel.AddChild(button);
+window.Content = panel;
 ```
-
-In GitHub Actions use `secrets.GITHUB_TOKEN` rather than a personal token.
 
 ## Packages
 
-60 packages, all `net10.0`. Every one ships XML documentation and a `.snupkg` symbol
-package, and is built deterministically with SourceLink.
+60 packages, all targeting `net10.0`. Every package includes XML documentation, embedded symbol packages (`.snupkg`) with SourceLink support, and deterministic builds.
 
 | Package | Role |
 | --- | --- |
@@ -89,10 +112,7 @@ Each control type ships as a contract package and a `.Standard` implementation
 `Broiler.UI.RichEdit.Rtf` sits outside the pairing: it is an optional integration that
 adds RTF load and save to `Broiler.UI.RichEdit` through `Broiler.Documents.Rtf`.
 
-The rich-text and formatting-code packages depend on `Broiler.Documents` as well as
-`Broiler.Graphics`, so that component has to be on the feed you restore from.
-
-### Dependency direction
+### Dependency Direction
 
 ```text
 Broiler.UI.<Control>.Standard -> Broiler.UI.<Control> -> Broiler.UI -> Broiler.Graphics
@@ -104,18 +124,20 @@ Broiler.UI.<Control>.Standard -> Broiler.UI.<Control> -> Broiler.UI -> Broiler.G
 exposes no public concrete controls; type-specific controls live in their own `.Standard`
 assemblies. An abstraction never references an implementation.
 
-## Graphics boundary
+## Graphics Boundary
 
 Broiler.UI standard controls draw through the platform-neutral `Broiler.Graphics` core.
 UI runtime assemblies must not reference `Broiler.Graphics.Windows`, Direct2D, Win32,
 WPF, WinForms, COM, HWND, or any other native UI backend. Applications compose the
 selected Graphics backend outside Broiler.UI.
 
-This is enforced, not just documented: `Broiler.UI.Tests` walks every project in `src/`
+This is enforced by architecture tests: `Broiler.UI.Tests` walks every project in `src/`
 and fails the build on a platform-specific reference, a project in the wrong directory,
 an implementation reference from an abstraction, or a native handle on a public surface.
 
-## Windows, dialogs, and chrome
+## Windows, Dialogs, and Chrome
+
+### About Dialog
 
 `StandardAboutDialog` (in `Broiler.UI.AboutDialog.Standard`) displays application metadata
 and a scrollable list of loaded Broiler component versions. The galleries open it from
@@ -124,18 +146,15 @@ closes the dialog.
 
 ```csharp
 var about = new StandardAboutDialog();
-about.ProductName = "My application";          // optional override
+about.ProductName = "My Application";          // optional override
 await about.ShowModal(mainWindow);
 ```
 
 The product name and version default to the entry assembly. Component versions are a
 snapshot of loaded `Broiler.*` assemblies, using informational version (including prerelease
-labels), then file version, then assembly version. Build metadata such as commit hashes is
-omitted. Unused dependencies are not loaded just to list their versions. For plugins or
-other libraries, call `PopulateFromAssemblies(productAssembly, componentAssemblies)` with
-an explicit assembly list, or assign `ComponentVersions`. Assigning a dictionary copies it;
-assign again after changing the source. Calling `PopulateFromAssemblies()` refreshes the
-defaults and replaces manual overrides.
+labels), then file version, then assembly version.
+
+### Secondary Window Break-Out
 
 An owned window or a dialog **breaks out into its own native top-level window by
 default** — it is a real OS window the user can move onto another monitor and manage from
@@ -157,7 +176,9 @@ var inspector = new StandardDialog { BreakOutMode = UiWindowBreakOutMode.Manual 
 
 Popups, menus, and tooltips never break out automatically.
 
-Broiler.UI also draws the title bar itself — title, icon, and the minimize, maximize, and
+### Owner-Drawn Chrome
+
+Broiler.UI draws the title bar itself — title, icon, and the minimize, maximize, and
 close buttons — so a window looks the same wherever it is hosted and a broken-out window
 never ends up with two stacked title bars:
 
@@ -174,166 +195,103 @@ top-level window only when its host reports `UiHostWindowChrome.Owner` from the 
 one painted underneath. `UiWindowChrome.Owner` and `UiWindowChrome.None` force it either
 way.
 
-A host implements `IUiWindowChromeHost` to suppress its platform frame and let the UI run
-the window: it reports the chrome mode and window state, and the framework calls
-`SetWindowState`, `SetTitle`, `SetIcon`, `BeginMoveDrag`, and `BeginResizeDrag` on it.
-Moves and resizes are handed to the window manager rather than simulated, so snapping and
-the drag loop stay native. No native handle crosses the boundary.
-`Broiler.UI.Win32.Demo` shows the whole arrangement on Direct2D.
+Moves and resizes are delegated to the host platform window manager via `BeginMoveDrag`
+and `BeginResizeDrag`, preserving native window snapping and drag dynamics.
 
-## Repository layout
+## Rich Text, Code Editing, and Formatting
+
+### StandardRichEdit
+
+`StandardRichEdit` provides a full-featured, flow-based rich text editor backed by `Broiler.Documents.Model`:
+- **Rich Formatting**: Font families, font sizes, bold, italic, underline, strikethrough, foreground and background colors.
+- **Paragraphs & Lists**: Text alignment (left, center, right, justify), paragraph indentation, custom tab stops, bulleted lists, and numbered lists.
+- **Tables**: Rich table insertion, column/row manipulation, and nested document formatting.
+- **Context Menu**: Full context menu with Cut, Copy, Paste, character formatting, paragraph styles, and list options.
+- **Images**: Seamless rendering of pictures from both encoded bytes and pre-decoded raw pixel samples (`BPixelBuffer` via `IUiImageHost.CreateImage`), with cropping and mask application.
+- **RTF Support**: Optional RTF file import and export via the `Broiler.UI.RichEdit.Rtf` integration package.
+
+### CodeEditor & Formatting Codes
+
+- `StandardCodeEditor`: High-performance source code editor with line numbering, virtualized scrolling, and syntax tokens.
+- `StandardFormatCodeView`: Visual projection of document formatting codes side-by-side with document models, enabling precise inspection and debugging of styling runs.
+
+## Repository Layout
 
 ```text
 src/Foundation/                  Broiler.UI and Broiler.UI.Standard
-src/Abstractions/<family>/       one contract assembly per control type
-src/Implementations/Standard/    one Standard implementation per contract
-src/Integrations/                optional host integrations (RichEdit RTF)
-src/Bundles/                     the Broiler.UI.All meta-package
+src/Abstractions/<family>/       One contract assembly per control type
+src/Implementations/Standard/    One Standard implementation per contract
+src/Integrations/                Optional host integrations (RichEdit RTF)
+src/Bundles/                     The Broiler.UI.All meta-package
 src/tests/                       xUnit suites, grouped by family
 src/samples/                     Win32, Linux, WebAssembly, and RichEdit sample hosts
-eng/                             vendored packaging metadata and package icon
-docs/                            roadmap and ADRs
+eng/                             Vendored packaging metadata, tools, and build props
+docs/                            Developer guide, roadmap, and ADRs
 .github/workflows/               CI and publish pipelines
-Broiler.UI.slnx                  solution over every project in src/
+Broiler.UI.slnx                  Solution over every project in src/
 ```
 
-Cross-component runtime dependencies come from NuGet packages. Project references stay
-inside Broiler.UI. The browser source demo is separate; see its README for prerequisites.
+`eng/Broiler.Dependencies.props` holds centralized version pins for external Broiler dependencies. Shared test SDK and xUnit references live in `src/tests/Directory.Build.props`.
 
-`eng/Broiler.Dependencies.props` holds the Broiler dependency version pins, including
-separate versions for runtime libraries and sample backends. Projects still declare
-their own dependencies. Shared test SDK and xUnit references live in
-`src/tests/Directory.Build.props`.
+## Building and Testing
 
-## Building and testing
-
-Clone normally, install the .NET 10 SDK, and configure the package feed credentials:
+Clone the repository and build with the .NET 10 SDK:
 
 ```bash
 git clone https://github.com/Broiler-Platform/Broiler.UI.git
-```
-
-The solution defines six configurations. `Debug`/`Release` build every packable assembly
-and every test suite. The `-Windows` and `-Linux` variants add the sample host for that
-platform and select the matching runtime identifier; they build the same neutral set
-otherwise.
-
-```bash
+cd Broiler.UI
 dotnet build Broiler.UI.slnx -c Release
 ```
 
-```bash
-dotnet test Broiler.UI.slnx -c Release
+Run tests using the PowerShell test runner or `dotnet test`:
+
+```powershell
+./eng/run-tests.ps1 -Configuration Release
 ```
 
-Tests are xUnit suites, so `dotnet test` discovers them directly. Alongside the
-behavioural suites, `Broiler.UI.Tests`, `Broiler.UI.Standard.Tests`, and
-`Broiler.UI.Toolbar.Tests` carry the architecture and topology tests that pin the
-repository layout and the approved project and package dependencies —
-they fail if a directory moves without the rules moving with it.
+Alongside the functional tests, `Broiler.UI.Tests`, `Broiler.UI.Standard.Tests`, and
+`Broiler.UI.Toolbar.Tests` execute architecture and topology enforcement tests that
+validate directory structure, forbidden dependencies, and project boundaries.
 
 ## Samples
 
+Run sample hosts across platforms:
+
 ```bash
+# Win32 control gallery with owner-drawn chrome
+dotnet run --project src/samples/Win32/Broiler.UI.Win32.Demo -c Release-Windows
+
+# Win32 RichEdit editor sample
+dotnet run --project src/samples/RichEdit.Win32/Broiler.UI.RichEdit.Win32.Demo -c Release-Windows
+
+# Linux OpenGL sample
 dotnet run --project src/samples/Linux/Broiler.UI.Linux.Demo -c Release-Linux -- --window --input --interactive
 ```
 
-`Broiler.UI.Linux.Demo` hosts standard controls through `Broiler.Graphics.Linux.OpenGL`
-and can bridge first-round keyboard/mouse input from evdev when an X11 window has focus.
-Windows-only camera and microphone previews stay outside this Linux pass.
-
-`Broiler.UI.WebAssembly.Demo` has its own solution under `src/samples/WebAssembly`.
-It still consumes the Graphics browser backend and replay module from source and is
-excluded from the main package-based solution and CI until those assets ship as a
-package. See the [browser demo README](src/samples/WebAssembly/Broiler.UI.WebAssembly.Demo/README.md).
-
-```bash
-dotnet run --project src/samples/RichEdit.Win32/Broiler.UI.RichEdit.Win32.Demo -c Release-Windows
-```
-
-`Broiler.UI.RichEdit.Win32.Demo` hosts the rich-text editor on Direct2D and builds under
-the `-Windows` configurations.
-
-```bash
-dotnet run --project src/samples/Win32/Broiler.UI.Win32.Demo -c Release-Windows
-```
-
-`Broiler.UI.Win32.Demo` is the control gallery, and the reference host for owner-drawn
-window chrome: its main window is frameless, so the title bar, icon, and minimize,
-maximize, and close buttons you see are drawn by Broiler.UI, not by Windows. Opening a
-dialog from it shows the other half of ADR 0026 — the dialog becomes its own OS window,
-with the same single owner-drawn title bar. **File > Show logical dialog** opens one that
-opts out and stays inside the main window.
-
 ## Packaging
 
-Every Broiler.UI package is a plain `net10.0` library. Build, test, then pack and
-verify the full set (PowerShell 7):
+Every Broiler.UI library packs into a NuGet package with XML documentation and `.snupkg` symbols. To build, test, and pack:
 
 ```powershell
 dotnet build Broiler.UI.slnx -c Release
-./eng/run-tests.ps1
-./eng/pack.ps1
+./eng/run-tests.ps1 -Configuration Release
+./eng/pack.ps1 -Configuration Release
 ```
 
-`eng/pack.ps1` checks package identities, versions, internal dependencies, README,
-icon, assemblies, XML documentation, and symbol packages. Use an empty output directory;
-it rejects stale packages. Tests and samples never pack.
+`eng/pack.ps1` verifies package identities, versions, internal dependencies, README, icon, assemblies, XML documentation, and symbol packages.
 
-## Continuous integration and releases
+## Continuous Integration and Releases
 
-CI builds and tests `Release` on a single Ubuntu runner, checks the project graph,
-verifies every test suite produced a nonempty TRX report, and attaches test reports.
-The same runner packs and verifies all 60 platform-neutral NuGet packages once.
-Platform-specific sample configurations remain available for local builds; CI runs
-the platform-neutral Release solution. External Broiler dependencies restore using
-`GITHUB_TOKEN`; no submodule initialization is needed.
-
-Publish reuses that CI workflow with one resolved preview version, then downloads its
-validated packages instead of rebuilding. Before a push, an isolated consumer restore
-checks that the packages' external dependencies exist on the selected destination feed.
-
-Run Publish manually to choose GitHub Packages or nuget.org; the default is a dry run.
-The version resolver uses `eng/Broiler.Packaging.props` as a version floor, checks all
-shipping package IDs on nuget.org (and GitHub Packages when selected), and chooses the
-next unused `X.Y.Z-preview.N`. An optional `preview.N` suffix or `v*` tag must be unused,
-use the configured release line, and be at least that next preview. Tag pushes publish
-to nuget.org. Stable releases are not supported by this preview workflow.
-
-Publish runs are serialized across refs. Only the push job gets package write access;
-nuget.org needs the `NUGET_API_KEY` repository secret. Duplicate versions fail rather
-than being silently skipped. External Broiler dependency versions remain the versions
-specified in each project; they do not advance with UI's preview number.
-
-## Preview status
-
-This is first-preview software, and the warnings recorded in
-[HUMAN_REVIEW.md](HUMAN_REVIEW.md) apply to any published preview:
-
-- The component is preview software and is neither fully optimized nor final.
-- Public APIs and behaviour may change while the global refactoring continues.
-- Text editing, IME, clipboard, and password/privacy handling have not been reviewed
-  against an attributable human sign-off; `HUMAN_REVIEW.md` is `PENDING`.
-- Accessibility semantics, keyboard-only operation, and screen-reader behaviour have no
-  recorded evidence yet. Do not rely on them for an accessibility conformance claim.
-- Rendering and resource ownership under large or adversarial element trees has not been
-  fuzzed or load-tested.
-- No dedicated fuzzing campaign, SAST report, dependency scan, or independent security
-  audit is recorded. This is not a production security audit.
-
-Broiler.UI is an independent Broiler component. It is not part of, maintained by, or
-endorsed by HTML Renderer or Yantra JS.
+- **CI**: Runs on every push to `main` and pull requests. Executes graph checks, builds `Release`, runs all test suites with TRX generation, and packs all 60 NuGet packages.
+- **Publishing**: The publish workflow (`publish.yml`) resolves the next preview version against **NuGet.org** using `eng/resolve-preview-version.mjs`, validates consumer restore using `eng/verify-feed.ps1 -Target nuget`, and pushes packages directly to **NuGet.org** using the `NUGET_TOKEN` secret. GitHub Packages is not used.
 
 ## Documentation
 
-- [Current roadmap](docs/roadmap.md)
-- [ADR index](docs/adr/README.md)
-- [Human-review record](HUMAN_REVIEW.md)
-
-Completed implementation-phase records are not maintained as current documentation.
+- [Developer Guide](docs/developer-guide.md): In-depth guide for contributors, covering architecture, testing, and creating controls.
+- [Current Roadmap](docs/roadmap.md): Planned work, touch gestures, and release milestones.
+- [ADR Index](docs/adr/README.md): Architecture Decision Records (0001–0026).
+- [Human-Review Record](HUMAN_REVIEW.md): Revision-scoped human sign-off status.
 
 ## License
 
-Broiler.UI is licensed under the [Apache License 2.0](LICENSE). Third-party material, if
-present, retains the license identified with that material. The license provides the
-software on an "AS IS" basis, without warranties or conditions.
+Broiler.UI is licensed under the [Apache License 2.0](LICENSE).

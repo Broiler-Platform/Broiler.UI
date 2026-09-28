@@ -2,10 +2,10 @@
   <!-- Dependency versions are independent of the version being published for UI.
        Samples deliberately use different backend versions from runtime libraries. -->
   <PropertyGroup>
-    <BroilerGraphicsPackageVersion>0.1.0-preview.5</BroilerGraphicsPackageVersion>
-    <BroilerInputPackageVersion>0.1.0-preview.4</BroilerInputPackageVersion>
-    <BroilerDocumentsPackageVersion>0.1.0-preview.16</BroilerDocumentsPackageVersion>
-    <BroilerSampleGraphicsPackageVersion>0.1.0-preview.3</BroilerSampleGraphicsPackageVersion>
-    <BroilerSampleInputPackageVersion>0.1.0-preview.2</BroilerSampleInputPackageVersion>
+    <BroilerGraphicsPackageVersion>0.1.0-preview.6</BroilerGraphicsPackageVersion>
+    <BroilerInputPackageVersion>0.1.0-preview.5</BroilerInputPackageVersion>
+    <BroilerDocumentsPackageVersion>0.1.0-preview.21</BroilerDocumentsPackageVersion>
+    <BroilerSampleGraphicsPackageVersion>0.1.0-preview.6</BroilerSampleGraphicsPackageVersion>
+    <BroilerSampleInputPackageVersion>0.1.0-preview.5</BroilerSampleInputPackageVersion>
   </PropertyGroup>
 </Project>
