@@ -105,10 +105,10 @@ External Broiler dependencies (`Broiler.Graphics`, `Broiler.Input`, `Broiler.Doc
 
 ```xml
 <PropertyGroup>
-  <BroilerGraphicsPackageVersion>0.1.0-preview.6</BroilerGraphicsPackageVersion>
+  <BroilerGraphicsPackageVersion>0.1.0-preview.7</BroilerGraphicsPackageVersion>
   <BroilerInputPackageVersion>0.1.0-preview.5</BroilerInputPackageVersion>
   <BroilerDocumentsPackageVersion>0.1.0-preview.21</BroilerDocumentsPackageVersion>
-  <BroilerSampleGraphicsPackageVersion>0.1.0-preview.6</BroilerSampleGraphicsPackageVersion>
+  <BroilerSampleGraphicsPackageVersion>0.1.0-preview.7</BroilerSampleGraphicsPackageVersion>
   <BroilerSampleInputPackageVersion>0.1.0-preview.5</BroilerSampleInputPackageVersion>
 </PropertyGroup>
 ```
