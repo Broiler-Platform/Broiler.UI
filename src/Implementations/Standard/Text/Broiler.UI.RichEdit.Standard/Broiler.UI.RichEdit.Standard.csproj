@@ -21,4 +21,10 @@
     <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
   </ItemGroup>
 
+  <!-- The layout, image cache, painter, and scroll collaborators are internal;
+       their tests exercise them directly rather than only through the control. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Broiler.UI.RichEdit.Standard.Tests" />
+  </ItemGroup>
+
 </Project>

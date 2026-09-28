@@ -51,14 +51,40 @@ original failure modes.
 
 ## Refactoring opportunities
 
-- Split the 3,029-line `StandardRichEdit` by responsibility: layout and hit
-  testing, document painting/image ownership, and input/IME/scrolling. Extract
-  behavior into testable collaborators where state can be clearly owned; file
-  splitting alone will not reduce the coupling.
-- Move file-system enumeration out of `StandardFileDialog`'s synchronous input
-  path. `RefreshDirectoryEntries` enumerates and sorts all entries before
-  updating controls. Large or network directories can block navigation. A
-  cancellable directory provider would also make error/loading states testable.
+- Completed: `StandardRichEdit` (3,110 lines by then) is split into internal
+  collaborators that each own one kind of state. `RichEditLayout` owns the
+  lines, cells, and list decorations and answers every measurement and hit test
+  in content space; `RichEditImageCache` owns backend picture handles;
+  `RichEditPainter` paints from an explicit per-frame input; `RichEditScroller`
+  owns the scroll offset, thumb drag, and touch-scroll gesture; and
+  `RichEditViewport` maps content space into the control. Text shaping, word
+  boundaries, and double-click detection are small helpers. The control keeps
+  its public surface, input routing, and layout coordination; its public API is
+  unchanged. Selection painting and right-click hit testing now share one
+  selection-span measurement instead of two copies that had drifted apart.
+- Completed: `StandardFileDialog` lists folders through
+  `IUiFileDialogDirectoryProvider` (`Broiler.UI.FileDialog`) and never waits for
+  it. A late listing shows the folder as loading, a failed one shows its error
+  with the way up still offered, and a superseded or abandoned listing is
+  cancelled and ignored. Sorting and filtering rearrange the last listing without
+  reading the folder again, and navigation no longer re-reads the places.
+  `UiFileSystemDirectoryProvider.Synchronous` is the default and lists on the
+  calling thread as before. `UiFileSystemDirectoryProvider.Background` lists on
+  the thread pool, but its result can only return through a session dispatcher
+  that marshals `Post` onto the UI context, which `ImmediateUiDispatcher` does
+  not.
+- Completed: `StandardQueuedUiDispatcher` (`Broiler.UI.Standard`) is that
+  dispatcher. It belongs to the thread that creates it. `Post` queues from any
+  thread and never runs anything inline, and it wakes the host once per batch.
+  `Drain` runs only on the owner thread and only what was queued when it began,
+  so a re-posting callback cannot keep a drain going. A nested drain does
+  nothing, and a callback that throws leaves the rest queued and asks for
+  another drain. Both Win32 demo hosts wake through
+  `Direct2DWindow.PostToUiThread` and also drain before each frame. The Linux
+  demo host drains on every tick of its render loop; that loop used to resume on
+  arbitrary pool threads, and a small synchronization context now keeps it on the
+  dispatcher's thread. No demo hosts a file dialog, and `StandardFileDialog`
+  still defaults to the synchronous provider.
 - Completed: shared test SDK/xUnit references now live in
   `src/tests/Directory.Build.props`, which imports the component build defaults.
   Broiler dependency pins now live in `eng/Broiler.Dependencies.props`, retaining
@@ -125,3 +151,44 @@ match the baseline for all 11 test projects. All 60 projects with direct Broiler
 package dependencies retain their exact IDs and resolved versions. Release builds
 and all 629 tests pass after centralization. The RichEdit decomposition and
 asynchronous file-dialog work remain separate follow-ups.
+
+Refactoring follow-up (2026-09-28): the baseline was 657 passing tests across 11
+suites. Release builds with the same 27 test-analyzer warnings as the baseline,
+and all 733 tests pass, 76 of them new. Before the RichEdit decomposition, an
+uncommitted characterization harness recorded 2,120 lines of render lists,
+hit-test sweeps, key navigation, wheel, scrollbar, and touch scrolling, IME,
+picture, and context-menu results, plus the assembly's public API. After the
+decomposition both were byte-identical. New tests cover each RichEdit
+collaborator directly and the file dialog's loading, error, cancellation,
+stale-result, restart-on-attach, and background-listing paths, the last with a
+queued dispatcher on real thread-pool threads.
+
+Two behavior changes are intended. The picture cache no longer records "no
+host yet" as a failed decode; an editor laid out before joining a session (for
+example by `SetEditorSelection`) previously kept undecoded pictures as fallback
+boxes permanently. The file dialog now shows listing errors instead of an empty
+folder, always offers `..`, and no longer checks `Directory.Exists` when a
+place is clicked; a missing place reports its error instead.
+
+The component graph check passes (71 projects). `Broiler.UI.RichEdit.Win32.Demo`
+did not compile at the baseline: it read `RichTextDocument.Start` through an
+instance, and that member is static in Broiler.Documents 0.1.0-preview.21. Both
+call sites now use `RichTextDocument.Start`, and that break is fixed.
+Release-Windows builds with no errors, including both Win32 demo hosts, and the
+Linux demo host builds under Release-Linux. No native GUI interaction was run.
+
+Queued dispatcher (2026-09-28): 10 new tests cover ordering and owner-only
+access. They also check that the wake fires once per batch, that a re-posting
+callback ends its drain, that a nested drain does nothing, and that a throwing
+callback leaves the rest queued. A stress test drains 16,000 posts from eight
+threads while they are still being made. The file dialog's background-listing
+test now runs on the real dispatcher. Release builds (same 27 test-analyzer
+warnings), all 743 tests pass, and the component graph check passes. All three
+demo hosts build without warnings.
+
+The Linux demo ran offscreen on Windows with the CPU fallback and rendered its
+frame. `--artifact-dir` still fails, independently of this change: saving a PNG
+needs a codec catalog the demo never registers with `BImageCodecs.Use`. A scratch
+harness ran the demo's synchronization context over 200 timer ticks, with awaits
+that complete on pool threads and posts from the pool. The loop never left its
+thread, and every post ran there. No native window was opened.

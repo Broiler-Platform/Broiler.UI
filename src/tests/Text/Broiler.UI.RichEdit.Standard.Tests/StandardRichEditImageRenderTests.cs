@@ -131,6 +131,28 @@ public sealed class StandardRichEditImageRenderTests
     }
 
     [Fact]
+    public void An_Image_Laid_Out_Before_The_Editor_Had_A_Session_Is_Drawn_Once_It_Has_One()
+    {
+        // Moving the selection before the editor is shown lays it out with no
+        // host to decode the picture. That must not stick: once there is a host,
+        // the picture is decoded and drawn at its own size.
+        var edit = new StandardRichEdit { PreferredSize = new BSize(400, 200) };
+        edit.Document = RichTextDocument.FromParagraphs([
+            RichTextParagraph.Create(InlineImage.PlaceholderText, InlineStyle.Default with { Image = new InlineImage(Bytes, "image/png", 0, 0) }),
+        ]);
+        edit.SetEditorSelection(0, 0);
+
+        var host = new TestHost(new BSize(400, 200));
+        UiSession session = CreateSession(host, new ManualClock());
+        session.AddRoot(edit);
+
+        BRenderCommand.DrawImage drawn = Assert.Single(DrawnImages(session.RenderFrame()));
+        Assert.Equal(20, drawn.Destination.Width, 3);
+        Assert.Equal(10, drawn.Destination.Height, 3);
+        session.Dispose();
+    }
+
+    [Fact]
     public void Two_Images_On_One_Line_Are_Both_Drawn()
     {
         RichEditScene scene = Create(new BSize(400, 200));

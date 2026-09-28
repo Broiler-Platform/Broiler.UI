@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Broiler.Graphics;
 using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
@@ -21,6 +23,25 @@ using Broiler.UI.Window;
 
 namespace Broiler.UI.FileDialog.Standard;
 
+/// <summary>
+/// The Broiler-drawn standard <see cref="UiFileDialog"/>: places, folders, and
+/// files, with a name box, a file type box, and a sort box.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The folder being shown is read through an <see cref="IUiFileDialogDirectoryProvider"/>
+/// rather than by the dialog, and the dialog never waits for it. A listing that is
+/// ready at once is shown at once; one that is not leaves the folder showing as
+/// loading until it arrives, and one that fails leaves it showing the error, with
+/// the way up still offered. Moving somewhere else cancels the listing in flight
+/// and ignores it if it arrives anyway.
+/// </para>
+/// <para>
+/// The dialog keeps the last listing and sorts and filters that, so changing the
+/// sort order or the file type rearranges what is on screen without reading the
+/// folder again. <see cref="Refresh"/> reads it again.
+/// </para>
+/// </remarks>
 public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 {
     /// <summary>
@@ -35,6 +56,7 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         (UiFileDialogSortOrder.Size, "sort:size", "Sort: Size"),
     ];
 
+    private readonly IUiFileDialogDirectoryProvider _directoryProvider;
     private readonly StandardListView _placesList;
     private readonly StandardEdit _fileNameEdit;
     private readonly StandardListView _filesList;
@@ -45,9 +67,21 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
     private readonly StandardButton _okButton;
     private readonly StandardButton _cancelButton;
     private readonly Dictionary<string, string> _placePaths = [];
-    private readonly Dictionary<string, string> _filePaths = [];
-    private readonly Dictionary<string, FileInfo> _fileInfos = [];
+    private readonly Dictionary<string, UiFileDialogEntry> _fileEntries = [];
     private readonly Dictionary<string, string> _directoryPaths = [];
+
+    /// <summary>The listing of <see cref="UiFileDialog.CurrentDirectory"/>, unfiltered and unsorted.</summary>
+    private IReadOnlyList<UiFileDialogEntry> _entries = [];
+
+    /// <summary>The listing in flight, or null when none is.</summary>
+    private DirectoryLoad? _load;
+
+    /// <summary>
+    /// True when a listing could not be waited for because the dialog had no
+    /// session to bring it back to, and is started again once it has one.
+    /// </summary>
+    private bool _reloadOnAttach;
+    private Exception? _loadError;
     private BRect _pathBounds;
     private BRect _descriptionBounds;
     private BRect _placesHeaderBounds;
@@ -62,8 +96,17 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
     private bool _syncingFileName;
     private bool _syncingSelectors;
 
+    /// <summary>A dialog over the local file system, listed on the calling thread.</summary>
     public StandardFileDialog()
+        : this(UiFileSystemDirectoryProvider.Synchronous)
     {
+    }
+
+    /// <summary>A dialog over whatever <paramref name="directoryProvider"/> lists.</summary>
+    public StandardFileDialog(IUiFileDialogDirectoryProvider directoryProvider)
+    {
+        ArgumentNullException.ThrowIfNull(directoryProvider);
+        _directoryProvider = directoryProvider;
         Title = "Open";
 
         _placesList = new StandardListView
@@ -226,6 +269,15 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
     public double Gap { get; set; } = 10;
 
+    /// <summary>What the dialog lists folders with.</summary>
+    public IUiFileDialogDirectoryProvider DirectoryProvider => _directoryProvider;
+
+    /// <summary>True while the current folder's listing has not arrived.</summary>
+    public bool IsLoadingDirectory => _load is not null || _reloadOnAttach;
+
+    /// <summary>Why the current folder could not be listed, or null when it could.</summary>
+    public Exception? DirectoryLoadError => _loadError;
+
     public StandardEdit FileNameEdit => _fileNameEdit;
 
     public StandardListView PlacesList => _placesList;
@@ -244,11 +296,12 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
     public StandardButton CancelButton => _cancelButton;
 
+    /// <summary>Reads the places and the current folder again.</summary>
     public void Refresh()
     {
         ThrowIfDisposed();
         RefreshPlaces();
-        RefreshDirectoryEntries();
+        LoadDirectory();
         SyncFileNameEdit();
     }
 
@@ -282,11 +335,11 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
     protected override void OnCurrentDirectoryChanged()
     {
+        // Only the folder is read again. The places do not change with it, and
+        // reading them on every step would make each step wait for any place on
+        // a disconnected network drive.
         if (!_refreshing)
-        {
-            RefreshPlaces();
-            RefreshDirectoryEntries();
-        }
+            LoadDirectory();
     }
 
     protected override void OnFileNameChanged()
@@ -305,7 +358,7 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
     protected override void OnFileNameFilterChanged()
     {
         if (!_refreshing)
-            RefreshDirectoryEntries();
+            ShowEntries();
     }
 
     protected override void OnFileTypeFiltersChanged()
@@ -322,7 +375,39 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
     {
         SyncSortCombo();
         if (!_refreshing)
-            RefreshDirectoryEntries();
+            ShowEntries();
+    }
+
+    protected override void OnAttached()
+    {
+        base.OnAttached();
+        if (_reloadOnAttach)
+            LoadDirectory();
+    }
+
+    protected override void OnDetached()
+    {
+        // A listing still on its way has nowhere to come back to once the dialog
+        // leaves its session. It is started again if the dialog comes back, which
+        // a dialog breaking out into its own window does straight away.
+        if (_load is not null)
+        {
+            CancelLoad();
+            _reloadOnAttach = true;
+        }
+
+        base.OnDetached();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            CancelLoad();
+            _reloadOnAttach = false;
+        }
+
+        base.Dispose(disposing);
     }
 
     protected override BSize MeasureCore(BSize availableSize)
@@ -446,30 +531,127 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
     protected override bool HitTestMoveGrip(BPoint position) =>
         new BRect(Bounds.Left, Bounds.Top, Bounds.Width, Math.Min(TitleBarHeight, Bounds.Height)).Contains(position);
 
-    private void RefreshDirectoryEntries()
+    // --- Listing -----------------------------------------------------------
+
+    /// <summary>
+    /// Asks the provider for the current folder, replacing any listing still in
+    /// flight. A listing that is ready at once is shown at once; otherwise the
+    /// folder shows as loading until the listing is brought back through the
+    /// session's dispatcher.
+    /// </summary>
+    private void LoadDirectory()
     {
+        CancelLoad();
+        _reloadOnAttach = false;
+        _loadError = null;
+        _entries = [];
+
+        var load = new DirectoryLoad();
+        Task<IReadOnlyList<UiFileDialogEntry>> listing =
+            _directoryProvider.GetEntriesAsync(CurrentDirectory, load.Cancellation.Token) ??
+            throw new InvalidOperationException("The directory provider returned no listing.");
+
+        if (listing.IsCompleted)
+        {
+            ShowListing(listing);
+            return;
+        }
+
+        if (Session?.Dispatcher is not IUiDispatcher dispatcher)
+        {
+            // Not in a session: there is no UI context to bring the listing back
+            // to, so it is not waited for. Attaching starts it again.
+            load.Cancellation.Cancel();
+            _reloadOnAttach = true;
+            _ = listing.ContinueWith(
+                static abandoned => _ = abandoned.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            ShowEntries();
+            return;
+        }
+
+        _load = load;
+        ShowEntries();
+        _ = listing.ContinueWith(
+            completed =>
+            {
+                // Observed here, so a listing that fails after it stopped being
+                // wanted is not reported as an unobserved task exception.
+                _ = completed.Exception;
+                dispatcher.Post(() => CompleteLoad(load, completed));
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    /// <summary>Shows a listing that arrived later, unless it is no longer the one wanted.</summary>
+    private void CompleteLoad(DirectoryLoad load, Task<IReadOnlyList<UiFileDialogEntry>> listing)
+    {
+        if (IsDisposed || !ReferenceEquals(_load, load))
+            return;
+
+        _load = null;
+        ShowListing(listing);
+        Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+    }
+
+    private void ShowListing(Task<IReadOnlyList<UiFileDialogEntry>> listing)
+    {
+        if (listing.IsCompletedSuccessfully)
+        {
+            _entries = listing.Result ?? [];
+            _loadError = null;
+        }
+        else
+        {
+            _entries = [];
+            _loadError = listing.Exception?.InnerException ??
+                new OperationCanceledException("The folder listing was cancelled.");
+        }
+
+        ShowEntries();
+    }
+
+    private void CancelLoad()
+    {
+        if (_load is not DirectoryLoad load)
+            return;
+
+        _load = null;
+        load.Cancellation.Cancel();
+    }
+
+    /// <summary>
+    /// Fills the folder and file lists from the listing the dialog holds, filtered
+    /// and sorted the way the dialog says now.
+    /// </summary>
+    private void ShowEntries()
+    {
+        bool wasRefreshing = _refreshing;
         _refreshing = true;
         try
         {
-            DirectoryInfo directory = new(CurrentDirectory);
             var files = new List<UiListItem>();
             var directories = new List<UiListItem>();
-            _filePaths.Clear();
-            _fileInfos.Clear();
+            _fileEntries.Clear();
             _directoryPaths.Clear();
 
-            if (directory.Exists)
-            {
-                DirectoryInfo? parent = directory.Parent;
-                if (parent is not null)
-                    AddDirectoryItem(directories, "..", parent.FullName);
+            // The way up is offered whatever became of the listing, so a folder
+            // that is still loading, or could not be read, is never a dead end.
+            DirectoryInfo? parent = Directory.GetParent(CurrentDirectory);
+            if (parent is not null)
+                AddDirectoryItem(directories, "..", parent.FullName);
 
-                foreach (DirectoryInfo child in EnumerateDirectories(directory))
-                    AddDirectoryItem(directories, child.Name, child.FullName);
+            (UiFileDialogEntry[] folders, UiFileDialogEntry[] matching) =
+                StandardFileDialogListing.Arrange(_entries, FileNameFilter, SortOrder);
+            foreach (UiFileDialogEntry folder in folders)
+                AddDirectoryItem(directories, folder.Name, folder.FullPath);
 
-                foreach (FileInfo file in EnumerateFiles(directory).Where(FileMatchesFilter))
-                    AddFileItem(files, file);
-            }
+            foreach (UiFileDialogEntry file in matching)
+                AddFileItem(files, file);
 
             _directoriesList.SetItems(directories);
             _directoriesList.SelectedItemId = null;
@@ -479,36 +661,41 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         }
         finally
         {
-            _refreshing = false;
+            _refreshing = wasRefreshing;
         }
     }
 
-    private void AddFileItem(List<UiListItem> items, FileInfo file)
+    private void AddFileItem(List<UiListItem> items, UiFileDialogEntry file)
     {
-        string id = "file:" + file.FullName;
-        _filePaths[id] = file.FullName;
-        _fileInfos[id] = file;
-        items.Add(new UiListItem(id, file.Name));
+        // A provider that lists one path twice gets it shown once: the list
+        // refuses duplicate item IDs, and the second copy says nothing new.
+        string id = "file:" + file.FullPath;
+        if (_fileEntries.TryAdd(id, file))
+            items.Add(new UiListItem(id, file.Name));
     }
 
     private void AddDirectoryItem(List<UiListItem> items, string text, string path)
     {
         string id = "dir:" + path;
-        _directoryPaths[id] = path;
-        items.Add(new UiListItem(id, text));
+        if (_directoryPaths.TryAdd(id, path))
+            items.Add(new UiListItem(id, text));
     }
 
     private void SelectFile(string? itemId)
     {
-        if (_refreshing || itemId is null || !_filePaths.TryGetValue(itemId, out string? path))
+        if (_refreshing || itemId is null || !_fileEntries.TryGetValue(itemId, out UiFileDialogEntry? file))
             return;
 
-        FileName = Path.GetFileName(path);
+        FileName = Path.GetFileName(file.FullPath);
     }
 
+    /// <summary>
+    /// Goes to a place. Whether it is still there is the listing's to say, not a
+    /// check made here: a place on a disconnected drive would make the click wait.
+    /// </summary>
     private void NavigateToPlace(string? itemId)
     {
-        if (_refreshing || itemId is null || !_placePaths.TryGetValue(itemId, out string? path) || !Directory.Exists(path))
+        if (_refreshing || itemId is null || !_placePaths.TryGetValue(itemId, out string? path))
             return;
 
         CurrentDirectory = path;
@@ -554,8 +741,8 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
     private void SelectMatchingFile()
     {
         string expected = Path.Combine(CurrentDirectory, ApplyDefaultExtension(FileName));
-        string? selected = _filePaths
-            .Where(pair => StringComparer.OrdinalIgnoreCase.Equals(pair.Value, expected))
+        string? selected = _fileEntries
+            .Where(pair => StringComparer.OrdinalIgnoreCase.Equals(pair.Value.FullPath, expected))
             .Select(static pair => pair.Key)
             .FirstOrDefault();
 
@@ -685,11 +872,17 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
     private string BuildStatusText()
     {
+        if (IsLoadingDirectory)
+            return "Loading " + DescribeDirectory(CurrentDirectory) + "...";
+
+        if (_loadError is Exception error)
+            return "Cannot open " + DescribeDirectory(CurrentDirectory) + ": " + error.Message;
+
         string? selectedId = _filesList.SelectedItemId;
-        if (selectedId is not null && _fileInfos.TryGetValue(selectedId, out FileInfo? file))
+        if (selectedId is not null && _fileEntries.TryGetValue(selectedId, out UiFileDialogEntry? file))
         {
             return "Selected: " + file.Name + " | " + FormatByteSize(file.Length) + " | Modified " +
-                file.LastWriteTime.ToString("g", CultureInfo.CurrentCulture);
+                file.LastWriteTimeUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
         }
 
         string displayName = ApplyDefaultExtension(FileName);
@@ -704,8 +897,11 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
             DescribeDirectory(CurrentDirectory);
     }
 
+    // --- Places ------------------------------------------------------------
+
     private void RefreshPlaces()
     {
+        bool wasRefreshing = _refreshing;
         _refreshing = true;
         try
         {
@@ -728,7 +924,7 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         }
         finally
         {
-            _refreshing = false;
+            _refreshing = wasRefreshing;
         }
     }
 
@@ -755,82 +951,30 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         items.Add(new UiListItem(id, label));
     }
 
+    /// <summary>
+    /// Selects the place the current folder is in. Selecting it is not going to
+    /// it, so the list's own selection change is kept from navigating.
+    /// </summary>
     private void SyncSelectedPlace()
     {
-        string current = NormalizeForComparison(CurrentDirectory);
-        string? selected = _placePaths
-            .Where(pair => current.StartsWith(AddTrailingSeparator(NormalizeForComparison(pair.Value)), StringComparison.OrdinalIgnoreCase) ||
-                           StringComparer.OrdinalIgnoreCase.Equals(current, NormalizeForComparison(pair.Value)))
-            .OrderByDescending(pair => NormalizeForComparison(pair.Value).Length)
-            .Select(static pair => pair.Key)
-            .FirstOrDefault();
-
-        _placesList.SelectedItemId = selected;
-    }
-
-    private bool FileMatchesFilter(FileInfo file)
-    {
-        if (string.IsNullOrWhiteSpace(FileNameFilter) || StringComparer.Ordinal.Equals(FileNameFilter, "*"))
-            return true;
-
-        foreach (string pattern in FileNameFilter.Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        bool wasRefreshing = _refreshing;
+        _refreshing = true;
+        try
         {
-            if (PatternMatches(file.Name, pattern))
-                return true;
+            string current = NormalizeForComparison(CurrentDirectory);
+            string? selected = _placePaths
+                .Where(pair => current.StartsWith(AddTrailingSeparator(NormalizeForComparison(pair.Value)), StringComparison.OrdinalIgnoreCase) ||
+                               StringComparer.OrdinalIgnoreCase.Equals(current, NormalizeForComparison(pair.Value)))
+                .OrderByDescending(pair => NormalizeForComparison(pair.Value).Length)
+                .Select(static pair => pair.Key)
+                .FirstOrDefault();
+
+            _placesList.SelectedItemId = selected;
         }
-
-        return false;
-    }
-
-    private static bool PatternMatches(string fileName, string pattern)
-    {
-        if (string.IsNullOrWhiteSpace(pattern) ||
-            StringComparer.Ordinal.Equals(pattern, "*") ||
-            StringComparer.Ordinal.Equals(pattern, "*.*"))
-            return true;
-
-        return WildcardMatches(fileName, pattern);
-    }
-
-    private static bool WildcardMatches(string value, string pattern)
-    {
-        int valueIndex = 0;
-        int patternIndex = 0;
-        int lastStarIndex = -1;
-        int valueAfterStar = 0;
-
-        while (valueIndex < value.Length)
+        finally
         {
-            if (patternIndex < pattern.Length &&
-                (pattern[patternIndex] == '?' ||
-                 char.ToUpperInvariant(pattern[patternIndex]) == char.ToUpperInvariant(value[valueIndex])))
-            {
-                valueIndex++;
-                patternIndex++;
-                continue;
-            }
-
-            if (patternIndex < pattern.Length && pattern[patternIndex] == '*')
-            {
-                lastStarIndex = patternIndex++;
-                valueAfterStar = valueIndex;
-                continue;
-            }
-
-            if (lastStarIndex >= 0)
-            {
-                patternIndex = lastStarIndex + 1;
-                valueIndex = ++valueAfterStar;
-                continue;
-            }
-
-            return false;
+            _refreshing = wasRefreshing;
         }
-
-        while (patternIndex < pattern.Length && pattern[patternIndex] == '*')
-            patternIndex++;
-
-        return patternIndex == pattern.Length;
     }
 
     private BRect GetClientBounds(BRect bounds) =>
@@ -839,71 +983,6 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
             bounds.Top + TitleBarHeight + Padding,
             Math.Max(0, bounds.Width - Padding * 2),
             Math.Max(0, bounds.Height - TitleBarHeight - Padding * 2));
-
-    /// <summary>
-    /// The folders of <paramref name="directory"/> in <see cref="UiFileDialog.SortOrder"/>.
-    /// </summary>
-    /// <remarks>
-    /// A folder carries neither an extension nor a size, so Type and Size leave folders by name:
-    /// ordering them by a key they do not have would only scramble the column the user is reading
-    /// to navigate. Modified they do have, and sorting by it is most of the point of asking for it.
-    /// </remarks>
-    private DirectoryInfo[] EnumerateDirectories(DirectoryInfo directory)
-    {
-        try
-        {
-            IEnumerable<DirectoryInfo> directories = directory.EnumerateDirectories();
-            return SortOrder == UiFileDialogSortOrder.Modified
-                ? directories
-                    .OrderByDescending(static item => item.LastWriteTimeUtc)
-                    .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToArray()
-                : directories
-                    .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-        }
-        catch (Exception ex) when (IsFileSystemReadException(ex))
-        {
-            return [];
-        }
-    }
-
-    /// <summary>
-    /// The files of <paramref name="directory"/> in <see cref="UiFileDialog.SortOrder"/>. Name
-    /// breaks every tie, so a folder full of same-sized or same-dated files still lists in an
-    /// order that holds still between refreshes.
-    /// </summary>
-    private FileInfo[] EnumerateFiles(DirectoryInfo directory)
-    {
-        try
-        {
-            // The times and lengths below are the ones the directory scan already read, so
-            // ordering by them costs no further trips to the file system.
-            IEnumerable<FileInfo> files = directory.EnumerateFiles();
-            return SortOrder switch
-            {
-                UiFileDialogSortOrder.Type => files
-                    .OrderBy(static item => item.Extension, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToArray(),
-                UiFileDialogSortOrder.Modified => files
-                    .OrderByDescending(static item => item.LastWriteTimeUtc)
-                    .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToArray(),
-                UiFileDialogSortOrder.Size => files
-                    .OrderByDescending(static item => item.Length)
-                    .ThenBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToArray(),
-                _ => files
-                    .OrderBy(static item => item.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToArray(),
-            };
-        }
-        catch (Exception ex) when (IsFileSystemReadException(ex))
-        {
-            return [];
-        }
-    }
 
     private static bool IsFileSystemReadException(Exception ex) =>
         ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException;
@@ -1004,4 +1083,13 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
     private static double ClampDesired(double desired, double available) =>
         double.IsInfinity(available) ? desired : Math.Min(desired, Math.Max(0, available));
+
+    /// <summary>
+    /// One request for a listing. Its identity is what tells a result that is
+    /// still wanted from one that was superseded.
+    /// </summary>
+    private sealed class DirectoryLoad
+    {
+        public CancellationTokenSource Cancellation { get; } = new();
+    }
 }
