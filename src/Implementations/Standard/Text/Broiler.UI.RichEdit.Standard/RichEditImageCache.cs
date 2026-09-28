@@ -18,8 +18,9 @@ namespace Broiler.UI.RichEdit.Standard;
 /// that can create a handle now and the one that must release it.
 /// </para>
 /// <para>
-/// A host with no image capability, or bytes the backend cannot decode, cache as
-/// invalid so the failure is not retried on every frame.
+/// Bytes the backend cannot decode cache as invalid, so the failure is not
+/// retried on every frame. Having no image host - no session yet, or a host
+/// without the capability - attempts nothing, so there is nothing to cache.
 /// </para>
 /// </remarks>
 internal sealed class RichEditImageCache
@@ -38,19 +39,25 @@ internal sealed class RichEditImageCache
     public int Count => _handles.Count;
 
     /// <summary>The handle for a picture, creating it on first use.</summary>
+    /// <remarks>
+    /// With no host there is nothing to create a handle with, and that is not
+    /// remembered: nothing was tried, so nothing failed. A control laid out before
+    /// it joined a session - moving the selection is enough - would otherwise keep
+    /// its pictures as placeholders after it had a host that could decode them.
+    /// </remarks>
     public BImageHandle Resolve(InlineImage image)
     {
         if (_handles.TryGetValue(image, out BImageHandle cached))
             return cached;
 
+        if (_host() is not IUiImageHost imageHost)
+            return BImageHandle.Invalid;
+
         BImageHandle handle = BImageHandle.Invalid;
-        if (_host() is IUiImageHost imageHost)
-        {
-            if (image.Resource.TryGetPixels(out BPixelBuffer? pixels))
-                handle = CreateFromSamples(imageHost, image, pixels);
-            else if (!image.Data.IsEmpty)
-                handle = Create(imageHost, image);
-        }
+        if (image.Resource.TryGetPixels(out BPixelBuffer? pixels))
+            handle = CreateFromSamples(imageHost, image, pixels);
+        else if (!image.Data.IsEmpty)
+            handle = Create(imageHost, image);
 
         _handles[image] = handle;
         return handle;

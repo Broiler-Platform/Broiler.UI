@@ -60,6 +60,22 @@ public sealed class RichEditImageCacheTests
     }
 
     [Fact]
+    public void A_Picture_Asked_For_Before_There_Was_A_Host_Is_Decoded_Once_There_Is()
+    {
+        TestHost? host = null;
+        var cache = new RichEditImageCache(() => host);
+        InlineImage picture = Picture();
+        Assert.False(cache.Resolve(picture).IsValid);
+
+        // No host is not a failed decode: nothing was tried, so there is
+        // nothing to remember.
+        host = new TestHost(new BSize(100, 100));
+
+        Assert.True(cache.Resolve(picture).IsValid);
+        Assert.Equal(1, host.CreatedImages);
+    }
+
+    [Fact]
     public void Hands_Decoded_Samples_To_The_Host_As_They_Are()
     {
         var host = new TestHost(new BSize(100, 100));
