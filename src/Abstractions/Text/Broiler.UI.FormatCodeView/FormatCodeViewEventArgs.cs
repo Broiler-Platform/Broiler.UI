@@ -3,6 +3,8 @@ using Broiler.Documents.FormatCodes;
 
 namespace Broiler.UI.FormatCodeView;
 
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public sealed class FormatCodeViewSelectionChangedEventArgs : EventArgs
 {
     public FormatCodeViewSelectionChangedEventArgs(int anchor, int focus)
@@ -16,6 +18,8 @@ public sealed class FormatCodeViewSelectionChangedEventArgs : EventArgs
     public int Focus { get; }
 }
 
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public sealed class FormatCodeNavigationRequestedEventArgs : EventArgs
 {
     public FormatCodeNavigationRequestedEventArgs(
@@ -31,8 +35,14 @@ public sealed class FormatCodeNavigationRequestedEventArgs : EventArgs
     public FormatCodeToken? Token { get; }
 }
 
+// Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+// Broiler-Falsified-If: constructing the arguments with a null intent stores null instead of throwing ArgumentNullException
+// Broiler-Human:        PENDING
 public sealed class FormatCodeEditRequestedEventArgs : EventArgs
 {
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a null intent is stored instead of throwing ArgumentNullException
+    // Broiler-Human:        PENDING
     public FormatCodeEditRequestedEventArgs(
         FormatCodeEditIntent intent,
         FormatCodeToken? token = null)

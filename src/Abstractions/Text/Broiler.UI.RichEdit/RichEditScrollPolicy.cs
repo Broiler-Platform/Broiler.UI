@@ -4,6 +4,8 @@ namespace Broiler.UI.RichEdit;
 /// Vertical scrolling policy for a <see cref="UiRichEdit"/>. This is a layout hint
 /// consumed by the standard renderer in a later phase.
 /// </summary>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum RichEditScrollPolicy
 {
     /// <summary>Scroll only when content exceeds the arranged height.</summary>

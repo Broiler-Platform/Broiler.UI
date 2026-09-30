@@ -1,6 +1,8 @@
 namespace Broiler.UI.Toolbar;
 
 /// <summary>What a toolbar does with the items that do not fit along it.</summary>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum UiToolbarOverflow
 {
     /// <summary>

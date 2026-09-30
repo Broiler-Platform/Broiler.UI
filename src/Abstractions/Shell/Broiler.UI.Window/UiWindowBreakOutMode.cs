@@ -1,6 +1,8 @@
 namespace Broiler.UI.Window;
 
 /// <summary>Whether a subwindow promotes itself into its own native window when it opens.</summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum UiWindowBreakOutMode
 {
     /// <summary>

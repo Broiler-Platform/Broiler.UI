@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 namespace Broiler.UI.Menu;
 
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public sealed class UiMenuItemInvokedEventArgs : EventArgs
 {
     public UiMenuItemInvokedEventArgs(UiMenuItem item, IReadOnlyList<int> path)

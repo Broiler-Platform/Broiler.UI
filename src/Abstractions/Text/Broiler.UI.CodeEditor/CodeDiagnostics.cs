@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace Broiler.UI.CodeEditor;
 
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Falsified-If: Error is not the largest value, so the greater-than comparison in GetLineSeverity lets a Warning outrank an Error
+// Broiler-Human:        PENDING
 public enum CodeDiagnosticSeverity
 {
     Hidden = 0,
@@ -20,6 +23,9 @@ public enum CodeDiagnosticSeverity
 /// it is the rule code, document, and span — never the message, which is
 /// localized.
 /// </summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+// Broiler-Falsified-If: a one-character diagnostic reports End equal to Start instead of the position after its character
+// Broiler-Human:        PENDING
 public sealed record CodeDiagnosticAdornment(
     int Start,
     int Length,
@@ -27,6 +33,9 @@ public sealed record CodeDiagnosticAdornment(
     string Description,
     string? Code = null)
 {
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a one-character diagnostic reports End equal to Start instead of the position after its character
+    // Broiler-Human:        PENDING
     public int End => Start + Length;
 }
 
@@ -34,8 +43,13 @@ public sealed record CodeDiagnosticAdornment(
 /// Diagnostics for one exact snapshot, indexed by line so the renderer can ask
 /// for the visible range without scanning the whole set.
 /// </summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+// Broiler-Falsified-If: GetLineSeverity reports a severity for a line that no diagnostic covers, because Create indexed a diagnostic under the line holding its exclusive end
+// Broiler-Human:        PENDING
 public sealed class CodeDiagnosticSet
 {
+    // Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private static readonly CodeDiagnosticAdornment[] None = [];
 
     private readonly Dictionary<int, CodeDiagnosticAdornment[]> _byLine;
@@ -54,9 +68,15 @@ public sealed class CodeDiagnosticSet
 
     public int Count { get; }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the empty set reports a Snapshot that is not the same reference as the snapshot passed in, so the control never accepts it
+    // Broiler-Human:        PENDING
     public static CodeDiagnosticSet Empty(ICodeTextSnapshot snapshot) =>
         new(snapshot, [], 0);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: a diagnostic whose exclusive end falls exactly on the start of the next line is also indexed under that next line, which then shows a gutter marker and a one-column squiggle
+    // Broiler-Human:        PENDING
     public static CodeDiagnosticSet Create(
         ICodeTextSnapshot snapshot,
         IEnumerable<CodeDiagnosticAdornment> diagnostics)
@@ -93,10 +113,16 @@ public sealed class CodeDiagnosticSet
         return new CodeDiagnosticSet(snapshot, byLine, count);
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a line with no indexed diagnostics returns a non-empty span
+    // Broiler-Human:        PENDING
     public ReadOnlySpan<CodeDiagnosticAdornment> GetLineDiagnostics(int line) =>
         _byLine.TryGetValue(line, out CodeDiagnosticAdornment[]? bucket) ? bucket : None;
 
     /// <summary>The most severe diagnostic on a line, for the gutter marker.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a line holding an Error followed by a Warning reports Warning as its most severe diagnostic
+    // Broiler-Human:        PENDING
     public CodeDiagnosticSeverity GetLineSeverity(int line)
     {
         CodeDiagnosticSeverity worst = CodeDiagnosticSeverity.Hidden;

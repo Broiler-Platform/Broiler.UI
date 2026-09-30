@@ -6,6 +6,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.RadioButton;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+// Broiler-Falsified-If: after Select on one attached button, another attached button in the same GroupScope still reports IsChecked true
+// Broiler-Human:        PENDING
 public abstract class UiRadioButton : UiElement
 {
     private string _text = string.Empty;
@@ -16,8 +19,13 @@ public abstract class UiRadioButton : UiElement
     private UiRadioGroupScope? _groupScope;
     private UiFlowDirection _flowDirection;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiRadioButtonCheckedChangedEventArgs>? CheckedChanged;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning null stores null rather than an empty string, giving the semantic node a null name
+    // Broiler-Human:        PENDING
     public string Text
     {
         get => _text;
@@ -33,6 +41,9 @@ public abstract class UiRadioButton : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after IsEnabled is set to false, Select returns true and the button becomes checked
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -47,6 +58,9 @@ public abstract class UiRadioButton : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: setting IsChecked to true on an attached button leaves a checked peer in the same GroupScope checked
+    // Broiler-Human:        PENDING
     public bool IsChecked
     {
         get => _isChecked;
@@ -57,6 +71,9 @@ public abstract class UiRadioButton : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: moving a checked button into a scope that already holds a checked attached button leaves both checked
+    // Broiler-Human:        PENDING
     public UiRadioGroupScope? GroupScope
     {
         get => _groupScope;
@@ -73,6 +90,9 @@ public abstract class UiRadioButton : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -89,6 +109,9 @@ public abstract class UiRadioButton : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: changing FlowDirection requests no Arrange invalidation, so the mark is drawn on the old side
+    // Broiler-Human:        PENDING
     public UiFlowDirection FlowDirection
     {
         get => _flowDirection;
@@ -103,6 +126,9 @@ public abstract class UiRadioButton : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: Select on a button whose IsEnabled is false returns true or sets IsChecked
+    // Broiler-Human:        PENDING
     public bool Select()
     {
         ThrowIfDisposed();
@@ -113,6 +139,9 @@ public abstract class UiRadioButton : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the RadioButton node's name is something other than the button's current Text
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.RadioButton,
@@ -121,6 +150,9 @@ public abstract class UiRadioButton : UiElement
             CreateSemanticState(),
             []);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a radio button whose IsChecked is true reports a semantic state without Checked
+    // Broiler-Human:        PENDING
     protected UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;
@@ -133,6 +165,9 @@ public abstract class UiRadioButton : UiElement
         return state;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: CheckedChanged is raised when IsChecked is assigned the value it already holds
+    // Broiler-Human:        PENDING
     private void SetChecked(bool value, bool updateGroup)
     {
         if (_isChecked == value)
@@ -147,6 +182,9 @@ public abstract class UiRadioButton : UiElement
             ApplyGroupSelection();
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: two buttons in one GroupScope that are both set checked before being attached to a session both stay checked once attached
+    // Broiler-Human:        PENDING
     private void ApplyGroupSelection()
     {
         if (_isApplyingGroup || GroupScope is null || Session is null)
@@ -168,6 +206,9 @@ public abstract class UiRadioButton : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: a radio button nested inside a non-radio container below a root is not yielded
+    // Broiler-Human:        PENDING
     private static IEnumerable<UiRadioButton> FindRadioButtons(IEnumerable<UiElement> roots)
     {
         foreach (UiElement root in roots)

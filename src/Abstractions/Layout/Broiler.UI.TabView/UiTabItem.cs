@@ -2,6 +2,9 @@ using System;
 
 namespace Broiler.UI.TabView;
 
+// Broiler-AI:           Origin=AI; Spec=ADR-0024; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+// Broiler-Falsified-If: changing Header or IsDirty to a new value raises no Changed, so the tab strip and its accessible description keep the old label or a clean state
+// Broiler-Human:        PENDING
 public sealed class UiTabItem
 {
     private string _header;
@@ -18,6 +21,8 @@ public sealed class UiTabItem
     /// Raised when the header or the dirty flag changes, so the view can
     /// repaint one tab without being told to rebuild the strip.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     internal event Action<UiTabItem>? Changed;
 
     /// <summary>
@@ -31,6 +36,9 @@ public sealed class UiTabItem
     /// The displayed label. Settable because a rename must not lose the tab's
     /// position, its content, or its identity.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0024; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a header that differs from the current one only by letter case is treated as unchanged and never displayed
+    // Broiler-Human:        PENDING
     public string Header
     {
         get => _header;
@@ -50,6 +58,9 @@ public sealed class UiTabItem
     /// alone, which is unreadable in high contrast and to a viewer who cannot
     /// distinguish the hues.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0024; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: setting IsDirty to true raises no Changed, so the unsaved-changes marker and its spoken description do not appear
+    // Broiler-Human:        PENDING
     public bool IsDirty
     {
         get => _isDirty;

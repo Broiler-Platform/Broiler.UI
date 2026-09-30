@@ -9,8 +9,13 @@ namespace Broiler.UI.Window;
 /// exist for that window. Implementations paint from this and hit-test against it, so every
 /// control family lays its chrome out the same way.
 /// </summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+// Broiler-Falsified-If: a point inside a system button hit-tests as the title bar, so a press on that button starts a window drag
+// Broiler-Human:        PENDING
 public readonly struct UiWindowChromeLayout
 {
+    // Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private UiWindowChromeLayout(
         bool isVisible,
         BRect titleBar,
@@ -56,6 +61,8 @@ public readonly struct UiWindowChromeLayout
     public BRect Content { get; }
 
     /// <summary>An empty layout for a window that draws no chrome.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public static UiWindowChromeLayout Hidden(BRect bounds) =>
         new(false, BRect.Empty, BRect.Empty, BRect.Empty, BRect.Empty, BRect.Empty, BRect.Empty, bounds);
 
@@ -64,6 +71,9 @@ public readonly struct UiWindowChromeLayout
     /// buttons are packed against the right edge in close, maximize, minimize order; the title
     /// takes whatever remains between the icon and the leftmost button.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a title bar narrower than the requested buttons yields a button rect that starts left of the title bar
+    // Broiler-Human:        PENDING
     public static UiWindowChromeLayout Create(UiWindow window, BRect bounds, UiWindowChromeMetrics metrics)
     {
         ArgumentNullException.ThrowIfNull(window);
@@ -123,6 +133,9 @@ public readonly struct UiWindowChromeLayout
     /// Which part of the chrome <paramref name="point"/> falls in. The buttons win over the title
     /// bar they sit in, so a press on a button never starts a window drag.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a point inside a non-empty close, maximize or minimize rect returns TitleBar or Icon instead of that button
+    // Broiler-Human:        PENDING
     public UiWindowChromePart HitTest(BPoint point)
     {
         if (!IsVisible || !TitleBar.Contains(point))

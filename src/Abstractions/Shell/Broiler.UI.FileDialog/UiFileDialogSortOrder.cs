@@ -9,6 +9,8 @@ namespace Broiler.UI.FileDialog;
 /// of the order rather than a separate toggle, so a dialog can name it in the control that picks
 /// it and the user is never left guessing which way a list runs.
 /// </remarks>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum UiFileDialogSortOrder
 {
     /// <summary>By name, A to Z. The default.</summary>

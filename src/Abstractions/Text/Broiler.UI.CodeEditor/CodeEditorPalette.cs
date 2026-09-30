@@ -13,6 +13,9 @@ namespace Broiler.UI.CodeEditor;
 /// set makes every role <c>required</c>, so a palette expressed as new required
 /// tokens would fail to compile every theme preset in the repository.
 /// </summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+// Broiler-Falsified-If: with DistinguishWithoutColor set, Error, Warning and Information adornments differ only in colour
+// Broiler-Human:        PENDING
 public sealed record CodeEditorPalette
 {
     public static CodeEditorPalette Default { get; } = new();
@@ -80,6 +83,9 @@ public sealed record CodeEditorPalette
     /// </summary>
     public bool DistinguishWithoutColor { get; init; }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a classification kind returns the colour of a palette member other than the one of the same name, or an undefined kind returns something other than Foreground
+    // Broiler-Human:        PENDING
     public BColor GetClassificationColor(CodeClassificationKind kind) => kind switch
     {
         CodeClassificationKind.Comment => Comment,
@@ -97,6 +103,9 @@ public sealed record CodeEditorPalette
         _ => Foreground,
     };
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: Hidden or an undefined severity is given an adornment colour instead of Foreground
+    // Broiler-Human:        PENDING
     public BColor GetDiagnosticColor(CodeDiagnosticSeverity severity) => severity switch
     {
         CodeDiagnosticSeverity.Error => ErrorAdornment,
@@ -109,6 +118,9 @@ public sealed record CodeEditorPalette
     /// The adornment shape for a severity. Distinct per severity so the three
     /// remain tellable apart with no colour at all.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: two of Error, Warning and Information map to the same shape, so they cannot be told apart without colour
+    // Broiler-Human:        PENDING
     public static CodeDiagnosticAdornmentShape GetDiagnosticShape(CodeDiagnosticSeverity severity) =>
         severity switch
         {
@@ -119,16 +131,24 @@ public sealed record CodeEditorPalette
         };
 
     /// <summary>Whether a kind is emphasized when colour cannot be relied on.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a keyword kind reports emphasized while DistinguishWithoutColor is false
+    // Broiler-Human:        PENDING
     public bool IsEmphasized(CodeClassificationKind kind) =>
         DistinguishWithoutColor &&
         kind is CodeClassificationKind.Keyword or CodeClassificationKind.ControlKeyword
             or CodeClassificationKind.PreprocessorKeyword;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a comment kind reports italic while DistinguishWithoutColor is false
+    // Broiler-Human:        PENDING
     public bool IsItalic(CodeClassificationKind kind) =>
         DistinguishWithoutColor &&
         kind is CodeClassificationKind.Comment or CodeClassificationKind.DocumentationComment;
 }
 
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum CodeDiagnosticAdornmentShape
 {
     None = 0,

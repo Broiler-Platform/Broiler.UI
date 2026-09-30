@@ -1,6 +1,8 @@
 namespace Broiler.UI.Window;
 
 /// <summary>Who draws a window's title bar, icon, and system buttons.</summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum UiWindowChrome
 {
     /// <summary>

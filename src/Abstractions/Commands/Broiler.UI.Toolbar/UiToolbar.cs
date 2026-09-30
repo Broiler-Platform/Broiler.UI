@@ -6,6 +6,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.Toolbar;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+// Broiler-Falsified-If: OpenOverflow opens the overflow drop-down on a toolbar whose IsEnabled is false
+// Broiler-Human:        PENDING
 public abstract class UiToolbar : UiElement
 {
     private readonly Dictionary<UiElement, UiToolbarBreak> _breakBefore = [];
@@ -18,6 +21,9 @@ public abstract class UiToolbar : UiElement
     private double _padding = 6;
     private BSize _preferredSize = new(0, 42);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning null stores null rather than an empty string
+    // Broiler-Human:        PENDING
     public string Title
     {
         get => _title;
@@ -33,6 +39,8 @@ public abstract class UiToolbar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public UiToolbarOrientation Orientation
     {
         get => _orientation;
@@ -52,6 +60,9 @@ public abstract class UiToolbar : UiElement
     /// <see cref="UiToolbarOverflow.Menu"/>: they move into a drop-down opened
     /// from a chevron at the end of the bar, so a narrow bar hides no command.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: switching Overflow away from Menu while the drop-down is open leaves IsOverflowOpen true
+    // Broiler-Human:        PENDING
     public UiToolbarOverflow Overflow
     {
         get => _overflow;
@@ -69,6 +80,8 @@ public abstract class UiToolbar : UiElement
     }
 
     /// <summary>Whether the overflow drop-down is showing.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool IsOverflowOpen
     {
         get => _isOverflowOpen;
@@ -88,6 +101,9 @@ public abstract class UiToolbar : UiElement
     /// implementation refuses as well when nothing has overflowed, which it is
     /// the one that knows.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: OpenOverflow returns true on a toolbar whose IsEnabled is false or whose Overflow is Clip
+    // Broiler-Human:        PENDING
     public virtual bool OpenOverflow()
     {
         ThrowIfDisposed();
@@ -98,6 +114,9 @@ public abstract class UiToolbar : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: CloseOverflow returns true when the drop-down was not open
+    // Broiler-Human:        PENDING
     public bool CloseOverflow()
     {
         ThrowIfDisposed();
@@ -108,6 +127,9 @@ public abstract class UiToolbar : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: disabling the toolbar while the overflow drop-down is open leaves IsOverflowOpen true
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -124,6 +146,9 @@ public abstract class UiToolbar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a NaN spacing passes the non-negative check and is stored
+    // Broiler-Human:        PENDING
     public double Spacing
     {
         get => _spacing;
@@ -140,6 +165,9 @@ public abstract class UiToolbar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a NaN padding passes the non-negative check and is stored
+    // Broiler-Human:        PENDING
     public double Padding
     {
         get => _padding;
@@ -156,6 +184,9 @@ public abstract class UiToolbar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -177,6 +208,9 @@ public abstract class UiToolbar : UiElement
     /// the space without drawing a rule in it, which is usually enough to group a bar and adds no
     /// ink to it.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: break metadata is stored for an element that is not a child of this toolbar
+    // Broiler-Human:        PENDING
     public void SetBreakBefore(UiElement child, UiToolbarBreak kind)
     {
         ThrowIfDisposed();
@@ -197,6 +231,9 @@ public abstract class UiToolbar : UiElement
     }
 
     /// <summary>What the bar puts in front of <paramref name="child"/>, if anything.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an element with no stored break reports Gap or Separator instead of None
+    // Broiler-Human:        PENDING
     public UiToolbarBreak GetBreakBefore(UiElement child)
     {
         ArgumentNullException.ThrowIfNull(child);
@@ -207,13 +244,22 @@ public abstract class UiToolbar : UiElement
     /// Starts a ruled group in front of <paramref name="child"/>. Shorthand for
     /// <see cref="SetBreakBefore"/> with <see cref="UiToolbarBreak.Separator"/>.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: SetSeparatorBefore with true stores a break other than Separator
+    // Broiler-Human:        PENDING
     public void SetSeparatorBefore(UiElement child, bool hasSeparator) =>
         SetBreakBefore(child, hasSeparator ? UiToolbarBreak.Separator : UiToolbarBreak.None);
 
     /// <summary>Whether a rule is drawn in front of <paramref name="child"/>.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a child whose break is Gap reports a separator
+    // Broiler-Human:        PENDING
     public bool GetSeparatorBefore(UiElement child) =>
         GetBreakBefore(child) == UiToolbarBreak.Separator;
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: a toolbar whose Title is empty or whitespace gets an empty semantic name
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.Toolbar,
@@ -222,11 +268,17 @@ public abstract class UiToolbar : UiElement
             CreateSemanticState(),
             CreateChildSemanticNodes());
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a removed child's break metadata stays in the toolbar's dictionary
+    // Broiler-Human:        PENDING
     protected override void OnChildRemoved(UiElement child)
     {
         _breakBefore.Remove(child);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a toolbar whose IsEnabled is false reports the Enabled semantic state
+    // Broiler-Human:        PENDING
     private UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;
@@ -237,6 +289,9 @@ public abstract class UiToolbar : UiElement
         return state;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: a Collapsed child appears among the toolbar's semantic children
+    // Broiler-Human:        PENDING
     private IReadOnlyList<UiSemanticNode> CreateChildSemanticNodes()
     {
         if (Children.Count == 0)
