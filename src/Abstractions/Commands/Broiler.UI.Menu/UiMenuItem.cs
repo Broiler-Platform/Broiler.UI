@@ -2,6 +2,9 @@ using System.Collections.Generic;
 
 namespace Broiler.UI.Menu;
 
+// Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+// Broiler-Falsified-If: two separately constructed items share one Children list, so a submenu added under one appears under the other
+// Broiler-Human:        PENDING
 public sealed class UiMenuItem
 {
     public UiMenuItem(string id, string text)

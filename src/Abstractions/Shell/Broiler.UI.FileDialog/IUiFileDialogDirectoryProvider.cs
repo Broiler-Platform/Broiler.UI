@@ -26,6 +26,9 @@ namespace Broiler.UI.FileDialog;
 /// that is ignored, so honouring it early only saves work.
 /// </para>
 /// </remarks>
+// Broiler-AI:           Origin=AI; IP=Low; Security=High; Resources=4; Fingerprint=TBF
+// Broiler-Falsified-If: a listing for a folder includes an entry whose FullPath is not directly inside that folder, so selecting it navigates to or returns a path elsewhere
+// Broiler-Human:        PENDING
 public interface IUiFileDialogDirectoryProvider
 {
     /// <summary>
@@ -34,5 +37,8 @@ public interface IUiFileDialogDirectoryProvider
     /// </summary>
     /// <param name="directory">A full path, as <see cref="UiFileDialog.CurrentDirectory"/> holds it.</param>
     /// <param name="cancellationToken">Cancelled when the listing is no longer wanted.</param>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=High; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: a listing for a folder includes an entry whose FullPath is not directly inside that folder, so selecting it navigates to or returns a path elsewhere
+    // Broiler-Human:        PENDING
     Task<IReadOnlyList<UiFileDialogEntry>> GetEntriesAsync(string directory, CancellationToken cancellationToken);
 }

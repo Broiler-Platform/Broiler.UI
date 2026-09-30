@@ -7,6 +7,9 @@ using Broiler.UI.Window;
 
 namespace Broiler.UI.Dialog;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+// Broiler-Falsified-If: a completed modal dialog stays on its session's modal stack, so its owner window keeps refusing input
+// Broiler-Human:        PENDING
 public abstract class UiDialog : UiWindow
 {
     private TaskCompletionSource<UiDialogResult>? _resultSource;
@@ -21,6 +24,9 @@ public abstract class UiDialog : UiWindow
     private bool _isPresented;
     private bool _isResultCompleted;
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a newly constructed dialog reports CanMinimize or CanMaximize as true
+    // Broiler-Human:        PENDING
     protected UiDialog()
     {
         // A dialog is sized to its content and dismissed, not parked on the taskbar or stretched,
@@ -32,32 +38,61 @@ public abstract class UiDialog : UiWindow
         Closed += HandleClosed;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiDialogResultEventArgs>? ResultCompleted;
 
     public UiDialogPresentationMode PresentationMode { get; private set; } = UiDialogPresentationMode.Modeless;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a modal dialog that has closed or been disposed still reports IsModal as true
+    // Broiler-Human:        PENDING
     public bool IsModal => PresentationMode == UiDialogPresentationMode.Modal && IsPresented;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a presented dialog that has since closed still reports IsPresented as true
+    // Broiler-Human:        PENDING
     public bool IsPresented => _isPresented && !IsClosed && !IsDisposed;
 
     public bool IsResultCompleted => _isResultCompleted;
 
     public UiDialogResult CompletedResult => _completedResult;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: reading ResultTask before the dialog is shown returns a task that never completes
+    // Broiler-Human:        PENDING
     public Task<UiDialogResult> ResultTask => _resultSource?.Task ?? Task.FromResult(_completedResult);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: ShowModeless pushes the dialog as its session's modal element, so the owner window stops receiving input
+    // Broiler-Human:        PENDING
     public Task<UiDialogResult> ShowModeless(UiWindow owner, BRect placement = default) =>
         Show(owner, placement, UiDialogPresentationMode.Modeless);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: ShowModal returns with the dialog open but not pushed as its session's modal element
+    // Broiler-Human:        PENDING
     public Task<UiDialogResult> ShowModal(UiWindow owner, BRect placement = default) =>
         Show(owner, placement, UiDialogPresentationMode.Modal);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: Accept(value) completes ResultTask with a Kind other than Accepted
+    // Broiler-Human:        PENDING
     public bool Accept(string? value = null) => Complete(UiDialogResult.Accepted(value));
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: Reject(value) completes ResultTask with a Kind other than Rejected
+    // Broiler-Human:        PENDING
     public bool Reject(string? value = null) => Complete(UiDialogResult.Rejected(value));
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: Cancel completes ResultTask with a Kind other than Cancelled
+    // Broiler-Human:        PENDING
     public bool Cancel() => Complete(UiDialogResult.Cancelled);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: a Complete whose Close is refused leaves its result pending, so a later close through the window chrome reports that result instead of Closed
+    // Broiler-Human:        PENDING
     public bool Complete(UiDialogResult result)
     {
         ThrowIfDisposed();
@@ -73,6 +108,9 @@ public abstract class UiDialog : UiWindow
         return closed;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0025; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a dialog shown with ShowModal reports BreakOutIsModal as false, so breaking it out leaves its origin window accepting input
+    // Broiler-Human:        PENDING
     protected override bool BreakOutIsModal => PresentationMode == UiDialogPresentationMode.Modal;
 
     /// <summary>
@@ -80,10 +118,16 @@ public abstract class UiDialog : UiWindow
     /// than when it is attached: modality and focus have to be established in the origin session
     /// first, so that <see cref="OnBrokenOut"/> has something to migrate.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=None; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: attaching the dialog to its owner breaks it out before Show has registered it as the session's modal element
+    // Broiler-Human:        PENDING
     protected override void OnOpened()
     {
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0025; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: while a broken-out modal dialog is open, its origin window still accepts pointer and keyboard input
+    // Broiler-Human:        PENDING
     protected override void OnBrokenOut(UiSession originSession, UiSession hostedSession)
     {
         // The dialog no longer lives in the origin session; drop its modal registration there.
@@ -103,6 +147,9 @@ public abstract class UiDialog : UiWindow
         hostedSession.SetFocus(this);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an open modal dialog's semantic node lacks the Modal state
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore()
     {
         UiSemanticNode node = base.GetSemanticNodeCore();
@@ -113,6 +160,9 @@ public abstract class UiDialog : UiWindow
         };
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a pointer event consumed by a title-bar move is also handed to the base window's input handling
+    // Broiler-Human:        PENDING
     protected override bool OnInput(UiInputEvent input)
     {
         if (HandleMoveInput(input))
@@ -123,6 +173,9 @@ public abstract class UiDialog : UiWindow
 
     protected virtual bool HitTestMoveGrip(BPoint position) => false;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: detaching the dialog for a break-out reparent completes its result as Closed while it is still open
+    // Broiler-Human:        PENDING
     protected override void OnDetached()
     {
         // A break-out detaches then immediately re-attaches the dialog into another session; that
@@ -133,6 +186,9 @@ public abstract class UiDialog : UiWindow
         base.OnDetached();
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: disposing an open dialog leaves ResultTask incomplete
+    // Broiler-Human:        PENDING
     protected override void Dispose(bool disposing)
     {
         if (disposing && !_isResultCompleted)
@@ -141,6 +197,9 @@ public abstract class UiDialog : UiWindow
         base.Dispose(disposing);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: presenting a dialog a second time while it is still open succeeds instead of throwing InvalidOperationException
+    // Broiler-Human:        PENDING
     private Task<UiDialogResult> Show(UiWindow owner, BRect placement, UiDialogPresentationMode mode)
     {
         ThrowIfDisposed();
@@ -173,6 +232,9 @@ public abstract class UiDialog : UiWindow
         return _resultSource.Task;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a left-button press outside the move grip starts a move
+    // Broiler-Human:        PENDING
     private bool HandleMoveInput(UiInputEvent input)
     {
         if (input.Kind == UiInputEventKind.PointerMove)
@@ -214,6 +276,9 @@ public abstract class UiDialog : UiWindow
     /// <see cref="UiWindow.BeginMoveDrag"/> reports false for a logical subwindow, which has no
     /// native window and does still move itself by placement inside its owner.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: when BeginMoveDrag hands the drag to the window manager, the dialog still captures session input and arms its simulated move
+    // Broiler-Human:        PENDING
     private bool BeginMove(BPoint pointer)
     {
         Activate();
@@ -231,6 +296,9 @@ public abstract class UiDialog : UiWindow
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: moving the pointer by (dx, dy) moves an unclamped dialog by a different offset
+    // Broiler-Human:        PENDING
     private void MoveTo(BPoint pointer)
     {
         double dx = pointer.X - _moveStartPointer.X;
@@ -242,6 +310,9 @@ public abstract class UiDialog : UiWindow
             _moveStartPlacement.Height)));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: releasing the left button after a simulated move leaves the dialog holding the session's input capture
+    // Broiler-Human:        PENDING
     private void EndMove()
     {
         _isMoving = false;
@@ -249,6 +320,9 @@ public abstract class UiDialog : UiWindow
             Session.ReleaseInputCapture(this);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a dialog with no stored placement starts a move from its absolute bounds rather than its offset within its owner
+    // Broiler-Human:        PENDING
     private BRect ResolveCurrentPlacement()
     {
         if (!Placement.IsEmpty)
@@ -266,6 +340,9 @@ public abstract class UiDialog : UiWindow
         return Bounds;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a dialog smaller than its owner can be dragged to a negative offset or past the owner's right or bottom edge
+    // Broiler-Human:        PENDING
     private BRect CoerceMovePlacement(BRect placement)
     {
         if (Owner is null || Owner.Bounds.IsEmpty || placement.IsEmpty)
@@ -280,6 +357,9 @@ public abstract class UiDialog : UiWindow
             placement.Height);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a dialog closed through its window chrome with no pending result reports a Kind other than Closed with that close reason
+    // Broiler-Human:        PENDING
     private void HandleClosed(object? sender, UiWindowClosedEventArgs e)
     {
         UiDialogResult result = _pendingResult ?? UiDialogResult.Closed(e.Reason);
@@ -287,6 +367,9 @@ public abstract class UiDialog : UiWindow
         FinishPresentation(result);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0025; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: after a broken-out modal dialog completes, its origin session still counts an external modal and keeps the owner window blocked
+    // Broiler-Human:        PENDING
     private void FinishPresentation(UiDialogResult result)
     {
         if (_isResultCompleted)

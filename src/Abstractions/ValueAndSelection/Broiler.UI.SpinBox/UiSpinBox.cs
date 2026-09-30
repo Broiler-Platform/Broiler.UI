@@ -22,6 +22,9 @@ namespace Broiler.UI.SpinBox;
 /// showing something that is not its value, and the user with nothing to do about it.
 /// </para>
 /// </remarks>
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+// Broiler-Falsified-If: with a Minimum or Maximum off the decimal grid, such as Minimum 0.4 on a whole-number box, Value settles outside [Minimum, Maximum]
+// Broiler-Human:        PENDING
 public abstract class UiSpinBox : UiElement
 {
     private double _minimum;
@@ -33,8 +36,13 @@ public abstract class UiSpinBox : UiElement
     private bool _isEnabled = true;
     private BSize _preferredSize = new(120, 32);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiSpinBoxValueChangedEventArgs>? ValueChanged;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a Minimum above Maximum, NaN or infinite is stored instead of throwing, so the next coercion throws from Math.Clamp
+    // Broiler-Human:        PENDING
     public double Minimum
     {
         get => _minimum;
@@ -52,6 +60,9 @@ public abstract class UiSpinBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a Maximum below Minimum, NaN or infinite is stored instead of throwing, so the next coercion throws from Math.Clamp
+    // Broiler-Human:        PENDING
     public double Maximum
     {
         get => _maximum;
@@ -69,6 +80,9 @@ public abstract class UiSpinBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning NaN changes Value or raises ValueChanged instead of leaving the current number in place
+    // Broiler-Human:        PENDING
     public double Value
     {
         get => _value;
@@ -80,6 +94,9 @@ public abstract class UiSpinBox : UiElement
     }
 
     /// <summary>What one press of an arrow, or of Up/Down, is worth.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a zero, negative, NaN or infinite SmallChange is stored, so the arrow keys stop moving the value or move it the wrong way
+    // Broiler-Human:        PENDING
     public double SmallChange
     {
         get => _smallChange;
@@ -94,6 +111,9 @@ public abstract class UiSpinBox : UiElement
     }
 
     /// <summary>What one press of Page Up/Page Down is worth.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a zero, negative, NaN or infinite LargeChange is stored, so Page Up and Page Down stop moving the value or move it the wrong way
+    // Broiler-Human:        PENDING
     public double LargeChange
     {
         get => _largeChange;
@@ -113,6 +133,9 @@ public abstract class UiSpinBox : UiElement
     /// one decimal reads "16" and "10.5", never "16.0", because a font size box that showed the
     /// second would be reporting a precision the user did not ask for.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a DecimalPlaces below 0 or above 6 is stored, or lowering it leaves Value with more decimals than the box now keeps
+    // Broiler-Human:        PENDING
     public int DecimalPlaces
     {
         get => _decimalPlaces;
@@ -130,6 +153,9 @@ public abstract class UiSpinBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: setting IsEnabled to false does not call OnEnabledChanged, so an implementation's inner edit stays typeable
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -145,6 +171,9 @@ public abstract class UiSpinBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -162,24 +191,41 @@ public abstract class UiSpinBox : UiElement
     }
 
     /// <summary>The value as the box shows it.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public string ValueText => FormatValue(_value);
 
     /// <summary>Steps up by <see cref="SmallChange"/>. False when the value was already at the top.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: StepUp moves Value down, or by LargeChange instead of SmallChange
+    // Broiler-Human:        PENDING
     public bool StepUp() => StepBy(1, SmallChange);
 
     /// <summary>Steps down by <see cref="SmallChange"/>. False when the value was already at the bottom.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: StepDown moves Value up, or by LargeChange instead of SmallChange
+    // Broiler-Human:        PENDING
     public bool StepDown() => StepBy(-1, SmallChange);
 
     /// <summary>Steps up by <see cref="LargeChange"/>.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: PageUp moves Value down, or by SmallChange instead of LargeChange
+    // Broiler-Human:        PENDING
     public bool PageUp() => StepBy(1, LargeChange);
 
     /// <summary>Steps down by <see cref="LargeChange"/>.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: PageDown moves Value up, or by SmallChange instead of LargeChange
+    // Broiler-Human:        PENDING
     public bool PageDown() => StepBy(-1, LargeChange);
 
     /// <summary>
     /// Takes a value the user typed. False when the text is not a number at all, which leaves the
     /// value alone — half-typed text is not a reason to move the number under the caret.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: text that is not a number, such as an empty string or "12a", changes Value or returns true
+    // Broiler-Human:        PENDING
     public bool TryCommitText(string? text)
     {
         ThrowIfDisposed();
@@ -194,6 +240,9 @@ public abstract class UiSpinBox : UiElement
     /// Formats a value the way the box shows it: invariant, so a number a control writes is one the
     /// same control reads back whatever the machine's locale is.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the text FormatValue writes for a value is read back by TryParseValue as a different number under a culture whose decimal separator is a comma
+    // Broiler-Human:        PENDING
     public string FormatValue(double value) =>
         Coerce(value).ToString(
             _decimalPlaces == 0 ? "0" : "0." + new string('#', _decimalPlaces),
@@ -204,6 +253,9 @@ public abstract class UiSpinBox : UiElement
     /// culture's second, so a box that writes "12.5" still accepts the "12,5" a German keyboard
     /// produces.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: a number written with the invariant separator, such as "12.5", is rejected or read as another number under a culture whose decimal separator is a comma
+    // Broiler-Human:        PENDING
     public static bool TryParseValue(string? text, out double value)
     {
         value = 0;
@@ -216,15 +268,22 @@ public abstract class UiSpinBox : UiElement
     }
 
     /// <summary>Called when <see cref="IsEnabled"/> changes, for implementations with children to disable.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected virtual void OnEnabledChanged()
     {
     }
 
     /// <summary>Called after the value changed, before <see cref="ValueChanged"/> is raised.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected virtual void OnValueChanged()
     {
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the SpinBox node's name is something other than ValueText
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.SpinBox,
@@ -233,6 +292,9 @@ public abstract class UiSpinBox : UiElement
             CreateSemanticState(),
             []);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a spin box whose IsEnabled is false reports the Enabled state, or one whose inner edit holds focus lacks the Focused state
+    // Broiler-Human:        PENDING
     protected UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;
@@ -243,6 +305,9 @@ public abstract class UiSpinBox : UiElement
         return state;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: with SmallChange at least one unit of the last kept decimal and Value strictly inside the range, StepUp or StepDown returns false and leaves Value unchanged
+    // Broiler-Human:        PENDING
     private bool StepBy(int direction, double amount)
     {
         double stepped = Coerce(_value + (direction * amount));
@@ -253,6 +318,9 @@ public abstract class UiSpinBox : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: ValueChanged is raised when the coerced number equals the current Value, or Value changes without ValueChanged being raised
+    // Broiler-Human:        PENDING
     private void SetValue(double value)
     {
         double coerced = Coerce(value);
@@ -270,6 +338,9 @@ public abstract class UiSpinBox : UiElement
     /// Brings a value into range and onto the grid the box keeps. Rounding before clamping would let
     /// a value just outside the range round back inside it.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: with a Minimum or Maximum off the decimal grid, such as Minimum 0.4 on a whole-number box, Coerce returns a number outside [Minimum, Maximum]
+    // Broiler-Human:        PENDING
     private double Coerce(double value)
     {
         if (double.IsNaN(value))
@@ -279,6 +350,9 @@ public abstract class UiSpinBox : UiElement
         return Math.Round(clamped, _decimalPlaces, MidpointRounding.AwayFromZero);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: positive or negative infinity passes, so a Minimum or Maximum of infinity is stored
+    // Broiler-Human:        PENDING
     private static void ValidateFinite(double value, string parameterName)
     {
         if (double.IsNaN(value) || double.IsInfinity(value))

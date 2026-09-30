@@ -1,6 +1,8 @@
 namespace Broiler.UI.Window;
 
 /// <summary>A hit-testable region of owner-drawn window chrome.</summary>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum UiWindowChromePart
 {
     /// <summary>Not chrome — content, or outside the window.</summary>

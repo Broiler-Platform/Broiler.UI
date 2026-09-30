@@ -8,6 +8,8 @@ namespace Broiler.UI.Window;
 /// <param name="Padding">Inset from the window edge to the icon and title text.</param>
 /// <param name="ButtonWidth">Width of one system button.</param>
 /// <param name="IconSize">Edge length of the square window icon.</param>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public readonly record struct UiWindowChromeMetrics(
     double TitleBarHeight,
     double Padding,

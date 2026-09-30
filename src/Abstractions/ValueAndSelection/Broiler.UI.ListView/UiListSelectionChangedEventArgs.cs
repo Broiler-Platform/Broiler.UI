@@ -3,8 +3,14 @@ using System.Collections.Generic;
 
 namespace Broiler.UI.ListView;
 
+// Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+// Broiler-Falsified-If: a null old or new id yields a one-element id list holding null instead of an empty list
+// Broiler-Human:        PENDING
 public sealed class UiListSelectionChangedEventArgs : EventArgs
 {
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a null old or new id yields a one-element id list holding null instead of an empty list
+    // Broiler-Human:        PENDING
     public UiListSelectionChangedEventArgs(string? oldItemId, string? newItemId)
         : this(oldItemId, newItemId, oldItemId is null ? [] : [oldItemId], newItemId is null ? [] : [newItemId])
     {

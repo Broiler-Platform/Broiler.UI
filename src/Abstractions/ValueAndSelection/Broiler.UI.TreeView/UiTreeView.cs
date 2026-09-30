@@ -6,6 +6,8 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.TreeView;
 
+// Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum TreeSelectionMode
 {
     Single,
@@ -15,13 +17,19 @@ public enum TreeSelectionMode
 }
 
 /// <summary>One row of the flattened, expanded tree.</summary>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public readonly record struct TreeRow(TreeNodeId Id, int Depth, bool HasChildren, bool IsExpanded);
 
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public sealed class TreeSelectionChangedEventArgs(IReadOnlyList<TreeNodeId> selection) : EventArgs
 {
     public IReadOnlyList<TreeNodeId> Selection { get; } = selection;
 }
 
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public sealed class TreeNodeEventArgs(TreeNodeId node) : EventArgs
 {
     public TreeNodeId Node { get; } = node;
@@ -35,6 +43,9 @@ public sealed class TreeNodeEventArgs(TreeNodeId node) : EventArgs
 /// with ten thousand children costs ten thousand row structs and forty painted
 /// rows — never ten thousand elements.
 /// </summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+// Broiler-Falsified-If: collapsing an expanded ancestor of the focused node after Rows has been built leaves FocusedNode, and so Enter's NodeActivated, on a node with no visible row
+// Broiler-Human:        PENDING
 public abstract class UiTreeView : UiElement
 {
     private readonly HashSet<TreeNodeId> _expanded = [];
@@ -48,15 +59,26 @@ public abstract class UiTreeView : UiElement
     private TreeSecondaryLabelPlacement _secondaryLabelPlacement;
     private bool _rowsValid;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<TreeSelectionChangedEventArgs>? SelectionChanged;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<TreeNodeEventArgs>? NodeExpanded;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<TreeNodeEventArgs>? NodeCollapsed;
 
     /// <summary>A node was activated — double-click or Enter.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<TreeNodeEventArgs>? NodeActivated;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: replacing an observable DataSource leaves the view subscribed to the old source's DataChanged, so a change there still invalidates this view
+    // Broiler-Human:        PENDING
     public ITreeDataSource? DataSource
     {
         get => _dataSource;
@@ -79,6 +101,9 @@ public abstract class UiTreeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: switching SelectionMode to Single while several nodes are selected leaves more than one node in Selection
+    // Broiler-Human:        PENDING
     public TreeSelectionMode SelectionMode
     {
         get => _selectionMode;
@@ -93,6 +118,9 @@ public abstract class UiTreeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -109,6 +137,9 @@ public abstract class UiTreeView : UiElement
     }
 
     /// <summary>The flattened expanded set. Rebuilt lazily.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: Rows read after Expand, Collapse, a DataSource change or DataChanged returns the row list from before that change
+    // Broiler-Human:        PENDING
     public IReadOnlyList<TreeRow> Rows
     {
         get
@@ -125,8 +156,13 @@ public abstract class UiTreeView : UiElement
     /// expanded set, so it cannot land on a row that has scrolled out of
     /// existence.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public TreeNodeId FocusedNode => _focused;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: a negative value, or one at or beyond Rows.Count on a non-empty tree, is stored instead of clamped to [0, Rows.Count - 1]
+    // Broiler-Human:        PENDING
     public int FirstVisibleRow
     {
         get => _firstVisibleRow;
@@ -149,6 +185,9 @@ public abstract class UiTreeView : UiElement
     /// Where a row draws its secondary label. See
     /// <see cref="TreeSecondaryLabelPlacement"/> for which trees want which.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: changing SecondaryLabelPlacement does not call OnSecondaryLabelPlacementChanged or does not invalidate Measure, so hit tests keep dividing by the old row height
+    // Broiler-Human:        PENDING
     public TreeSecondaryLabelPlacement SecondaryLabelPlacement
     {
         get => _secondaryLabelPlacement;
@@ -179,12 +218,19 @@ public abstract class UiTreeView : UiElement
     /// height answers a hit test, and a stale one sends a click to the wrong
     /// row before anything has been drawn.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected virtual void OnSecondaryLabelPlacementChanged()
     {
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool IsExpanded(TreeNodeId node) => _expanded.Contains(node);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: Expand returns true and raises NodeExpanded for TreeNodeId.None, for a node whose CanExpand is false, or for a node already expanded
+    // Broiler-Human:        PENDING
     public bool Expand(TreeNodeId node)
     {
         ThrowIfDisposed();
@@ -195,6 +241,9 @@ public abstract class UiTreeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: collapsing an expanded ancestor of the focused node after Rows has been built leaves FocusedNode on the hidden descendant instead of the collapsed node
+    // Broiler-Human:        PENDING
     public bool Collapse(TreeNodeId node)
     {
         ThrowIfDisposed();
@@ -212,10 +261,16 @@ public abstract class UiTreeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: ToggleExpansion on an expanded node leaves it expanded, or on a collapsed expandable node leaves it collapsed
+    // Broiler-Human:        PENDING
     public bool ToggleExpansion(TreeNodeId node) =>
         IsExpanded(node) ? Collapse(node) : Expand(node);
 
     /// <summary>Expands every ancestor so a node becomes visible, then focuses it.</summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: with VisibleRowCapacity at least 1, RevealNode returns true while the node's row is outside [FirstVisibleRow, FirstVisibleRow + VisibleRowCapacity)
+    // Broiler-Human:        PENDING
     public bool RevealNode(TreeNodeId node, IReadOnlyList<TreeNodeId> ancestors)
     {
         ThrowIfDisposed();
@@ -234,6 +289,9 @@ public abstract class UiTreeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: SetSelection with a node that has no row in Rows, such as a file inside a collapsed folder, moves FocusedNode onto that hidden node
+    // Broiler-Human:        PENDING
     public void SetSelection(IReadOnlyList<TreeNodeId> nodes)
     {
         ThrowIfDisposed();
@@ -255,6 +313,9 @@ public abstract class UiTreeView : UiElement
     }
 
     /// <summary>Moves focus by row, optionally extending the selection.</summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: Down on the last row or Up on the first row changes focus or selection instead of returning false
+    // Broiler-Human:        PENDING
     public bool MoveFocus(int delta, bool extendSelection)
     {
         ThrowIfDisposed();
@@ -285,8 +346,14 @@ public abstract class UiTreeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: MoveFocusToFirst focuses a row other than the first row of Rows
+    // Broiler-Human:        PENDING
     public bool MoveFocusToFirst() => MoveFocusTo(0);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: MoveFocusToLast focuses a row other than the last row of Rows, or returns true on a tree with no rows
+    // Broiler-Human:        PENDING
     public bool MoveFocusToLast()
     {
         EnsureRows();
@@ -299,6 +366,9 @@ public abstract class UiTreeView : UiElement
     /// searched: type-ahead that opened collapsed folders would move the user
     /// somewhere they cannot see.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: extending a prefix the focused row still matches, such as from "r" to "re" with Report focused above Resources, moves focus off Report
+    // Broiler-Human:        PENDING
     public bool TypeAhead(string prefix)
     {
         ThrowIfDisposed();
@@ -318,6 +388,9 @@ public abstract class UiTreeView : UiElement
         return false;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: ActivateFocused with no focused node raises NodeActivated
+    // Broiler-Human:        PENDING
     public void ActivateFocused()
     {
         ThrowIfDisposed();
@@ -329,6 +402,9 @@ public abstract class UiTreeView : UiElement
     /// double click, which activates what the pointer is over, and a host
     /// command that acts on a row it already has in hand.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: ActivateNode with TreeNodeId.None or default(TreeNodeId) raises NodeActivated
+    // Broiler-Human:        PENDING
     public void ActivateNode(TreeNodeId node)
     {
         ThrowIfDisposed();
@@ -339,6 +415,9 @@ public abstract class UiTreeView : UiElement
     /// <summary>Rebuilds the expanded set after the data source changed.</summary>
     public void Refresh() => InvalidateRows();
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after the view is disposed, raising DataChanged on its observable DataSource still reaches this view
+    // Broiler-Human:        PENDING
     protected override void Dispose(bool disposing)
     {
         if (disposing && _dataSource is IObservableTreeDataSource observable)
@@ -346,6 +425,9 @@ public abstract class UiTreeView : UiElement
         base.Dispose(disposing);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Low; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: a row outside [FirstVisibleRow, FirstVisibleRow + VisibleRowCapacity) appears among the tree's semantic children, or a visible selected row lacks the Selected state
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore()
     {
         EnsureRows();
@@ -385,6 +467,9 @@ public abstract class UiTreeView : UiElement
     /// level are stated explicitly, because a tree's structure is not otherwise
     /// conveyed by a flat list of names.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Low; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: a row's description omits its level, its position within its level, or its expanded or collapsed state
+    // Broiler-Human:        PENDING
     protected virtual string DescribeRow(TreeRow row, int rowIndex)
     {
         if (_dataSource is null)
@@ -406,6 +491,9 @@ public abstract class UiTreeView : UiElement
             $"{position} of {count}";
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a row whose earlier sibling is expanded is given a position that counts that sibling's children
+    // Broiler-Human:        PENDING
     private (int Position, int Count) PositionWithinLevel(int rowIndex, int depth)
     {
         // Counted by walking outwards over siblings at the same depth, which
@@ -427,6 +515,9 @@ public abstract class UiTreeView : UiElement
         return (position, count);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: an index below zero or at or beyond Rows.Count changes FocusedNode or the selection
+    // Broiler-Human:        PENDING
     private bool MoveFocusTo(int index)
     {
         EnsureRows();
@@ -438,6 +529,9 @@ public abstract class UiTreeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: with VisibleRowCapacity at least 1, the row at index is still before FirstVisibleRow or at or after FirstVisibleRow + VisibleRowCapacity after the call
+    // Broiler-Human:        PENDING
     private void EnsureRowVisible(int index)
     {
         if (index < _firstVisibleRow)
@@ -448,6 +542,9 @@ public abstract class UiTreeView : UiElement
 
     private void OnDataChanged(object? sender, TreeDataChangedEventArgs e) => InvalidateRows();
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: InvalidateRows leaves the rows marked valid, so Rows keeps returning the list from before the change
+    // Broiler-Human:        PENDING
     private void InvalidateRows()
     {
         _rowsValid = false;
@@ -455,6 +552,9 @@ public abstract class UiTreeView : UiElement
             UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: after the expanded set shrinks, FirstVisibleRow stays at or beyond Rows.Count while Rows is non-empty
+    // Broiler-Human:        PENDING
     private void EnsureRows()
     {
         if (_rowsValid)
@@ -467,6 +567,9 @@ public abstract class UiTreeView : UiElement
         _firstVisibleRow = Math.Clamp(_firstVisibleRow, 0, Math.Max(0, _rows.Count - 1));
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0023; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: a child of a node that is not expanded, or whose CanExpand is false, is added to Rows
+    // Broiler-Human:        PENDING
     private void AppendChildren(TreeNodeId parent, int depth)
     {
         if (_dataSource is null)

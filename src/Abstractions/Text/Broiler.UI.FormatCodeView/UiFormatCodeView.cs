@@ -13,6 +13,9 @@ namespace Broiler.UI.FormatCodeView;
 /// bracket text is never reparsed for interaction; typed projector mappings are
 /// authoritative.
 /// </summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0020; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+// Broiler-Falsified-If: a selection covering only part of a code token such as [Bold ON] is turned into a ReplaceFormatCodeTextIntent and raised through EditRequested
+// Broiler-Human:        PENDING
 public abstract class UiFormatCodeView : UiElement
 {
     private FormatCodeProjection? _projection;
@@ -27,20 +30,37 @@ public abstract class UiFormatCodeView : UiElement
     private string _searchQuery = string.Empty;
     private bool _searchMatchCase;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<FormatCodeViewSelectionChangedEventArgs>? SelectionChanged;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<FormatCodeNavigationRequestedEventArgs>? NavigationRequested;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<FormatCodeEditRequestedEventArgs>? EditRequested;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler? UndoRequested;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler? RedoRequested;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler? ExitRequested;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler? SearchRequested;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after Projection is replaced by one with shorter Text, SelectionAnchor or SelectionFocus is left greater than the new Text.Length
+    // Broiler-Human:        PENDING
     public FormatCodeProjection? Projection
     {
         get => _projection;
@@ -64,8 +84,14 @@ public abstract class UiFormatCodeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: Text returns null rather than an empty string while Projection is null
+    // Broiler-Human:        PENDING
     public string Text => Projection?.Text ?? string.Empty;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after IsEnabled is set to false, RequestTextReplacement or RequestTokenRemoval still raises EditRequested
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -79,6 +105,9 @@ public abstract class UiFormatCodeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after IsEditable is set to false, Paste or RequestTextReplacement still raises EditRequested
+    // Broiler-Human:        PENDING
     public bool IsEditable
     {
         get => _isEditable;
@@ -92,6 +121,9 @@ public abstract class UiFormatCodeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -107,6 +139,8 @@ public abstract class UiFormatCodeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public FormatCodeViewWrapping Wrapping
     {
         get => _wrapping;
@@ -120,6 +154,8 @@ public abstract class UiFormatCodeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public FormatCodeViewScrollPolicy VerticalScrollPolicy
     {
         get => _verticalScrollPolicy;
@@ -133,6 +169,8 @@ public abstract class UiFormatCodeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public FormatCodeViewScrollPolicy HorizontalScrollPolicy
     {
         get => _horizontalScrollPolicy;
@@ -150,22 +188,39 @@ public abstract class UiFormatCodeView : UiElement
 
     public int SelectionFocus => _selectionFocus;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: SelectionStart returns the anchor when the focus precedes it
+    // Broiler-Human:        PENDING
     public int SelectionStart => Math.Min(_selectionAnchor, _selectionFocus);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public int SelectionEnd => Math.Max(_selectionAnchor, _selectionFocus);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: SelectionLength is negative for a selection whose focus precedes its anchor
+    // Broiler-Human:        PENDING
     public int SelectionLength => SelectionEnd - SelectionStart;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool HasSelection => SelectionLength > 0;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public int CaretOffset => _selectionFocus;
 
     public string SearchQuery => _searchQuery;
 
     public bool SearchMatchCase => _searchMatchCase;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public FormatCodeToken? CurrentToken => TokenAt(CaretOffset);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an anchor or focus greater than Text.Length is stored unclamped, so GetSelectedText throws ArgumentOutOfRangeException
+    // Broiler-Human:        PENDING
     public void SetSelection(int anchor, int focus)
     {
         ThrowIfDisposed();
@@ -181,12 +236,21 @@ public abstract class UiFormatCodeView : UiElement
         SelectionChanged?.Invoke(this, new FormatCodeViewSelectionChangedEventArgs(anchor, focus));
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after SelectAll the selection ends short of Text.Length, so a following CutSelection leaves trailing text in place
+    // Broiler-Human:        PENDING
     public void SelectAll() => SetSelection(0, Text.Length);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a selection whose focus precedes its anchor returns text starting at the anchor rather than at SelectionStart
+    // Broiler-Human:        PENDING
     public string GetSelectedText() => HasSelection
         ? Text.Substring(SelectionStart, SelectionLength)
         : string.Empty;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: CopySelection on a view whose IsEnabled is false writes the selected text to the clipboard
+    // Broiler-Human:        PENDING
     public bool CopySelection()
     {
         ThrowIfDisposed();
@@ -200,6 +264,9 @@ public abstract class UiFormatCodeView : UiElement
     /// Requests replacement of the current projected selection. Only ordinary
     /// text spans and whole escape tokens are accepted; code tokens stay atomic.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: on a selection covering only part of a code token, RequestTextReplacement returns true and raises EditRequested
+    // Broiler-Human:        PENDING
     public bool RequestTextReplacement(string text)
     {
         ThrowIfDisposed();
@@ -215,6 +282,9 @@ public abstract class UiFormatCodeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: CutSelection writes the selection to the clipboard after RequestTextReplacement refused it for a read-only view or a partly covered code token
+    // Broiler-Human:        PENDING
     public bool CutSelection()
     {
         ThrowIfDisposed();
@@ -227,6 +297,9 @@ public abstract class UiFormatCodeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Paste on a view whose IsEditable is false raises EditRequested carrying the clipboard text
+    // Broiler-Human:        PENDING
     public bool Paste()
     {
         ThrowIfDisposed();
@@ -235,6 +308,9 @@ public abstract class UiFormatCodeView : UiElement
     }
 
     /// <summary>Requests the semantic removal attached to the token at the caret.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: RequestTokenRemoval on a view whose IsEditable is false raises EditRequested with a removal intent
+    // Broiler-Human:        PENDING
     public bool RequestTokenRemoval(bool backward = false)
     {
         ThrowIfDisposed();
@@ -250,6 +326,9 @@ public abstract class UiFormatCodeView : UiElement
     }
 
     /// <summary>Requests an already typed property edit supplied by host UI.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: RequestEdit raises EditRequested on a view whose IsEditable or IsEnabled is false
+    // Broiler-Human:        PENDING
     public bool RequestEdit(FormatCodeEditIntent intent, FormatCodeToken? token = null)
     {
         ThrowIfDisposed();
@@ -261,6 +340,9 @@ public abstract class UiFormatCodeView : UiElement
     }
 
     /// <summary>Requests a typed Insert Code palette action at the mapped selection.</summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0020; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: a palette entry that needs a typed value, such as FontSize with a null value, throws out of RequestPaletteEntry instead of returning false
+    // Broiler-Human:        PENDING
     public bool RequestPaletteEntry(FormatCodePaletteEntry entry, object? value = null)
     {
         ThrowIfDisposed();
@@ -279,6 +361,9 @@ public abstract class UiFormatCodeView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Find with an empty query changes the selection
+    // Broiler-Human:        PENDING
     public bool Find(string query, bool matchCase = false, bool wrap = true)
     {
         ThrowIfDisposed();
@@ -291,12 +376,21 @@ public abstract class UiFormatCodeView : UiElement
         return FindFrom(HasSelection ? SelectionEnd : CaretOffset, forward: true, wrap);
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: FindNext changes the selection when no query has been set by Find
+    // Broiler-Human:        PENDING
     public bool FindNext(bool wrap = true) =>
         _searchQuery.Length > 0 && FindFrom(SelectionEnd, forward: true, wrap);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: FindPrevious from a selection that is itself a match reselects that match while an earlier match exists
+    // Broiler-Human:        PENDING
     public bool FindPrevious(bool wrap = true) =>
         _searchQuery.Length > 0 && FindFrom(SelectionStart, forward: false, wrap);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0020; IP=Low; Security=Low; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: the description of a ParagraphCode token lacks the phrase visual rendering pending
+    // Broiler-Human:        PENDING
     public string GetAccessibleTokenDescription()
     {
         FormatCodeToken? pending = Projection?.PendingTokens.FirstOrDefault(token => token.ProjectedStart == CaretOffset);
@@ -318,12 +412,18 @@ public abstract class UiFormatCodeView : UiElement
         return $"{token.DisplayText}, {category}";
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: MoveCaret with extendSelection true moves SelectionAnchor instead of keeping it
+    // Broiler-Human:        PENDING
     protected void MoveCaret(int offset, bool extendSelection)
     {
         int target = Math.Clamp(offset, 0, Text.Length);
         SetSelection(extendSelection ? SelectionAnchor : target, target);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0020; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a pointer offset greater than Text.Length reaches Projection.MapProjectedOffset unclamped and throws ArgumentOutOfRangeException
+    // Broiler-Human:        PENDING
     protected void ActivateAt(int projectedOffset)
     {
         if (!IsEnabled || Projection is null)
@@ -335,16 +435,27 @@ public abstract class UiFormatCodeView : UiElement
             new FormatCodeNavigationRequestedEventArgs(mapping, TokenAt(projectedOffset)));
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected void RequestExit() => ExitRequested?.Invoke(this, EventArgs.Empty);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected void RequestSearch() => SearchRequested?.Invoke(this, EventArgs.Empty);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected void RequestUndo() => UndoRequested?.Invoke(this, EventArgs.Empty);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected void RequestRedo() => RedoRequested?.Invoke(this, EventArgs.Empty);
 
     protected virtual bool IsCompositionActive => false;
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: a view whose IsEditable is false produces a node without the ReadOnly semantic state
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible
@@ -375,6 +486,9 @@ public abstract class UiFormatCodeView : UiElement
                 IsCompositionActive));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: with wrap on, an occurrence that starts before the forward search origin and ends after it is never found (Text xab, query ab, caret at 2 returns false)
+    // Broiler-Human:        PENDING
     private bool FindFrom(int origin, bool forward, bool wrap)
     {
         StringComparison comparison = _searchMatchCase
@@ -402,6 +516,9 @@ public abstract class UiFormatCodeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an offset equal to a token's ProjectedStart + ProjectedLength returns that token rather than the token starting there
+    // Broiler-Human:        PENDING
     private FormatCodeToken? TokenAt(int projectedOffset)
     {
         if (Projection is null || Projection.Tokens.Count == 0)
@@ -427,6 +544,9 @@ public abstract class UiFormatCodeView : UiElement
         return null;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0020; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a range that starts inside an InlineCode token and ends in the following text is mapped and reported as editable
+    // Broiler-Human:        PENDING
     private bool TryMapEditableTextRange(int start, int end, out Broiler.Documents.Model.RichTextRange range)
     {
         range = default;
@@ -467,6 +587,9 @@ public abstract class UiFormatCodeView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a caret at the end of a Text token that is followed by a code token finds no editable token, so typing there is refused
+    // Broiler-Human:        PENDING
     private FormatCodeToken? EditableTokenAtBoundary(int offset)
     {
         if (Projection is null)
@@ -486,6 +609,9 @@ public abstract class UiFormatCodeView : UiElement
         return null;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a caret strictly inside the display text of [Empty Paragraph] is accepted as an insertion point
+    // Broiler-Human:        PENDING
     private bool IsEmptySourceBoundary(int offset)
     {
         if (Projection is null)
@@ -498,6 +624,9 @@ public abstract class UiFormatCodeView : UiElement
               offset == token.ProjectedStart + token.ProjectedLength));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: with backward false and the caret at Text.Length it returns the last token, which ends at the caret, so Delete removes the code before the caret
+    // Broiler-Human:        PENDING
     private FormatCodeToken? TokenForRemoval(bool backward)
     {
         if (Projection is null)

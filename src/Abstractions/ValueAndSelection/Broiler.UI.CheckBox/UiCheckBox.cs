@@ -4,6 +4,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.CheckBox;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+// Broiler-Falsified-If: Toggle on a check box whose IsEnabled is false changes CheckState or raises CheckStateChanged
+// Broiler-Human:        PENDING
 public abstract class UiCheckBox : UiElement
 {
     private string _text = string.Empty;
@@ -13,8 +16,13 @@ public abstract class UiCheckBox : UiElement
     private BSize _preferredSize = new(120, 32);
     private UiFlowDirection _flowDirection;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiCheckStateChangedEventArgs>? CheckStateChanged;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning null stores null rather than an empty string, giving the semantic node a null name
+    // Broiler-Human:        PENDING
     public string Text
     {
         get => _text;
@@ -30,6 +38,9 @@ public abstract class UiCheckBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after IsEnabled is set to false, a later Toggle still changes CheckState
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -44,6 +55,9 @@ public abstract class UiCheckBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: turning IsThreeState off while CheckState is Indeterminate leaves CheckState Indeterminate
+    // Broiler-Human:        PENDING
     public bool IsThreeState
     {
         get => _isThreeState;
@@ -61,6 +75,9 @@ public abstract class UiCheckBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an undefined UiCheckState value is stored instead of being refused
+    // Broiler-Human:        PENDING
     public UiCheckState CheckState
     {
         get => _checkState;
@@ -71,6 +88,9 @@ public abstract class UiCheckBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: setting IsChecked to null on a check box whose IsThreeState is false leaves it Indeterminate
+    // Broiler-Human:        PENDING
     public bool? IsChecked
     {
         get => CheckState switch
@@ -87,6 +107,9 @@ public abstract class UiCheckBox : UiElement
         };
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -103,6 +126,8 @@ public abstract class UiCheckBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public UiFlowDirection FlowDirection
     {
         get => _flowDirection;
@@ -117,6 +142,9 @@ public abstract class UiCheckBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: Toggle on a check box whose IsEnabled is false changes CheckState or raises CheckStateChanged
+    // Broiler-Human:        PENDING
     public bool Toggle()
     {
         ThrowIfDisposed();
@@ -133,6 +161,9 @@ public abstract class UiCheckBox : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the CheckBox node's name is something other than the check box's current Text
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.CheckBox,
@@ -141,6 +172,9 @@ public abstract class UiCheckBox : UiElement
             CreateSemanticState(),
             []);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an Indeterminate check box reports the Checked semantic state
+    // Broiler-Human:        PENDING
     protected UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;
@@ -155,6 +189,9 @@ public abstract class UiCheckBox : UiElement
         return state;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an Indeterminate value is stored on a check box whose IsThreeState is false
+    // Broiler-Human:        PENDING
     private void SetCheckState(UiCheckState value)
     {
         if (!Enum.IsDefined(value))

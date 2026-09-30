@@ -6,6 +6,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.ListView;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+// Broiler-Falsified-If: after a selection method or SetItems returns, SelectedItemIds holds an id that is not among Items
+// Broiler-Human:        PENDING
 public abstract class UiListView : UiElement
 {
     private IReadOnlyList<UiListItem> _items = [];
@@ -15,10 +18,15 @@ public abstract class UiListView : UiElement
     private double _verticalOffset;
     private BSize _preferredSize = new(200, 160);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiListSelectionChangedEventArgs>? SelectionChanged;
 
     public IReadOnlyList<UiListItem> Items => _items;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning an id that is not among Items changes SelectedItemId or SelectedItemIds
+    // Broiler-Human:        PENDING
     public string? SelectedItemId
     {
         get => _selectedItemId;
@@ -29,6 +37,9 @@ public abstract class UiListView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a primary id that is no longer among Items reports an index other than -1
+    // Broiler-Human:        PENDING
     public int SelectedIndex => _selectedItemId is null ? -1 : IndexOf(_selectedItemId);
 
     /// <summary>
@@ -41,6 +52,9 @@ public abstract class UiListView : UiElement
     /// selection and drops the rest, so the invariant "Single implies at most one
     /// selected item" holds however the mode is changed.
     /// </remarks>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: narrowing from Multiple to Single while two or more items are selected leaves more than one id in SelectedItemIds
+    // Broiler-Human:        PENDING
     public UiListSelectionMode SelectionMode
     {
         get => _selectionMode;
@@ -63,8 +77,14 @@ public abstract class UiListView : UiElement
     public IReadOnlyList<string> SelectedItemIds => _selectedItemIds;
 
     /// <summary>Whether <paramref name="itemId"/> is currently selected.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: an id that differs from a selected id only in letter case reports true
+    // Broiler-Human:        PENDING
     public bool IsSelected(string itemId) => _selectedItemIds.Contains(itemId, StringComparer.Ordinal);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a NaN, negative or negative-infinity offset from wheel or drag input is stored as VerticalOffset
+    // Broiler-Human:        PENDING
     public double VerticalOffset
     {
         get => _verticalOffset;
@@ -79,6 +99,9 @@ public abstract class UiListView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -95,6 +118,9 @@ public abstract class UiListView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: after SetItems reorders items that stay selected, SelectedItemIds lists them in the old order rather than the new item order
+    // Broiler-Human:        PENDING
     public void SetItems(IEnumerable<UiListItem> items)
     {
         ThrowIfDisposed();
@@ -129,6 +155,9 @@ public abstract class UiListView : UiElement
     /// Selects exactly <paramref name="itemId"/>, replacing anything else selected,
     /// and makes it the primary. Passing <c>null</c> clears the selection.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: an id that is not among Items replaces the selection instead of returning false
+    // Broiler-Human:        PENDING
     public bool SelectItem(string? itemId)
     {
         ThrowIfDisposed();
@@ -143,6 +172,9 @@ public abstract class UiListView : UiElement
     /// ignored; in <see cref="UiListSelectionMode.Single"/> only the first survives,
     /// so the mode's invariant cannot be broken from outside.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: in Single mode a list of two known ids leaves two ids in SelectedItemIds
+    // Broiler-Human:        PENDING
     public bool SetSelectedItems(IEnumerable<string> itemIds)
     {
         ThrowIfDisposed();
@@ -166,6 +198,9 @@ public abstract class UiListView : UiElement
     /// selected — Ctrl-clicking a row. In <see cref="UiListSelectionMode.Single"/>
     /// this is <see cref="SelectItem"/>, since there is nothing to add to.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: in Single mode, toggling an unselected item leaves the previously selected item selected as well
+    // Broiler-Human:        PENDING
     public bool ToggleItem(string itemId)
     {
         ThrowIfDisposed();
@@ -189,6 +224,9 @@ public abstract class UiListView : UiElement
     /// inclusive — Shift-clicking a row. The anchor does not move, so shift-clicking
     /// repeatedly grows and shrinks one range rather than chaining them.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: a range extension selects an item outside the inclusive span between the anchor and the target, omits either end, or moves the anchor
+    // Broiler-Human:        PENDING
     public bool SelectRangeTo(string itemId)
     {
         ThrowIfDisposed();
@@ -210,6 +248,9 @@ public abstract class UiListView : UiElement
         return Apply(_selectedItemId, range);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: a selection naming an id that is not among Items stores that id in SelectedItemIds, or ids supplied out of item order are stored in supplied order
+    // Broiler-Human:        PENDING
     private bool Apply(string? primary, IReadOnlyList<string> selection)
     {
         // Report in item order regardless of the order ids were supplied in, so a
@@ -237,6 +278,9 @@ public abstract class UiListView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: an index equal to Items.Count, or a negative index, reaches the Items indexer instead of returning false
+    // Broiler-Human:        PENDING
     public bool SelectIndex(int index)
     {
         ThrowIfDisposed();
@@ -245,6 +289,9 @@ public abstract class UiListView : UiElement
         return SelectItem(Items[index].Id);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: an id that differs from an item id only in letter case is reported as found
+    // Broiler-Human:        PENDING
     protected int IndexOf(string itemId)
     {
         for (int index = 0; index < Items.Count; index++)
@@ -256,8 +303,14 @@ public abstract class UiListView : UiElement
         return -1;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a NaN offset passed by a derived control is stored without going through Normalize
+    // Broiler-Human:        PENDING
     protected void SetVerticalOffset(double value) => VerticalOffset = value;
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: the ListView node carries children other than the nodes CreateVisibleSemanticNodes returns
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.ListView,
@@ -266,8 +319,13 @@ public abstract class UiListView : UiElement
             CreateSemanticState(),
             CreateVisibleSemanticNodes());
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected virtual IReadOnlyList<UiSemanticNode> CreateVisibleSemanticNodes() => [];
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a list view whose Visibility is Collapsed reports the Visible semantic state
+    // Broiler-Human:        PENDING
     protected UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;
@@ -277,6 +335,9 @@ public abstract class UiListView : UiElement
         return state;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a NaN value is returned unchanged rather than as 0
+    // Broiler-Human:        PENDING
     private static double Normalize(double value)
     {
         if (double.IsNaN(value) || double.IsNegativeInfinity(value))

@@ -5,6 +5,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.ProgressBar;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+// Broiler-Falsified-If: a sequence of Minimum, Maximum and Value assignments leaves Value outside the Minimum to Maximum range
+// Broiler-Human:        PENDING
 public abstract class UiProgressBar : UiElement
 {
     private double _minimum;
@@ -16,8 +19,13 @@ public abstract class UiProgressBar : UiElement
     private UiProgressBarOrientation _orientation;
     private BSize _preferredSize = new(160, 16);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiProgressBarValueChangedEventArgs>? ValueChanged;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: raising Minimum from 0 to 10 with Value at 50 raises no render invalidation, so the bar keeps drawing the old fraction
+    // Broiler-Human:        PENDING
     public double Minimum
     {
         get => _minimum;
@@ -35,6 +43,9 @@ public abstract class UiProgressBar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: raising Maximum from 100 to 200 with Value at 50 raises no render invalidation, so the bar keeps drawing half full
+    // Broiler-Human:        PENDING
     public double Maximum
     {
         get => _maximum;
@@ -52,6 +63,8 @@ public abstract class UiProgressBar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public double Value
     {
         get => _value;
@@ -62,6 +75,8 @@ public abstract class UiProgressBar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool IsIndeterminate
     {
         get => _isIndeterminate;
@@ -76,6 +91,8 @@ public abstract class UiProgressBar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool IsReducedMotion
     {
         get => _isReducedMotion;
@@ -90,6 +107,8 @@ public abstract class UiProgressBar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool IsDirectionReversed
     {
         get => _isDirectionReversed;
@@ -104,6 +123,8 @@ public abstract class UiProgressBar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public UiProgressBarOrientation Orientation
     {
         get => _orientation;
@@ -120,6 +141,9 @@ public abstract class UiProgressBar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a NaN width or height passes the non-negative test and is returned from measure as the progress bar's desired size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -136,9 +160,15 @@ public abstract class UiProgressBar : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: with Minimum at -double.MaxValue and Maximum at double.MaxValue the fraction for Value at double.MaxValue is NaN instead of 1
+    // Broiler-Human:        PENDING
     protected double NormalizedValue =>
         Maximum.Equals(Minimum) ? 0 : (Value - Minimum) / (Maximum - Minimum);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the value text for 12.5 reads '12,5' under a culture with a comma decimal separator
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.ProgressBar,
@@ -147,6 +177,8 @@ public abstract class UiProgressBar : UiElement
             CreateSemanticState(),
             []);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;
@@ -156,8 +188,13 @@ public abstract class UiProgressBar : UiElement
         return state;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private void CoerceCurrentValue() => SetValue(_value);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a value outside the Minimum to Maximum range is stored without being clamped to the nearer bound
+    // Broiler-Human:        PENDING
     private void SetValue(double value)
     {
         ValidateFinite(value, nameof(value));
@@ -171,6 +208,9 @@ public abstract class UiProgressBar : UiElement
         Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: NaN or an infinity passes without an ArgumentOutOfRangeException
+    // Broiler-Human:        PENDING
     private static void ValidateFinite(double value, string parameterName)
     {
         if (double.IsNaN(value) || double.IsInfinity(value))

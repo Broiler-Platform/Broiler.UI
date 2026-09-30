@@ -16,8 +16,13 @@ namespace Broiler.UI.Window;
 /// owner — <see cref="UiWindow.BeginMoveDrag"/> reports false and a title-bar press is left
 /// unhandled, so the owner's own logical move (e.g. <c>UiDialog</c>'s move grip) still runs.
 /// </remarks>
+// Broiler-AI:           Origin=AI; Spec=ADR-0026; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+// Broiler-Falsified-If: a press that starts on one system button and is released over another part still runs the first button's command
+// Broiler-Human:        PENDING
 public sealed class UiWindowChromeController
 {
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private static readonly TimeSpan DoubleClickInterval = TimeSpan.FromMilliseconds(500);
 
     private readonly UiWindow _window;
@@ -25,6 +30,8 @@ public sealed class UiWindowChromeController
     private UiWindowChromePart _pressedPart;
     private TimeSpan? _lastTitleBarPress;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public UiWindowChromeController(UiWindow window)
     {
         _window = window ?? throw new ArgumentNullException(nameof(window));
@@ -43,6 +50,9 @@ public sealed class UiWindowChromeController
     public UiWindowChromePart PressedPart => _pressedPart;
 
     /// <summary>Recomputes the layout for <paramref name="bounds"/> and returns it.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a layout that turns invisible keeps a stale hot or pressed part, so a later release runs a system button command
+    // Broiler-Human:        PENDING
     public UiWindowChromeLayout UpdateLayout(BRect bounds)
     {
         Layout = UiWindowChromeLayout.Create(_window, bounds, Metrics);
@@ -53,6 +63,8 @@ public sealed class UiWindowChromeController
     }
 
     /// <summary>Drops hover and pressed state, e.g. when the pointer leaves the window.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public void ClearInteraction()
     {
         if (_hotPart == UiWindowChromePart.None && _pressedPart == UiWindowChromePart.None)
@@ -67,6 +79,9 @@ public sealed class UiWindowChromeController
     /// Runs the chrome's share of an input event. Returns true when the chrome consumed it, which
     /// the caller should treat as handled before anything else looks at the event.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: an input event arriving while the chrome layout is hidden is consumed, so a window without chrome loses content clicks
+    // Broiler-Human:        PENDING
     public bool HandleInput(UiInputEvent input)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -81,6 +96,9 @@ public sealed class UiWindowChromeController
         };
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a press that drifts from a system button onto another part keeps that button as the pressed part
+    // Broiler-Human:        PENDING
     private bool HandlePointerMove(BPoint position)
     {
         UiWindowChromePart part = Layout.HitTest(position);
@@ -97,6 +115,9 @@ public sealed class UiWindowChromeController
         return false;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: a left-button release over Close runs Close although the press began on the title bar or on another button
+    // Broiler-Human:        PENDING
     private bool HandlePointerButton(UiInputEvent input)
     {
         if (input.MouseButton != MouseButton.Left)
@@ -134,6 +155,9 @@ public sealed class UiWindowChromeController
         return false;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: two title-bar presses with the same clock reading, or more than 500 ms apart, toggle maximize
+    // Broiler-Human:        PENDING
     private bool HandleTitleBarPress()
     {
         // A strictly positive delta is required, not just one inside the interval: a session
@@ -158,6 +182,9 @@ public sealed class UiWindowChromeController
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: the Minimize or Maximize part closes the window, or the Close part closes it with a reason other than User
+    // Broiler-Human:        PENDING
     private void Execute(UiWindowChromePart part)
     {
         switch (part)
@@ -174,6 +201,8 @@ public sealed class UiWindowChromeController
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private static bool IsButton(UiWindowChromePart part) =>
         part is UiWindowChromePart.Minimize or UiWindowChromePart.Maximize or UiWindowChromePart.Close;
 }

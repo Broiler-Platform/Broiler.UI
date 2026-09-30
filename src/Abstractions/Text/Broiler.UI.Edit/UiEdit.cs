@@ -4,6 +4,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.Edit;
 
+// Broiler-AI:           Origin=AI; Spec=ADR-0009; IP=Low; Security=High; Resources=3; Fingerprint=TBF
+// Broiler-Falsified-If: a field whose IsPassword is true exposes its plain Text as the semantic node's name or as the text info Value
+// Broiler-Human:        PENDING
 public abstract class UiEdit : UiElement
 {
     private string _text = string.Empty;
@@ -19,16 +22,26 @@ public abstract class UiEdit : UiElement
     private BSize _preferredSize = new(240, 32);
     private UiEditTextDirection _direction;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiEditTextChangedEventArgs>? TextChanged;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiEditSubmittedEventArgs>? Submitted;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning null stores null rather than an empty string, so the next edit dereferences a null Text
+    // Broiler-Human:        PENDING
     public string Text
     {
         get => _text;
         set => SetText(value ?? string.Empty);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning null stores null rather than an empty string, giving a password field's semantic node a null name
+    // Broiler-Human:        PENDING
     public string PlaceholderText
     {
         get => _placeholderText;
@@ -44,6 +57,9 @@ public abstract class UiEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after IsEnabled is set to false, ReplaceSelection or DeleteRange still changes Text or Submit still raises Submitted
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -58,6 +74,9 @@ public abstract class UiEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after IsReadOnly is set to true, ReplaceSelection or DeleteRange still changes Text
+    // Broiler-Human:        PENDING
     public bool IsReadOnly
     {
         get => _isReadOnly;
@@ -72,6 +91,9 @@ public abstract class UiEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0009; IP=Low; Security=High; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: setting IsPassword to true on a field that holds text raises no Semantic invalidation, so the host keeps a snapshot whose value is the plain Text
+    // Broiler-Human:        PENDING
     public bool IsPassword
     {
         get => _isPassword;
@@ -86,6 +108,9 @@ public abstract class UiEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a caret index past the current Text length is stored unclamped, so a following ReplaceSelection passes it to String.Remove and throws
+    // Broiler-Human:        PENDING
     public int CaretIndex
     {
         get => _caretIndex;
@@ -96,6 +121,9 @@ public abstract class UiEdit : UiElement
 
     public int SelectionLength => _selectionLength;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: SelectionEnd reports a position past Text.Length after the text has been shortened
+    // Broiler-Human:        PENDING
     public int SelectionEnd => SelectionStart + SelectionLength;
 
     /// <summary>
@@ -106,8 +134,13 @@ public abstract class UiEdit : UiElement
     /// </summary>
     public int SelectionAnchor => _selectionAnchor;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool HasSelection => SelectionLength > 0;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: lowering MaxLength below the current Text length leaves Text longer than MaxLength
+    // Broiler-Human:        PENDING
     public int MaxLength
     {
         get => _maxLength;
@@ -125,6 +158,9 @@ public abstract class UiEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -141,6 +177,9 @@ public abstract class UiEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an undefined UiEditTextDirection value is stored instead of being refused
+    // Broiler-Human:        PENDING
     public UiEditTextDirection Direction
     {
         get => _direction;
@@ -155,6 +194,9 @@ public abstract class UiEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a start past Text.Length or a length reaching past the end of Text is stored unclamped as the selection
+    // Broiler-Human:        PENDING
     public void SetSelection(int start, int length)
     {
         ThrowIfDisposed();
@@ -163,6 +205,9 @@ public abstract class UiEdit : UiElement
         SetSelectionCore(start, length, start + length, start);
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: SelectAll on a non-empty field leaves SelectionLength shorter than Text.Length
+    // Broiler-Human:        PENDING
     public void SelectAll() => SetSelection(0, Text.Length);
 
     /// <summary>
@@ -171,6 +216,9 @@ public abstract class UiEdit : UiElement
     /// key both do. The caret ends up at <paramref name="caret"/> whichever side
     /// of the anchor that is.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a caret before the anchor leaves CaretIndex at SelectionEnd instead of SelectionStart
+    // Broiler-Human:        PENDING
     protected void SetSelectionFromAnchor(int anchor, int caret)
     {
         ThrowIfDisposed();
@@ -179,6 +227,9 @@ public abstract class UiEdit : UiElement
         SetSelectionCore(Math.Min(anchor, caret), Math.Abs(caret - anchor), caret, anchor);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: Submit on a field whose IsEnabled is false raises Submitted
+    // Broiler-Human:        PENDING
     public void Submit()
     {
         ThrowIfDisposed();
@@ -188,6 +239,9 @@ public abstract class UiEdit : UiElement
         Submitted?.Invoke(this, new UiEditSubmittedEventArgs(Text));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: an insertion cut to fit MaxLength between the two halves of a surrogate pair leaves a lone high surrogate at the end of Text
+    // Broiler-Human:        PENDING
     protected bool ReplaceSelection(string insertedText)
     {
         ThrowIfDisposed();
@@ -206,6 +260,9 @@ public abstract class UiEdit : UiElement
         return insertedText.Length > 0 || deleteLength > 0;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: DeleteRange removes text from a field whose IsReadOnly is true or whose IsEnabled is false
+    // Broiler-Human:        PENDING
     protected bool DeleteRange(int start, int length)
     {
         ThrowIfDisposed();
@@ -221,6 +278,9 @@ public abstract class UiEdit : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a Shift extension from a collapsed caret anchors at a SelectionAnchor left by an earlier selection instead of at the current caret
+    // Broiler-Human:        PENDING
     protected void MoveCaret(int index, bool extendSelection)
     {
         ThrowIfDisposed();
@@ -231,8 +291,14 @@ public abstract class UiEdit : UiElement
             SetSelection(index, 0);
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an index past Text.Length leaves the caret beyond the end of Text
+    // Broiler-Human:        PENDING
     protected void SetCaretIndex(int index) => SetSelection(Math.Clamp(index, 0, Text.Length), 0);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=High; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the Edit node built for a field whose IsPassword is true carries its plain Text as the node name or as the text info Value
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.Edit,
@@ -244,6 +310,9 @@ public abstract class UiEdit : UiElement
 
     protected virtual bool IsCompositionActive => false;
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an edit whose IsReadOnly is true reports no ReadOnly semantic state
+    // Broiler-Human:        PENDING
     protected UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;
@@ -256,6 +325,9 @@ public abstract class UiEdit : UiElement
         return state;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a selection change that moves only the caret returns early without a Render invalidation, leaving the caret drawn at its old position
+    // Broiler-Human:        PENDING
     private void SetSelectionCore(int start, int length, int caret, int anchor)
     {
         // The anchor is not drawn, so it is recorded even when nothing else
@@ -270,6 +342,9 @@ public abstract class UiEdit : UiElement
         Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a string longer than MaxLength is stored untruncated and reported whole in TextChanged
+    // Broiler-Human:        PENDING
     private void SetText(string text)
     {
         ThrowIfDisposed();
@@ -279,6 +354,9 @@ public abstract class UiEdit : UiElement
         SetTextCore(text, Math.Min(text.Length, CaretIndex));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a changed text keeps the previous SelectionStart and SelectionLength, so a later ReplaceSelection removes a range past the end of the shorter text
+    // Broiler-Human:        PENDING
     private void SetTextCore(string text, int caretIndex)
     {
         string oldText = _text;
@@ -297,6 +375,9 @@ public abstract class UiEdit : UiElement
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=High; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a field whose IsPassword is true, with non-empty Text and an empty PlaceholderText, is named by its Text instead of a generic label
+    // Broiler-Human:        PENDING
     private string GetSemanticName()
     {
         if (IsPassword)
@@ -306,6 +387,9 @@ public abstract class UiEdit : UiElement
         return PlaceholderText;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=High; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a field whose IsPassword is true yields text info whose Value is its Text rather than null
+    // Broiler-Human:        PENDING
     private UiSemanticTextInfo CreateSemanticTextInfo() =>
         new(
             IsPassword ? null : Text,

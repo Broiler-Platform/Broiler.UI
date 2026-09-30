@@ -8,6 +8,8 @@ namespace Broiler.UI.Toolbar;
 /// rule between every group reads as a form. Most bars want the middle option: enough extra space
 /// that the eye finds the groups, and no extra ink.
 /// </remarks>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum UiToolbarBreak
 {
     /// <summary>Nothing. The item follows the previous one at the bar's normal spacing.</summary>

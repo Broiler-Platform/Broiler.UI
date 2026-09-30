@@ -6,6 +6,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.ComboBox;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+// Broiler-Falsified-If: SelectIndex stores an index below -1 or at least Items.Count as SelectedIndex
+// Broiler-Human:        PENDING
 public abstract class UiComboBox : UiElement
 {
     private IReadOnlyList<UiComboBoxItem> _items = [];
@@ -15,10 +18,15 @@ public abstract class UiComboBox : UiElement
     private BSize _preferredSize = new(180, 32);
     private int _maxDropDownItems = 8;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiComboBoxSelectionChangedEventArgs>? SelectionChanged;
 
     public IReadOnlyList<UiComboBoxItem> Items => _items;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning SelectedIndex a value equal to Items.Count stores it as the selection
+    // Broiler-Human:        PENDING
     public int SelectedIndex
     {
         get => _selectedIndex;
@@ -29,9 +37,14 @@ public abstract class UiComboBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a SelectedIndex of -1 or one past the end reaches the Items indexer instead of returning null
+    // Broiler-Human:        PENDING
     public UiComboBoxItem? SelectedItem =>
         (uint)SelectedIndex < (uint)Items.Count ? Items[SelectedIndex] : null;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool IsDropDownOpen
     {
         get => _isDropDownOpen;
@@ -45,6 +58,9 @@ public abstract class UiComboBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: disabling the combo box while the drop-down is open leaves IsDropDownOpen true
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -61,6 +77,9 @@ public abstract class UiComboBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -77,6 +96,9 @@ public abstract class UiComboBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a zero or negative value is stored as the maximum drop-down item count
+    // Broiler-Human:        PENDING
     public int MaxDropDownItems
     {
         get => _maxDropDownItems;
@@ -90,6 +112,9 @@ public abstract class UiComboBox : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: after SetItems shrinks the list to fewer than SelectedIndex + 1 items, SelectedIndex still points past the new last item
+    // Broiler-Human:        PENDING
     public void SetItems(IEnumerable<UiComboBoxItem> items)
     {
         ThrowIfDisposed();
@@ -106,6 +131,9 @@ public abstract class UiComboBox : UiElement
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: SelectIndex(Items.Count) returns true and stores an index one past the last item
+    // Broiler-Human:        PENDING
     public bool SelectIndex(int index)
     {
         ThrowIfDisposed();
@@ -121,6 +149,9 @@ public abstract class UiComboBox : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: OpenDropDown returns true on a combo box whose IsEnabled is false or that has no items
+    // Broiler-Human:        PENDING
     public bool OpenDropDown()
     {
         ThrowIfDisposed();
@@ -131,6 +162,9 @@ public abstract class UiComboBox : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: CloseDropDown returns true when the drop-down was not open
+    // Broiler-Human:        PENDING
     public bool CloseDropDown()
     {
         ThrowIfDisposed();
@@ -141,6 +175,9 @@ public abstract class UiComboBox : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the ComboBox node's name is something other than the selected item's Text, or is not empty when nothing is selected
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.ComboBox,
@@ -149,6 +186,9 @@ public abstract class UiComboBox : UiElement
             CreateSemanticState(),
             []);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an open combo box's semantic state lacks Expanded
+    // Broiler-Human:        PENDING
     protected UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;

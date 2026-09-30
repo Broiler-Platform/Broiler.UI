@@ -13,8 +13,13 @@ namespace Broiler.UI.CodeEditor;
 /// not own the text: it submits versioned intents to an <see cref="ICodeDocument"/>
 /// and renders whatever snapshot comes back. See Broiler.UI ADR 0021.
 /// </summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+// Broiler-Falsified-If: a classification or diagnostic result produced for a superseded snapshot is accepted and painted
+// Broiler-Human:        PENDING
 public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtualizedTextProvider
 {
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private static readonly ICodeTextSnapshot EmptySnapshot = new EmptyTextSnapshot();
 
     private ICodeDocument? _document;
@@ -33,18 +38,29 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     private int _compositionEnd = -1;
     private int _desiredColumn = -1;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<CodeSelectionChangedEventArgs>? SelectionChanged;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<CodeSnapshotChangedEventArgs>? SnapshotChanged;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<CodeViewportChangedEventArgs>? ViewportChanged;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<CodeEditRejectedEventArgs>? EditRejected;
 
     /// <summary>
     /// The document being edited. Setting it resets view state, because caret
     /// and scroll positions from one document mean nothing in another.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after Document is replaced, a snapshot change on the previous document still moves this editor's selection or raises its SnapshotChanged
+    // Broiler-Human:        PENDING
     public ICodeDocument? Document
     {
         get => _document;
@@ -71,8 +87,13 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public ICodeTextSnapshot Snapshot => _document?.Snapshot ?? EmptySnapshot;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an editor with no document reports IsReadOnly as false
+    // Broiler-Human:        PENDING
     public bool IsReadOnly => _document?.IsReadOnly ?? true;
 
     /// <summary>
@@ -90,6 +111,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     /// </summary>
     public int RejectedResults { get; private set; }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: changing AnalysisMode leaves the accessibility description naming the previous mode
+    // Broiler-Human:        PENDING
     public CodeAnalysisMode AnalysisMode
     {
         get => _analysisMode;
@@ -103,14 +127,22 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a selection set through this property is stored without being clamped to the snapshot's length
+    // Broiler-Human:        PENDING
     public CodeSelection Selection
     {
         get => _selection;
         set => SetSelection(value, resetDesiredColumn: true);
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public int CaretPosition => _selection.Focus;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a FirstVisibleLine at or past LineCount is stored instead of being clamped to the last line
+    // Broiler-Human:        PENDING
     public CodeViewport Viewport
     {
         get => _viewport;
@@ -130,6 +162,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning a null palette is stored instead of being refused
+    // Broiler-Human:        PENDING
     public CodeEditorPalette Palette
     {
         get => _palette;
@@ -144,6 +179,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a policy whose TabSize is zero or negative is stored instead of being refused
+    // Broiler-Human:        PENDING
     public CodeIndentPolicy IndentPolicy
     {
         get => _indentPolicy;
@@ -159,6 +197,8 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool ShowLineNumbers
     {
         get => _showLineNumbers;
@@ -172,6 +212,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: setting IsEnabled to false leaves the semantic node reporting the Enabled state
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
@@ -185,6 +228,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: losing focus leaves text typed before and after the focus change in a single undo step
+    // Broiler-Human:        PENDING
     public bool HasFocus
     {
         get => _hasFocus;
@@ -203,6 +249,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -218,6 +267,8 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool HasComposition => _compositionStart >= 0 && _compositionEnd >= _compositionStart;
 
     public int CompositionStart => _compositionStart;
@@ -230,6 +281,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     /// comparable across documents and a stale result that happens to match one
     /// is worse than no result.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a classification result whose snapshot is a different instance with the same version as the current snapshot is accepted
+    // Broiler-Human:        PENDING
     public bool TryApplyClassifications(CodeClassificationResult result)
     {
         ThrowIfDisposed();
@@ -245,6 +299,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a diagnostic set whose snapshot is a different instance with the same version as the current snapshot is accepted
+    // Broiler-Human:        PENDING
     public bool TryApplyDiagnostics(CodeDiagnosticSet diagnostics)
     {
         ThrowIfDisposed();
@@ -261,6 +318,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     }
 
     /// <summary>Replaces the selection with <paramref name="text"/>.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: inserting text over a non-empty selection leaves any of the selected characters in the document
+    // Broiler-Human:        PENDING
     public bool InsertText(string text)
     {
         ThrowIfDisposed();
@@ -268,6 +328,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return Replace(_selection.Start, _selection.Length, text, "insert");
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: the new line's indent differs from the spaces and tabs that precede the caret at the start of the current line
+    // Broiler-Human:        PENDING
     public bool InsertNewLine()
     {
         ThrowIfDisposed();
@@ -283,6 +346,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return Replace(_selection.Start, _selection.Length, _document.LineEnding + indent, "newline");
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Backspace directly after an emoji removes only one of its two surrogates
+    // Broiler-Human:        PENDING
     public bool DeleteBackward()
     {
         ThrowIfDisposed();
@@ -297,6 +363,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return Replace(start, caret - start, string.Empty, "delete");
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Delete directly before an emoji removes only one of its two surrogates
+    // Broiler-Human:        PENDING
     public bool DeleteForward()
     {
         ThrowIfDisposed();
@@ -315,6 +384,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     /// Indents every line the selection touches, or inserts one indent unit when
     /// the selection is empty.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: Tab with a selection across several lines leaves one of those lines without the indent unit at its start
+    // Broiler-Human:        PENDING
     public bool Indent()
     {
         ThrowIfDisposed();
@@ -329,6 +401,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
             (snapshot.GetLineStart(line), 0, unit), unit, "indent");
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: Shift+Tab on a line that begins with a tab removes more than that one tab
+    // Broiler-Human:        PENDING
     public bool Outdent()
     {
         ThrowIfDisposed();
@@ -354,18 +429,26 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         }, unit, "outdent");
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Undo on an editor with no document throws instead of returning false
+    // Broiler-Human:        PENDING
     public bool Undo()
     {
         ThrowIfDisposed();
         return _document?.Undo() ?? false;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Redo on an editor with no document throws instead of returning false
+    // Broiler-Human:        PENDING
     public bool Redo()
     {
         ThrowIfDisposed();
         return _document?.Redo() ?? false;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public void SelectAll()
     {
         ThrowIfDisposed();
@@ -373,6 +456,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     }
 
     /// <summary>Moves the caret, extending the selection when asked.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: moving Down through a shorter line and on to a longer one lands at the shorter line's length instead of the starting column
+    // Broiler-Human:        PENDING
     public void MoveCaret(CodeCaretMovement movement, bool extend)
     {
         ThrowIfDisposed();
@@ -414,6 +500,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     }
 
     /// <summary>Scrolls the minimum amount that brings the caret into view.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a caret on the line just below the viewport leaves FirstVisibleLine unchanged
+    // Broiler-Human:        PENDING
     public void EnsureCaretVisible()
     {
         ThrowIfDisposed();
@@ -430,6 +519,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         Viewport = _viewport with { FirstVisibleLine = Math.Max(0, first) };
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: with the focus before the anchor, the returned text is not the characters between them
+    // Broiler-Human:        PENDING
     public string GetSelectedText()
     {
         ThrowIfDisposed();
@@ -441,6 +533,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     /// window: an unbalanced document must not turn a caret move into a full
     /// document scan.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: an unmatched opening bracket followed by megabytes of text makes one call read more than maxScan characters
+    // Broiler-Human:        PENDING
     public int? FindMatchingBracket(int position, int maxScan = 8192)
     {
         ThrowIfDisposed();
@@ -478,6 +573,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return null;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a selection with a negative anchor or a focus past the snapshot's length is stored unclamped
+    // Broiler-Human:        PENDING
     protected void SetSelection(CodeSelection selection, bool resetDesiredColumn, bool breakUndoGroup = true)
     {
         ThrowIfDisposed();
@@ -505,6 +603,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         SelectionChanged?.Invoke(this, new CodeSelectionChangedEventArgs(clamped));
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a rejected intent still moves the caret or clears the composition
+    // Broiler-Human:        PENDING
     protected bool Replace(int start, int length, string text, string name)
     {
         if (_document is null || IsReadOnly)
@@ -523,12 +624,16 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected void ClearComposition()
     {
         _compositionStart = -1;
         _compositionEnd = -1;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     protected void SetComposition(int start, int end)
     {
         _compositionStart = start;
@@ -536,6 +641,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a snapshot change on the document after the editor is disposed still reaches OnDocumentSnapshotChanged
+    // Broiler-Human:        PENDING
     protected override void Dispose(bool disposing)
     {
         if (disposing && _document is not null)
@@ -543,6 +651,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         base.Dispose(disposing);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0022; IP=Low; Security=Low; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: the semantic node's text info carries the document text as its Value instead of null
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore()
     {
         ICodeTextSnapshot snapshot = Snapshot;
@@ -580,6 +691,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     /// analysis mode, because "no errors shown" means something different when
     /// the host has no semantic service.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: a single error diagnostic spanning three lines is announced as three errors
+    // Broiler-Human:        PENDING
     protected virtual string DescribeForAccessibility(ICodeTextSnapshot snapshot)
     {
         string mode = _analysisMode switch
@@ -609,6 +723,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return $"Code editor, {snapshot.LineCount} lines, {mode}, {errors} errors, {warnings} warnings";
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0021; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an Undo that shortens the document below an active composing region leaves CompositionEnd past the new snapshot's length
+    // Broiler-Human:        PENDING
     private void OnDocumentSnapshotChanged(ICodeTextSnapshot snapshot)
     {
         // Results for the previous snapshot describe text that is no longer
@@ -639,6 +756,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         SnapshotChanged?.Invoke(this, new CodeSnapshotChangedEventArgs(snapshot));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
+    // Broiler-Falsified-If: outdenting a line with the caret inside its leading spaces moves the caret onto the previous line
+    // Broiler-Human:        PENDING
     private bool ApplyToSelectedLines(
         Func<ICodeTextSnapshot, int, string, (int Start, int Length, string Text)> plan,
         string unit,
@@ -689,6 +809,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return changed;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: pressing Enter at the end of a single multi-megabyte line materializes that whole line as a string to find its leading whitespace
+    // Broiler-Human:        PENDING
     private static string GetLeadingWhitespace(ICodeTextSnapshot snapshot, int line, int limit)
     {
         int start = snapshot.GetLineStart(line);
@@ -703,6 +826,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return text[..count];
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: moving the caret down from column 1 onto a line that begins with an emoji places it between the emoji's two surrogates
+    // Broiler-Human:        PENDING
     private static int PositionOnLine(ICodeTextSnapshot snapshot, int line, int column, int fallback)
     {
         if (line < 0)
@@ -714,6 +840,9 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return snapshot.GetLineStart(line) + Math.Min(column, snapshot.GetLineLength(line));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=2; Fingerprint=TBF
+    // Broiler-Falsified-If: a word jump across a run of more than 512 non-word characters stops between the two surrogates of an emoji at the window edge
+    // Broiler-Human:        PENDING
     private static int FindWordBoundary(ICodeTextSnapshot snapshot, int position, bool forward)
     {
         // Bounded: a word jump reads at most one window, never the document.
@@ -744,8 +873,13 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
         return start + Math.Min(j, before.Length - 1 < 0 ? 0 : j);
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private static bool IsWordChar(char c) => c == '_' || char.IsLetterOrDigit(c);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an editor with no document reports a LineCount of zero or a Length other than zero
+    // Broiler-Human:        PENDING
     private sealed class EmptyTextSnapshot : ICodeTextSnapshot
     {
         public int Version => 0;
@@ -760,8 +894,12 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
 
         public int GetLineFromPosition(int position) => 0;
 
+        // Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+        // Broiler-Human:        PENDING
         public string GetText(int start, int length) => string.Empty;
 
+        // Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+        // Broiler-Human:        PENDING
         public void CopyTo(int start, int length, Span<char> destination)
         {
         }

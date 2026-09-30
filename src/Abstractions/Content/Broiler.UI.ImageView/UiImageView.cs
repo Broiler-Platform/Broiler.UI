@@ -5,6 +5,8 @@ using Broiler.Graphics.Resources;
 
 namespace Broiler.UI.ImageView;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public abstract class UiImageView : UiElement
 {
     private BImageHandle _image = BImageHandle.Invalid;
@@ -14,6 +16,8 @@ public abstract class UiImageView : UiElement
     private double _opacity = 1;
     private BSize _preferredSize = BSize.Empty;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public BImageHandle Image
     {
         get => _image;
@@ -28,6 +32,9 @@ public abstract class UiImageView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a source rectangle whose width or height is NaN passes the non-negative check and is stored
+    // Broiler-Human:        PENDING
     public BRect? SourceRect
     {
         get => _sourceRect;
@@ -44,6 +51,9 @@ public abstract class UiImageView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning null stores null rather than an empty string, giving the semantic node a null name
+    // Broiler-Human:        PENDING
     public string AltText
     {
         get => _altText;
@@ -59,6 +69,9 @@ public abstract class UiImageView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an undefined UiImageStretch value is stored instead of being refused
+    // Broiler-Human:        PENDING
     public UiImageStretch Stretch
     {
         get => _stretch;
@@ -75,6 +88,9 @@ public abstract class UiImageView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a NaN opacity, or one below 0 or above 1, is stored
+    // Broiler-Human:        PENDING
     public double Opacity
     {
         get => _opacity;
@@ -91,6 +107,9 @@ public abstract class UiImageView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -107,8 +126,14 @@ public abstract class UiImageView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an invalid image handle reports a non-empty natural size
+    // Broiler-Human:        PENDING
     protected BSize NaturalImageSize => Image.IsValid ? Image.PixelSize : BSize.Empty;
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the ImageView node's name is something other than the current AltText
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.ImageView,

@@ -27,6 +27,9 @@ namespace Broiler.UI.FileDialog;
 /// dialog shows and sorts by are the ones the directory scan already read.
 /// </para>
 /// </remarks>
+// Broiler-AI:           Origin=AI; IP=Low; Security=High; Resources=4; Fingerprint=TBF
+// Broiler-Falsified-If: a missing or access-denied folder makes GetEntriesAsync throw to its caller instead of returning a faulted task
+// Broiler-Human:        PENDING
 public sealed class UiFileSystemDirectoryProvider : IUiFileDialogDirectoryProvider
 {
     private readonly bool _background;
@@ -47,8 +50,14 @@ public sealed class UiFileSystemDirectoryProvider : IUiFileDialogDirectoryProvid
     public static UiFileSystemDirectoryProvider Background { get; } = new(background: true);
 
     /// <summary>True for <see cref="Background"/>.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: the Background provider reports ListsInBackground as false
+    // Broiler-Human:        PENDING
     public bool ListsInBackground => _background;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=High; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: a missing or access-denied folder makes the Synchronous provider throw from GetEntriesAsync instead of returning a faulted task
+    // Broiler-Human:        PENDING
     public Task<IReadOnlyList<UiFileDialogEntry>> GetEntriesAsync(string directory, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
@@ -74,6 +83,9 @@ public sealed class UiFileSystemDirectoryProvider : IUiFileDialogDirectoryProvid
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=High; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: cancelling the token while a large folder is enumerated does not stop the scan before its last entry
+    // Broiler-Human:        PENDING
     private static IReadOnlyList<UiFileDialogEntry> List(string directory, CancellationToken cancellationToken)
     {
         var entries = new List<UiFileDialogEntry>();
@@ -88,6 +100,9 @@ public sealed class UiFileSystemDirectoryProvider : IUiFileDialogDirectoryProvid
         return [.. entries];
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=High; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an UnauthorizedAccessException or DirectoryNotFoundException from listing a folder is not classified as a listing failure
+    // Broiler-Human:        PENDING
     private static bool IsListingFailure(Exception exception) =>
         exception is IOException or UnauthorizedAccessException or System.Security.SecurityException
             or ArgumentException or NotSupportedException;

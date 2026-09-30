@@ -3,6 +3,8 @@ namespace Broiler.UI.ListView;
 /// <summary>
 /// How many items a <see cref="UiListView"/> may have selected at once.
 /// </summary>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum UiListSelectionMode
 {
     /// <summary>One item at a time. The default, and the historical behaviour.</summary>

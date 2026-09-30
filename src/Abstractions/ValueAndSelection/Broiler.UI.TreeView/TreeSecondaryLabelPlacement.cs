@@ -13,6 +13,8 @@ namespace Broiler.UI.TreeView;
 /// say. <see cref="Inline"/> is the default because it is what every tree did
 /// before this existed.
 /// </remarks>
+// Broiler-AI:           Origin=AI; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum TreeSecondaryLabelPlacement
 {
     /// <summary>After the label, on the same line.</summary>

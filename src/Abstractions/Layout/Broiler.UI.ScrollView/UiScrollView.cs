@@ -4,6 +4,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.ScrollView;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+// Broiler-Falsified-If: with finite extent and viewport sizes, an offset below zero or beyond ExtentSize minus ViewportSize on either axis survives SetOffset, ScrollBy or a size change
+// Broiler-Human:        PENDING
 public abstract class UiScrollView : UiElement
 {
     private BPoint _offset;
@@ -15,14 +18,23 @@ public abstract class UiScrollView : UiElement
     private UiScrollBarVisibility _horizontalScrollBarVisibility = UiScrollBarVisibility.Auto;
     private UiScrollBarVisibility _verticalScrollBarVisibility = UiScrollBarVisibility.Auto;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiScrollOffsetChangedEventArgs>? OffsetChanged;
 
     public BPoint Offset => _offset;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public double HorizontalOffset => _offset.X;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public double VerticalOffset => _offset.Y;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: shrinking the extent so the current offset exceeds the new maximum leaves Offset past that maximum
+    // Broiler-Human:        PENDING
     public BSize ExtentSize
     {
         get => _extentSize;
@@ -37,6 +49,9 @@ public abstract class UiScrollView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: growing the viewport so the current offset exceeds the new maximum leaves Offset past that maximum
+    // Broiler-Human:        PENDING
     public BSize ViewportSize
     {
         get => _viewportSize;
@@ -51,6 +66,9 @@ public abstract class UiScrollView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a NaN width or height passes the non-negative test and is returned from measure as the scroll view's desired size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -67,6 +85,9 @@ public abstract class UiScrollView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a negative, NaN or infinite amount is stored without an exception
+    // Broiler-Human:        PENDING
     public double LineScrollAmount
     {
         get => _lineScrollAmount;
@@ -79,6 +100,9 @@ public abstract class UiScrollView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: zero, a negative, NaN or infinite fraction is stored without an exception
+    // Broiler-Human:        PENDING
     public double PageScrollFraction
     {
         get => _pageScrollFraction;
@@ -91,6 +115,8 @@ public abstract class UiScrollView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public UiScrollBarVisibility HorizontalScrollBarVisibility
     {
         get => _horizontalScrollBarVisibility;
@@ -106,6 +132,8 @@ public abstract class UiScrollView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public UiScrollBarVisibility VerticalScrollBarVisibility
     {
         get => _verticalScrollBarVisibility;
@@ -121,6 +149,9 @@ public abstract class UiScrollView : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: with finite sizes, a requested offset with a NaN component or one past the maximum is stored as given rather than mapped into 0 to the maximum
+    // Broiler-Human:        PENDING
     public bool SetOffset(BPoint offset)
     {
         ThrowIfDisposed();
@@ -135,17 +166,34 @@ public abstract class UiScrollView : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a delta that would move past the end leaves VerticalOffset beyond MaxVerticalOffset instead of at it
+    // Broiler-Human:        PENDING
     public bool ScrollBy(double horizontalDelta, double verticalDelta) =>
         SetOffset(new BPoint(HorizontalOffset + horizontalDelta, VerticalOffset + verticalDelta));
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool ScrollToStart() => SetOffset(BPoint.Zero);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after ScrollToEnd the offset differs from ExtentSize minus ViewportSize on an axis whose extent exceeds its viewport
+    // Broiler-Human:        PENDING
     public bool ScrollToEnd() => SetOffset(new BPoint(MaxHorizontalOffset, MaxVerticalOffset));
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an extent narrower than the viewport yields a negative maximum horizontal offset
+    // Broiler-Human:        PENDING
     protected double MaxHorizontalOffset => Math.Max(0, ExtentSize.Width - ViewportSize.Width);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an extent shorter than the viewport yields a negative maximum vertical offset
+    // Broiler-Human:        PENDING
     protected double MaxVerticalOffset => Math.Max(0, ExtentSize.Height - ViewportSize.Height);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: under a culture with a comma decimal separator the value for offset (12.5, 3) reads '12,5,3', which cannot be split back into two coordinates
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.ScrollView,
@@ -154,19 +202,30 @@ public abstract class UiScrollView : UiElement
             Visibility == UiVisibility.Visible ? UiSemanticState.Visible | UiSemanticState.Enabled : UiSemanticState.None,
             []);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: when the viewport and the extent grow in the same call, an offset valid for the final sizes is clamped lower because the new viewport is coerced against the previous extent first
+    // Broiler-Human:        PENDING
     protected void SetViewportAndExtent(BSize viewportSize, BSize extentSize)
     {
         ViewportSize = new BSize(Math.Max(0, viewportSize.Width), Math.Max(0, viewportSize.Height));
         ExtentSize = new BSize(Math.Max(0, extentSize.Width), Math.Max(0, extentSize.Height));
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private void CoerceOffset() => SetOffset(_offset);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: with finite sizes, a component beyond its axis maximum or below zero is returned unclamped
+    // Broiler-Human:        PENDING
     private BPoint Coerce(BPoint offset) =>
         new(
             Math.Clamp(Normalize(offset.X), 0, MaxHorizontalOffset),
             Math.Clamp(Normalize(offset.Y), 0, MaxVerticalOffset));
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: NaN, negative infinity or positive infinity is returned as a non-finite value
+    // Broiler-Human:        PENDING
     private static double Normalize(double value)
     {
         if (double.IsNaN(value))
@@ -178,6 +237,9 @@ public abstract class UiScrollView : UiElement
         return value;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a value outside Auto, Visible and Hidden, such as (UiScrollBarVisibility)3, is accepted without an exception
+    // Broiler-Human:        PENDING
     private static void ValidateScrollBarVisibility(UiScrollBarVisibility value, string parameterName)
     {
         if (value is not UiScrollBarVisibility.Auto and not UiScrollBarVisibility.Visible and not UiScrollBarVisibility.Hidden)

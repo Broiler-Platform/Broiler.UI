@@ -10,6 +10,9 @@ namespace Broiler.UI.Window;
 /// <see cref="NativePixels"/> is the optional CPU-side copy a host needs to set the taskbar and
 /// Alt+Tab icon, which no drawable handle can be read back for.
 /// </summary>
+// Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+// Broiler-Falsified-If: the pixels-only constructor accepts a null buffer and yields an icon with an invalid image and no native pixels
+// Broiler-Human:        PENDING
 public sealed class UiWindowIcon
 {
     public UiWindowIcon(BImageHandle image, BPixelBuffer? nativePixels = null)
@@ -19,6 +22,9 @@ public sealed class UiWindowIcon
     }
 
     /// <summary>Creates an icon that only the native window chrome shows.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: passing a null pixel buffer produces an icon instead of throwing ArgumentNullException
+    // Broiler-Human:        PENDING
     public UiWindowIcon(BPixelBuffer nativePixels)
         : this(BImageHandle.Invalid, nativePixels ?? throw new ArgumentNullException(nameof(nativePixels)))
     {

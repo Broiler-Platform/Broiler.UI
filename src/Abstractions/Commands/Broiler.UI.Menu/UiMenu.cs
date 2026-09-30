@@ -6,6 +6,9 @@ using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI.Menu;
 
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+// Broiler-Falsified-If: InvokeSelected raises ItemInvoked for a selected item that is a separator, is disabled, or has children
+// Broiler-Human:        PENDING
 public abstract class UiMenu : UiElement
 {
     private IReadOnlyList<UiMenuItem> _items = [];
@@ -15,12 +18,16 @@ public abstract class UiMenu : UiElement
     private int _maxDepth = 4;
     private BSize _preferredSize = new(320, 28);
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<UiMenuItemInvokedEventArgs>? ItemInvoked;
 
     public IReadOnlyList<UiMenuItem> Items => _items;
 
     public IReadOnlyList<int> SelectedPath => _selectedPath;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool IsOpen
     {
         get => _isOpen;
@@ -34,6 +41,9 @@ public abstract class UiMenu : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an undefined UiMenuPresentationMode value is stored instead of being refused
+    // Broiler-Human:        PENDING
     public UiMenuPresentationMode PresentationMode
     {
         get => _presentationMode;
@@ -50,6 +60,9 @@ public abstract class UiMenu : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: after MaxDepth is lowered below the length of SelectedPath, SelectedPath still holds more than MaxDepth indices
+    // Broiler-Human:        PENDING
     public int MaxDepth
     {
         get => _maxDepth;
@@ -64,6 +77,9 @@ public abstract class UiMenu : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -77,6 +93,9 @@ public abstract class UiMenu : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a SelectedPath chosen against the previous items survives SetItems and indexes into the new list
+    // Broiler-Human:        PENDING
     public void SetItems(IEnumerable<UiMenuItem> items)
     {
         ThrowIfDisposed();
@@ -86,6 +105,9 @@ public abstract class UiMenu : UiElement
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Open on a menu with no items sets IsOpen to true
+    // Broiler-Human:        PENDING
     public bool Open()
     {
         ThrowIfDisposed();
@@ -97,6 +119,9 @@ public abstract class UiMenu : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: Close returns true on a menu that was not open
+    // Broiler-Human:        PENDING
     public bool Close()
     {
         ThrowIfDisposed();
@@ -106,6 +131,9 @@ public abstract class UiMenu : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a path whose index at some depth is out of range for that level is stored as SelectedPath
+    // Broiler-Human:        PENDING
     public bool SetSelectedPath(IEnumerable<int> path)
     {
         ThrowIfDisposed();
@@ -120,6 +148,9 @@ public abstract class UiMenu : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a negative or past-the-end index at any depth of the path reaches the item indexer instead of returning null
+    // Broiler-Human:        PENDING
     public UiMenuItem? GetItem(IReadOnlyList<int> path)
     {
         IReadOnlyList<UiMenuItem> current = Items;
@@ -137,6 +168,9 @@ public abstract class UiMenu : UiElement
         return item;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: an enabled leaf whose parent item is disabled raises ItemInvoked
+    // Broiler-Human:        PENDING
     protected bool InvokeSelected()
     {
         UiMenuItem? item = GetItem(SelectedPath);
@@ -150,6 +184,9 @@ public abstract class UiMenu : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: the menu's semantic node carries no child node for its items, so assistive technology sees an empty menu
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.Menu,
@@ -158,6 +195,9 @@ public abstract class UiMenu : UiElement
             CreateSemanticState(),
             []);
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: an open menu's semantic state lacks Expanded
+    // Broiler-Human:        PENDING
     protected UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible | UiSemanticState.Enabled : UiSemanticState.None;

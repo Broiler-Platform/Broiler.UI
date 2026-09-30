@@ -6,6 +6,8 @@ namespace Broiler.UI.RichEdit;
 /// <see cref="UiRichEdit.GetCommandState"/> to reflect toolbar state, without
 /// inspecting document internals.
 /// </summary>
+// Broiler-AI:           Origin=AI; Spec=ADR-0015; IP=None; Security=None; Resources=0; Fingerprint=TBF
+// Broiler-Human:        PENDING
 public enum RichEditCommand
 {
     None = 0,

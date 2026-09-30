@@ -15,6 +15,9 @@ namespace Broiler.UI.RichEdit;
 /// (ADR 0017). Layout, drawing, hit-testing, and input are added by the standard
 /// implementation in a later phase; this type deliberately carries no renderer.
 /// </summary>
+// Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+// Broiler-Falsified-If: an edit through ExecuteCommand, InsertDocument, ReplaceTextRange or a delete primitive changes Document while IsReadOnly is true or IsEnabled is false
+// Broiler-Human:        PENDING
 public abstract class UiRichEdit : UiElement
 {
     private readonly RichTextEditor _editor = new();
@@ -26,14 +29,25 @@ public abstract class UiRichEdit : UiElement
     private RichEditScrollPolicy _verticalScrollPolicy = RichEditScrollPolicy.Auto;
     private RichTextRange? _secondarySelection;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<RichEditDocumentChangedEventArgs>? DocumentChanged;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<RichEditSelectionChangedEventArgs>? SelectionChanged;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<RichEditCommandExecutedEventArgs>? CommandExecuted;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public event EventHandler<RichEditSubmittedEventArgs>? Submitted;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after a new Document is assigned, Undo brings back content from the document that was loaded before it
+    // Broiler-Human:        PENDING
     public RichTextDocument Document
     {
         get => _editor.Document;
@@ -49,6 +63,9 @@ public abstract class UiRichEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a selection whose paragraph index or offset lies past the document end is stored unclamped
+    // Broiler-Human:        PENDING
     public RichTextRange Selection
     {
         get => _editor.Selection;
@@ -69,6 +86,9 @@ public abstract class UiRichEdit : UiElement
     /// Optional non-editing highlight used by synchronized inspectors. It does
     /// not change the editor selection, caret, document, or undo history.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a range whose paragraph index or offset lies past the document end is stored unclamped
+    // Broiler-Human:        PENDING
     public RichTextRange? SecondarySelection
     {
         get => _secondarySelection;
@@ -87,12 +107,18 @@ public abstract class UiRichEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after IsEnabled is set to false, ExecuteCommand with Paste or InsertText still changes Document
+    // Broiler-Human:        PENDING
     public bool IsEnabled
     {
         get => _isEnabled;
         set => SetFlag(ref _isEnabled, value, UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: after IsReadOnly is set to true, ExecuteCommand with InsertText or Cut still changes Document
+    // Broiler-Human:        PENDING
     public bool IsReadOnly
     {
         get => _isReadOnly;
@@ -104,6 +130,8 @@ public abstract class UiRichEdit : UiElement
     /// route Enter to <see cref="Submit"/> instead. This flag does not affect the
     /// explicit <see cref="RichEditCommand.InsertParagraphBreak"/> command.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public bool AcceptsReturn
     {
         get => _acceptsReturn;
@@ -114,6 +142,9 @@ public abstract class UiRichEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: assigning null stores null rather than an empty string, giving an empty document a null semantic name
+    // Broiler-Human:        PENDING
     public string PlaceholderText
     {
         get => _placeholderText;
@@ -129,6 +160,9 @@ public abstract class UiRichEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a size whose width or height is NaN passes the non-negative check and is stored as the preferred size
+    // Broiler-Human:        PENDING
     public BSize PreferredSize
     {
         get => _preferredSize;
@@ -145,6 +179,8 @@ public abstract class UiRichEdit : UiElement
         }
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public RichEditScrollPolicy VerticalScrollPolicy
     {
         get => _verticalScrollPolicy;
@@ -162,9 +198,14 @@ public abstract class UiRichEdit : UiElement
     /// <summary>The inline style the next typed character would take (pending style applied).</summary>
     public InlineStyle CaretInlineStyle => _editor.CaretInlineStyle;
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     public string GetPlainText() => _editor.Document.PlainText;
 
     /// <summary>Replaces the document with plain text, resetting selection and history.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: after SetPlainText, Undo brings back the document that was loaded before it
+    // Broiler-Human:        PENDING
     public void SetPlainText(string? text)
     {
         ThrowIfDisposed();
@@ -175,6 +216,9 @@ public abstract class UiRichEdit : UiElement
         SelectionChanged?.Invoke(this, new RichEditSelectionChangedEventArgs(_editor.Selection));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Submit on a rich edit whose IsEnabled is false raises Submitted
+    // Broiler-Human:        PENDING
     public void Submit()
     {
         ThrowIfDisposed();
@@ -185,6 +229,9 @@ public abstract class UiRichEdit : UiElement
     }
 
     /// <summary>Queries the toolbar-facing state of a command for the current selection.</summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0015; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: GetCommandState reports Cut, Paste or InsertText enabled on a rich edit whose IsReadOnly is true
+    // Broiler-Human:        PENDING
     public RichEditCommandState GetCommandState(RichEditCommand command)
     {
         ThrowIfDisposed();
@@ -230,6 +277,9 @@ public abstract class UiRichEdit : UiElement
     /// success, <see cref="DocumentChanged"/>/<see cref="SelectionChanged"/> fire
     /// first (with invalidation), then <see cref="CommandExecuted"/>.
     /// </summary>
+    // Broiler-AI:           Origin=AI; Spec=ADR-0015; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: ExecuteCommand runs a command that GetCommandState reports disabled and changes Document or Selection
+    // Broiler-Human:        PENDING
     public bool ExecuteCommand(RichEditCommand command, object? parameter = null)
     {
         ThrowIfDisposed();
@@ -252,6 +302,9 @@ public abstract class UiRichEdit : UiElement
     /// reference any document-format codec. Fires the same change events and honours
     /// <see cref="IsEnabled"/>/<see cref="IsReadOnly"/> as the editing commands.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: InsertDocument changes Document on a rich edit whose IsReadOnly is true or IsEnabled is false
+    // Broiler-Human:        PENDING
     public bool InsertDocument(RichTextDocument content)
     {
         ThrowIfDisposed();
@@ -262,6 +315,9 @@ public abstract class UiRichEdit : UiElement
     }
 
     /// <summary>Replaces an explicit source range as one undo transaction.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: ReplaceTextRange changes Document on a rich edit whose IsReadOnly is true or IsEnabled is false
+    // Broiler-Human:        PENDING
     public bool ReplaceTextRange(
         RichTextRange range,
         string text,
@@ -272,6 +328,9 @@ public abstract class UiRichEdit : UiElement
     }
 
     /// <summary>Applies an exact inline delta to an explicit source range.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: ApplyInlineStyleRange changes Document on a rich edit whose IsReadOnly is true or IsEnabled is false
+    // Broiler-Human:        PENDING
     public bool ApplyInlineStyleRange(
         RichTextRange range,
         InlineStyleDelta delta,
@@ -282,6 +341,9 @@ public abstract class UiRichEdit : UiElement
     }
 
     /// <summary>Applies an exact paragraph delta to an explicit source range.</summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: ApplyParagraphStyleRange changes Document on a rich edit whose IsReadOnly is true or IsEnabled is false
+    // Broiler-Human:        PENDING
     public bool ApplyParagraphStyleRange(
         RichTextRange range,
         ParagraphStyleDelta delta,
@@ -298,12 +360,18 @@ public abstract class UiRichEdit : UiElement
     /// set; it shares the editor's single undo model with
     /// <see cref="ExecuteCommand"/> and raises the same change events.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: DeleteBackward removes text from a rich edit whose IsReadOnly is true
+    // Broiler-Human:        PENDING
     protected bool DeleteBackward() => RunEditorEdit(static editor => editor.Backspace());
 
     /// <summary>
     /// Deletes forward from the caret (the Delete key): the current selection if
     /// any, otherwise the character or paragraph break after the caret.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: DeleteForward removes text from a rich edit whose IsReadOnly is true
+    // Broiler-Human:        PENDING
     protected bool DeleteForward() => RunEditorEdit(static editor => editor.Delete());
 
     /// <summary>
@@ -313,6 +381,9 @@ public abstract class UiRichEdit : UiElement
     /// </summary>
     protected virtual bool IsCompositionActive => false;
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0017; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: the RichEdit node is built without text info, so assistive technology receives no caret or selection
+    // Broiler-Human:        PENDING
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.RichEdit,
@@ -322,6 +393,9 @@ public abstract class UiRichEdit : UiElement
             [],
             CreateSemanticTextInfo());
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: the operation runs and changes Document on a rich edit whose IsReadOnly is true or IsEnabled is false
+    // Broiler-Human:        PENDING
     private bool RunEditorEdit(Func<RichTextEditor, bool> operation)
     {
         if (!_isEnabled || _isReadOnly)
@@ -334,11 +408,19 @@ public abstract class UiRichEdit : UiElement
         return changed;
     }
 
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private bool HasClipboard => Session?.Host is IUiClipboardHost;
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a focus paragraph index past the last paragraph reaches the Paragraphs indexer and throws
+    // Broiler-Human:        PENDING
     private ParagraphStyle CurrentParagraphStyle =>
         _editor.Document.Paragraphs[_editor.Selection.Focus.ParagraphIndex].Style;
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0015; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: a SetForeground or SetBackground command whose parameter is not a BColor changes the document
+    // Broiler-Human:        PENDING
     private bool Dispatch(RichEditCommand command, object? parameter) => command switch
     {
         RichEditCommand.Undo => _editor.Undo(),
@@ -373,6 +455,8 @@ public abstract class UiRichEdit : UiElement
         _ => false,
     };
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private bool SelectAllCommand()
     {
         _editor.SelectAll();
@@ -380,12 +464,21 @@ public abstract class UiRichEdit : UiElement
     }
 
     /// <summary>Deletes the current selection through the shared document undo model.</summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: DeleteCurrentSelection with an empty selection deletes the character after the caret
+    // Broiler-Human:        PENDING
     protected bool DeleteCurrentSelection() => RunEditorEdit(static editor => editor.Delete());
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: with a non-empty selection inside one paragraph, the reported style is read from the character after the selection instead of the last selected one
+    // Broiler-Human:        PENDING
     private InlineStyle CurrentInlineStyle => _editor.Selection.IsEmpty
         ? _editor.CaretInlineStyle
         : _editor.Document.InlineStyleAt(_editor.Selection.End);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: BulletList on a paragraph that is already a bullet list leaves it a bullet list instead of clearing the list kind
+    // Broiler-Human:        PENDING
     private bool ToggleList(ListKind kind)
     {
         ListKind target = CurrentParagraphStyle.ListKind == kind ? ListKind.None : kind;
@@ -397,6 +490,9 @@ public abstract class UiRichEdit : UiElement
     /// current capitalization. The two kinds are exclusive, so switching between
     /// them replaces rather than combines.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: AllCaps on text that is already SmallCaps turns capitalization off instead of switching to AllCaps
+    // Broiler-Human:        PENDING
     private InlineStyleDelta ToggleCapitalization(TextCapitalization kind) =>
         InlineStyleDelta.WithCapitalization(
             CurrentInlineStyle.Capitalization == kind ? TextCapitalization.None : kind);
@@ -411,6 +507,9 @@ public abstract class UiRichEdit : UiElement
     /// would make a document say a size nobody chose, and it would say it
     /// permanently — the file keeps it.
     /// </remarks>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a BFontStyle whose Size is NaN writes a NaN font size into the document model
+    // Broiler-Human:        PENDING
     private static InlineStyleDelta FontStyleDelta(BFontStyle font) => new()
     {
         SetFontFamily = true,
@@ -421,12 +520,18 @@ public abstract class UiRichEdit : UiElement
         Italic = font.Slant != BFontSlant.Normal,
     };
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a whitespace-only family name is applied as a font family instead of clearing it
+    // Broiler-Human:        PENDING
     private static string? NormalizeFontFamily(string? family)
     {
         family = family?.Trim();
         return string.IsNullOrWhiteSpace(family) ? null : family;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: a string parameter of NaN or Infinity, or a zero or negative number, is applied as a font size instead of being refused
+    // Broiler-Human:        PENDING
     private static bool TryGetFontSize(object? parameter, out float? size)
     {
         size = null;
@@ -450,9 +555,15 @@ public abstract class UiRichEdit : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a finite size above 512 or below 1 point is returned without being clamped into that range
+    // Broiler-Human:        PENDING
     private static float NormalizeFontSize(double size) =>
         (float)Math.Clamp(size, 1.0, 512.0);
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: for a selection spanning paragraphs, the text put on the clipboard differs from the selected range of PlainText
+    // Broiler-Human:        PENDING
     private bool Copy()
     {
         if (_editor.Selection.IsEmpty || Session?.Host is not IUiClipboardHost clipboard)
@@ -462,8 +573,14 @@ public abstract class UiRichEdit : UiElement
         return true;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: Cut on a rich edit whose IsReadOnly is true copies or deletes the selection
+    // Broiler-Human:        PENDING
     private bool Cut() => !_isReadOnly && Copy() && _editor.Delete();
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
+    // Broiler-Falsified-If: Paste inserts clipboard text into a rich edit whose IsReadOnly is true
+    // Broiler-Human:        PENDING
     private bool Paste()
     {
         if (_isReadOnly || Session?.Host is not IUiClipboardHost clipboard || !clipboard.TryGetText(out string text))
@@ -472,6 +589,9 @@ public abstract class UiRichEdit : UiElement
         return _editor.InsertText(text);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a selection ending in a later paragraph yields a substring shifted by the paragraph separators before it
+    // Broiler-Human:        PENDING
     private string GetSelectedPlainText()
     {
         RichTextRange selection = _editor.Selection;
@@ -486,6 +606,9 @@ public abstract class UiRichEdit : UiElement
         return plain.Substring(start, end - start);
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: a position in paragraph n maps to an index that does not count one separator for each of the n preceding paragraphs, so it disagrees with PlainText
+    // Broiler-Human:        PENDING
     private int FlatIndex(RichTextPosition position)
     {
         RichTextDocument document = _editor.Document;
@@ -496,6 +619,9 @@ public abstract class UiRichEdit : UiElement
         return flat + position.Offset;
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
+    // Broiler-Falsified-If: an edit that replaces Document raises no DocumentChanged event or leaves Measure uninvalidated
+    // Broiler-Human:        PENDING
     private void RaiseStateChanges(RichTextDocument oldDocument, RichTextRange oldSelection)
     {
         bool documentChanged = !ReferenceEquals(oldDocument, _editor.Document);
@@ -512,6 +638,8 @@ public abstract class UiRichEdit : UiElement
             SelectionChanged?.Invoke(this, new RichEditSelectionChangedEventArgs(_editor.Selection));
     }
 
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Human:        PENDING
     private void SetFlag(ref bool field, bool value, UiInvalidationKind invalidation)
     {
         ThrowIfDisposed();
@@ -522,12 +650,18 @@ public abstract class UiRichEdit : UiElement
         Invalidate(invalidation);
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0017; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: an empty document with a PlaceholderText produces an empty semantic name instead of the placeholder
+    // Broiler-Human:        PENDING
     private string GetSemanticName()
     {
         string plain = _editor.Document.PlainText;
         return plain.Length > 0 ? plain : _placeholderText;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0017; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: a rich edit whose IsReadOnly is true reports no ReadOnly semantic state
+    // Broiler-Human:        PENDING
     private UiSemanticState CreateSemanticState()
     {
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None;
@@ -542,6 +676,9 @@ public abstract class UiRichEdit : UiElement
         return state;
     }
 
+    // Broiler-AI:           Origin=AI; Spec=ADR-0017; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: the caret or selection start published for a position in a later paragraph differs from that position's index in the published text value
+    // Broiler-Human:        PENDING
     private UiSemanticTextInfo CreateSemanticTextInfo()
     {
         RichTextRange selection = _editor.Selection;
