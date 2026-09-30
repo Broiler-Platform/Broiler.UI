@@ -18,6 +18,13 @@ public abstract class UiComboBox : UiElement
     private BSize _preferredSize = new(180, 32);
     private int _maxDropDownItems = 8;
 
+    protected UiComboBox()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiComboBoxSelectionChangedEventArgs>? SelectionChanged;

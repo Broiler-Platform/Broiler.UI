@@ -13,15 +13,37 @@ public sealed class UiMenuItem
         Text = text;
     }
 
+    public UiMenuItem(string id, IUiCommand command, object? commandParameter = null)
+    {
+        Id = id;
+        Command = command ?? throw new System.ArgumentNullException(nameof(command));
+        CommandParameter = commandParameter;
+        Text = command.Label;
+        Accelerator = command.AcceleratorText;
+        IsEnabled = command.CanExecute(commandParameter);
+    }
+
     public string Id { get; }
 
     public string Text { get; set; }
 
     public string? CommandName { get; set; }
 
+    public IUiCommand? Command { get; set; }
+
+    public object? CommandParameter { get; set; }
+
+    public string? Accelerator { get; set; }
+
     public char? AccessKey { get; set; }
 
     public bool IsEnabled { get; set; } = true;
+
+    public void Invoke()
+    {
+        if (IsEnabled)
+            Command?.Execute(CommandParameter);
+    }
 
     public bool IsSeparator { get; set; }
 

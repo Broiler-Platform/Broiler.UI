@@ -30,6 +30,13 @@ public abstract class UiFormatCodeView : UiElement
     private string _searchQuery = string.Empty;
     private bool _searchMatchCase;
 
+    protected UiFormatCodeView()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<FormatCodeViewSelectionChangedEventArgs>? SelectionChanged;

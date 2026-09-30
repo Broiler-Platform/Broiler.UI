@@ -29,6 +29,13 @@ public abstract class UiRichEdit : UiElement
     private RichEditScrollPolicy _verticalScrollPolicy = RichEditScrollPolicy.Auto;
     private RichTextRange? _secondarySelection;
 
+    protected UiRichEdit()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<RichEditDocumentChangedEventArgs>? DocumentChanged;

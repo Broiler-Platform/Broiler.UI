@@ -7,4 +7,6 @@ public enum UiSemanticChangeKind
     ValueChanged,
     StateChanged,
     StructureChanged,
+    StatusAnnounced,
 }
+

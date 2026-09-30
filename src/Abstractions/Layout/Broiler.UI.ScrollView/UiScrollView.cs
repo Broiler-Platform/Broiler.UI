@@ -7,7 +7,7 @@ namespace Broiler.UI.ScrollView;
 // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
 // Broiler-Falsified-If: with finite extent and viewport sizes, an offset below zero or beyond ExtentSize minus ViewportSize on either axis survives SetOffset, ScrollBy or a size change
 // Broiler-Human:        PENDING
-public abstract class UiScrollView : UiElement
+public abstract class UiScrollView : UiElement, IUiScrollable
 {
     private BPoint _offset;
     private BSize _extentSize;
@@ -17,6 +17,7 @@ public abstract class UiScrollView : UiElement
     private double _pageScrollFraction = 0.85;
     private UiScrollBarVisibility _horizontalScrollBarVisibility = UiScrollBarVisibility.Auto;
     private UiScrollBarVisibility _verticalScrollBarVisibility = UiScrollBarVisibility.Auto;
+    private UiScrollConstraint _constraint = UiScrollConstraint.None;
 
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=1; Fingerprint=TBF
     // Broiler-Human:        PENDING
@@ -149,6 +150,32 @@ public abstract class UiScrollView : UiElement
         }
     }
 
+    public UiScrollConstraint Constraint
+    {
+        get => _constraint;
+        set
+        {
+            ThrowIfDisposed();
+            if (_constraint == value)
+                return;
+
+            _constraint = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
+    public UiScrollConstraint ScrollConstraint
+    {
+        get => Constraint;
+        set => Constraint = value;
+    }
+
+    public bool ConstrainContentWidth
+    {
+        get => Constraint == UiScrollConstraint.ConstrainWidth;
+        set => Constraint = value ? UiScrollConstraint.ConstrainWidth : UiScrollConstraint.None;
+    }
+
     // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=1; Fingerprint=TBF
     // Broiler-Falsified-If: with finite sizes, a requested offset with a NaN component or one past the maximum is stored as given rather than mapped into 0 to the maximum
     // Broiler-Human:        PENDING
@@ -180,6 +207,34 @@ public abstract class UiScrollView : UiElement
     // Broiler-Falsified-If: after ScrollToEnd the offset differs from ExtentSize minus ViewportSize on an axis whose extent exceeds its viewport
     // Broiler-Human:        PENDING
     public bool ScrollToEnd() => SetOffset(new BPoint(MaxHorizontalOffset, MaxVerticalOffset));
+
+    public virtual bool MakeVisible(BRect targetRect)
+    {
+        ThrowIfDisposed();
+        if (targetRect.IsEmpty || ViewportSize.IsEmpty)
+            return false;
+
+        BRect viewport = new(Bounds.Left, Bounds.Top, ViewportSize.Width, ViewportSize.Height);
+
+        double deltaX = 0;
+        if (targetRect.Left < viewport.Left)
+            deltaX = targetRect.Left - viewport.Left;
+        else if (targetRect.Right > viewport.Right)
+            deltaX = targetRect.Right - viewport.Right;
+
+        double deltaY = 0;
+        if (targetRect.Top < viewport.Top)
+            deltaY = targetRect.Top - viewport.Top;
+        else if (targetRect.Bottom > viewport.Bottom)
+            deltaY = targetRect.Bottom - viewport.Bottom;
+
+        if (deltaX != 0 || deltaY != 0)
+        {
+            return ScrollBy(deltaX, deltaY);
+        }
+
+        return false;
+    }
 
     // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
     // Broiler-Falsified-If: an extent narrower than the viewport yields a negative maximum horizontal offset

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Broiler.Graphics;
+using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.Text;
 using Broiler.UI.Standard;
@@ -9,14 +11,78 @@ namespace Broiler.UI.Label.Standard;
 
 public sealed class StandardLabel : UiLabel, IStandardThemedControl
 {
+    private StandardLabelRole _role = StandardLabelRole.Default;
+    private double _cachedWidth = double.NaN;
+    private string? _cachedDisplayText;
+    private BFontStyle? _cachedFont;
+    private UiTextWrapping _cachedWrapping;
+    private UiTextTrimming _cachedTrimming;
+    private IReadOnlyList<LabelLine>? _cachedLines;
+    private int _layoutBuildCount;
+
+    public StandardLabel()
+    {
+        Foreground = GetRoleColor(_role, StandardControlPaint.Theme);
+    }
+
+    public StandardLabel(string text, StandardLabelRole role = StandardLabelRole.Default) : this()
+    {
+        Text = text;
+        Role = role;
+    }
+
+    public int LayoutBuildCount => _layoutBuildCount;
+
+    public StandardLabelRole Role
+    {
+        get => _role;
+        set
+        {
+            _role = value;
+            if (value != StandardLabelRole.Custom)
+            {
+                Foreground = GetRoleColor(value, StandardControlPaint.GetTheme(this));
+            }
+        }
+    }
+
     public void ApplyTheme(StandardThemeTokens theme)
     {
-        Foreground = theme.Text;
+        ArgumentNullException.ThrowIfNull(theme);
+        if (Role != StandardLabelRole.Custom)
+        {
+            Foreground = GetRoleColor(Role, theme);
+        }
     }
+
+    public static BColor GetRoleColor(StandardLabelRole role, StandardThemeTokens theme) =>
+        role switch
+        {
+            StandardLabelRole.Muted => theme.TextMuted,
+            StandardLabelRole.Warning => theme.Warning,
+            StandardLabelRole.Danger => theme.Danger,
+            StandardLabelRole.Success => theme.Success,
+            StandardLabelRole.Accent => theme.Accent,
+            StandardLabelRole.Info => theme.Info,
+            StandardLabelRole.Disabled => theme.TextDisabled,
+            _ => theme.Text,
+        };
+
+    public static StandardLabel Muted(string text = "") => new(text, StandardLabelRole.Muted);
+    public static StandardLabel Warning(string text = "") => new(text, StandardLabelRole.Warning);
+    public static StandardLabel Danger(string text = "") => new(text, StandardLabelRole.Danger);
+    public static StandardLabel Success(string text = "") => new(text, StandardLabelRole.Success);
+    public static StandardLabel Accent(string text = "") => new(text, StandardLabelRole.Accent);
+    public static StandardLabel Info(string text = "") => new(text, StandardLabelRole.Info);
+
+    public static StandardLabel Title(string text = "") => new(text) { Font = StandardControlPaint.FontTitle };
+    public static StandardLabel Subtitle(string text = "") => new(text) { Font = StandardControlPaint.FontSubtitle };
+    public static StandardLabel Caption(string text = "") => new(text, StandardLabelRole.Muted) { Font = StandardControlPaint.FontCaption };
+    public static StandardLabel Code(string text = "") => new(text) { Font = StandardControlPaint.FontCode };
 
     protected override BSize MeasureCore(BSize availableSize)
     {
-        IReadOnlyList<LabelLine> lines = BuildLines(availableSize.Width);
+        IReadOnlyList<LabelLine> lines = GetOrCreateLines(availableSize.Width);
         double width = 0;
         foreach (LabelLine line in lines)
             width = Math.Max(width, line.Width);
@@ -27,7 +93,7 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
 
     protected override void RenderCore(UiRenderContext context)
     {
-        IReadOnlyList<LabelLine> lines = BuildLines(Bounds.Width);
+        IReadOnlyList<LabelLine> lines = GetOrCreateLines(Bounds.Width);
         double lineHeight = BTextMeasurer.GetLineHeight(Font);
 
         context.RenderList.PushClip(Bounds);
@@ -45,6 +111,30 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
         }
 
         context.RenderList.PopClip();
+    }
+
+    private IReadOnlyList<LabelLine> GetOrCreateLines(double availableWidth)
+    {
+        string text = DisplayText;
+        if (_cachedLines != null &&
+            _cachedDisplayText == text &&
+            _cachedFont == Font &&
+            _cachedWrapping == Wrapping &&
+            _cachedTrimming == Trimming &&
+            (double.IsInfinity(availableWidth) && double.IsInfinity(_cachedWidth) ||
+             (!double.IsInfinity(availableWidth) && !double.IsInfinity(_cachedWidth) && Math.Abs(_cachedWidth - availableWidth) < 0.001)))
+        {
+            return _cachedLines;
+        }
+
+        _cachedLines = BuildLines(availableWidth);
+        _cachedWidth = availableWidth;
+        _cachedDisplayText = text;
+        _cachedFont = Font;
+        _cachedWrapping = Wrapping;
+        _cachedTrimming = Trimming;
+        _layoutBuildCount++;
+        return _cachedLines;
     }
 
     private IReadOnlyList<LabelLine> BuildLines(double availableWidth)
@@ -109,13 +199,15 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
 
     private void BreakWord(string word, double maxWidth, List<LabelLine> lines, ref string current)
     {
-        foreach (char character in word)
+        TextElementEnumerator enumerator = StringInfo.GetTextElementEnumerator(word);
+        while (enumerator.MoveNext())
         {
-            string candidate = current + character;
-            if (candidate.Length > 1 && Measure(candidate) > maxWidth)
+            string element = enumerator.GetTextElement();
+            string candidate = current + element;
+            if (candidate.Length > element.Length && Measure(candidate) > maxWidth)
             {
                 lines.Add(CreateLine(current));
-                current = character.ToString();
+                current = element;
             }
             else
             {
@@ -135,9 +227,11 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
             return string.Empty;
 
         string result = string.Empty;
-        foreach (char character in text)
+        TextElementEnumerator enumerator = StringInfo.GetTextElementEnumerator(text);
+        while (enumerator.MoveNext())
         {
-            string candidate = result + character;
+            string element = enumerator.GetTextElement();
+            string candidate = result + element;
             if (Measure(candidate) + ellipsisWidth > maxWidth)
                 break;
 

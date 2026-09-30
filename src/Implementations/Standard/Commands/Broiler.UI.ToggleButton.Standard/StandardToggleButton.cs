@@ -56,8 +56,6 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
 
     public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
 
-    public StandardCommand? Command { get; set; }
-
     public StandardCommandDispatcher? CommandDispatcher { get; set; }
 
     public bool IsPressed => _isPressed;
@@ -135,9 +133,6 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
 
     protected override bool OnClicking(UiButtonActivationReason reason)
     {
-        if (Command is not null && !Command.TryExecute())
-            return false;
-
         if (!string.IsNullOrWhiteSpace(CommandName) && CommandDispatcher is not null && !CommandDispatcher.TryExecute(CommandName))
             return false;
 

@@ -6,13 +6,14 @@ namespace Broiler.UI.Standard;
 public sealed class StandardThemeResolver
 {
     private readonly Dictionary<UiElement, StandardThemeTokens> _overrides = [];
+    private readonly StandardThemeTokens? _defaultTokens;
 
     public StandardThemeResolver(StandardThemeTokens? defaultTokens = null)
     {
-        DefaultTokens = defaultTokens ?? StandardThemeTokens.Default;
+        _defaultTokens = defaultTokens;
     }
 
-    public StandardThemeTokens DefaultTokens { get; }
+    public StandardThemeTokens DefaultTokens => _defaultTokens ?? StandardControlPaint.Theme;
 
     public void SetOverride(UiElement element, StandardThemeTokens tokens)
     {
@@ -41,7 +42,7 @@ public sealed class StandardThemeResolver
             current = current.Parent;
         }
 
-        return DefaultTokens;
+        return _defaultTokens ?? StandardControlPaint.GetTheme(element);
     }
 }
 

@@ -40,4 +40,22 @@ public enum UiSemanticRole
     /// its own, and from <see cref="Edit"/>, which has no range or step to report.
     /// </summary>
     SpinBox,
+
+    /// <summary>An individual item within a list view or collection.</summary>
+    ListItem,
+
+    /// <summary>A tab header or tab page within a tab view.</summary>
+    TabItem,
+
+    /// <summary>An actionable command item within a menu or menu bar.</summary>
+    MenuItem,
+
+    /// <summary>A live region or status announcement that communicates changes to assistive technology.</summary>
+    StatusAnnouncement,
+
+    /// <summary>A logical grouping of controls or form fields.</summary>
+    Group,
+
+    /// <summary>An actionable navigation link.</summary>
+    Hyperlink,
 }

@@ -84,32 +84,224 @@ public sealed class StandardScrollView : UiScrollView
 
     public bool HasHorizontalScrollbar { get; private set; }
 
+    public override bool MakeVisible(BRect targetRect)
+    {
+        ThrowIfDisposed();
+        if (targetRect.IsEmpty)
+            return false;
+
+        BRect viewport = ContentBounds.IsEmpty ? Bounds : ContentBounds;
+        if (viewport.IsEmpty)
+            return false;
+
+        double deltaX = 0;
+        if (targetRect.Left < viewport.Left)
+            deltaX = targetRect.Left - viewport.Left;
+        else if (targetRect.Right > viewport.Right)
+            deltaX = targetRect.Right - viewport.Right;
+
+        double deltaY = 0;
+        if (targetRect.Top < viewport.Top)
+            deltaY = targetRect.Top - viewport.Top;
+        else if (targetRect.Bottom > viewport.Bottom)
+            deltaY = targetRect.Bottom - viewport.Bottom;
+
+        if (deltaX != 0 || deltaY != 0)
+        {
+            return ScrollBy(deltaX, deltaY);
+        }
+
+        return false;
+    }
+
     protected override BSize MeasureCore(BSize availableSize)
     {
         BSize outerSize = new(
             ClampDesired(PreferredSize.Width, availableSize.Width),
             ClampDesired(PreferredSize.Height, availableSize.Height));
 
-        double extentWidth = 0;
-        double extentHeight = 0;
-        foreach (UiElement child in Children)
+        if (Constraint == UiScrollConstraint.ConstrainWidth && (double.IsFinite(availableSize.Width) || double.IsFinite(PreferredSize.Width)))
         {
-            if (child.Visibility == UiVisibility.Collapsed)
-                continue;
+            double availableWidth = double.IsFinite(availableSize.Width) ? availableSize.Width : (PreferredSize.Width > 0 ? PreferredSize.Width : 320);
+            double thickness = ShowScrollbars ? Math.Min(ScrollbarThickness, Math.Max(0, Math.Min(availableWidth, outerSize.Height))) : 0;
 
-            BSize desired = child.Measure(new BSize(double.PositiveInfinity, double.PositiveInfinity));
-            extentWidth = Math.Max(extentWidth, desired.Width);
-            extentHeight = Math.Max(extentHeight, desired.Height);
+            bool hasVertical = VerticalScrollBarVisibility == UiScrollBarVisibility.Visible;
+            double contentWidth = hasVertical ? Math.Max(1, availableWidth - thickness) : Math.Max(1, availableWidth);
+
+            double extentWidth = 0;
+            double extentHeight = 0;
+            foreach (UiElement child in Children)
+            {
+                if (child.Visibility == UiVisibility.Collapsed)
+                    continue;
+
+                BSize desired = child.Measure(new BSize(contentWidth, double.PositiveInfinity));
+                extentWidth = Math.Max(extentWidth, desired.Width);
+                extentHeight = Math.Max(extentHeight, desired.Height);
+            }
+
+            if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > outerSize.Height && thickness > 0)
+            {
+                hasVertical = true;
+                contentWidth = Math.Max(1, availableWidth - thickness);
+                extentWidth = 0;
+                extentHeight = 0;
+                foreach (UiElement child in Children)
+                {
+                    if (child.Visibility == UiVisibility.Collapsed)
+                        continue;
+
+                    BSize desired = child.Measure(new BSize(contentWidth, double.PositiveInfinity));
+                    extentWidth = Math.Max(extentWidth, desired.Width);
+                    extentHeight = Math.Max(extentHeight, desired.Height);
+                }
+            }
+
+            _contentDesiredExtent = new BSize(extentWidth, extentHeight);
+            ScrollbarLayout layout = CalculateLayout(new BRect(0, 0, outerSize.Width, outerSize.Height), _contentDesiredExtent);
+            SetViewportAndExtent(layout.ContentBounds.Size, layout.ExtentSize);
+            return outerSize;
         }
+        else if (Constraint == UiScrollConstraint.ConstrainHeight && (double.IsFinite(availableSize.Height) || double.IsFinite(PreferredSize.Height)))
+        {
+            double availableHeight = double.IsFinite(availableSize.Height) ? availableSize.Height : (PreferredSize.Height > 0 ? PreferredSize.Height : 240);
+            double thickness = ShowScrollbars ? Math.Min(ScrollbarThickness, Math.Max(0, Math.Min(outerSize.Width, availableHeight))) : 0;
 
-        _contentDesiredExtent = new BSize(extentWidth, extentHeight);
-        ScrollbarLayout layout = CalculateLayout(new BRect(0, 0, outerSize.Width, outerSize.Height), _contentDesiredExtent);
-        SetViewportAndExtent(layout.ContentBounds.Size, layout.ExtentSize);
-        return outerSize;
+            bool hasHorizontal = HorizontalScrollBarVisibility == UiScrollBarVisibility.Visible;
+            double contentHeight = hasHorizontal ? Math.Max(1, availableHeight - thickness) : Math.Max(1, availableHeight);
+
+            double extentWidth = 0;
+            double extentHeight = 0;
+            foreach (UiElement child in Children)
+            {
+                if (child.Visibility == UiVisibility.Collapsed)
+                    continue;
+
+                BSize desired = child.Measure(new BSize(double.PositiveInfinity, contentHeight));
+                extentWidth = Math.Max(extentWidth, desired.Width);
+                extentHeight = Math.Max(extentHeight, desired.Height);
+            }
+
+            if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > outerSize.Width && thickness > 0)
+            {
+                hasHorizontal = true;
+                contentHeight = Math.Max(1, availableHeight - thickness);
+                extentWidth = 0;
+                extentHeight = 0;
+                foreach (UiElement child in Children)
+                {
+                    if (child.Visibility == UiVisibility.Collapsed)
+                        continue;
+
+                    BSize desired = child.Measure(new BSize(double.PositiveInfinity, contentHeight));
+                    extentWidth = Math.Max(extentWidth, desired.Width);
+                    extentHeight = Math.Max(extentHeight, desired.Height);
+                }
+            }
+
+            _contentDesiredExtent = new BSize(extentWidth, extentHeight);
+            ScrollbarLayout layout = CalculateLayout(new BRect(0, 0, outerSize.Width, outerSize.Height), _contentDesiredExtent);
+            SetViewportAndExtent(layout.ContentBounds.Size, layout.ExtentSize);
+            return outerSize;
+        }
+        else
+        {
+            double extentWidth = 0;
+            double extentHeight = 0;
+            foreach (UiElement child in Children)
+            {
+                if (child.Visibility == UiVisibility.Collapsed)
+                    continue;
+
+                BSize desired = child.Measure(new BSize(double.PositiveInfinity, double.PositiveInfinity));
+                extentWidth = Math.Max(extentWidth, desired.Width);
+                extentHeight = Math.Max(extentHeight, desired.Height);
+            }
+
+            _contentDesiredExtent = new BSize(extentWidth, extentHeight);
+            ScrollbarLayout layout = CalculateLayout(new BRect(0, 0, outerSize.Width, outerSize.Height), _contentDesiredExtent);
+            SetViewportAndExtent(layout.ContentBounds.Size, layout.ExtentSize);
+            return outerSize;
+        }
     }
 
     protected override void ArrangeCore(BRect finalRect)
     {
+        if (Constraint == UiScrollConstraint.ConstrainWidth && double.IsFinite(finalRect.Width))
+        {
+            double thickness = ShowScrollbars ? Math.Min(ScrollbarThickness, Math.Max(0, Math.Min(finalRect.Width, finalRect.Height))) : 0;
+            bool hasVertical = VerticalScrollBarVisibility == UiScrollBarVisibility.Visible;
+            double contentWidth = hasVertical ? Math.Max(1, finalRect.Width - thickness) : Math.Max(1, finalRect.Width);
+
+            double extentWidth = 0;
+            double extentHeight = 0;
+            foreach (UiElement child in Children)
+            {
+                if (child.Visibility == UiVisibility.Collapsed)
+                    continue;
+
+                BSize desired = child.Measure(new BSize(contentWidth, double.PositiveInfinity));
+                extentWidth = Math.Max(extentWidth, desired.Width);
+                extentHeight = Math.Max(extentHeight, desired.Height);
+            }
+
+            if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > finalRect.Height && thickness > 0)
+            {
+                hasVertical = true;
+                contentWidth = Math.Max(1, finalRect.Width - thickness);
+                extentWidth = 0;
+                extentHeight = 0;
+                foreach (UiElement child in Children)
+                {
+                    if (child.Visibility == UiVisibility.Collapsed)
+                        continue;
+
+                    BSize desired = child.Measure(new BSize(contentWidth, double.PositiveInfinity));
+                    extentWidth = Math.Max(extentWidth, desired.Width);
+                    extentHeight = Math.Max(extentHeight, desired.Height);
+                }
+            }
+
+            _contentDesiredExtent = new BSize(extentWidth, extentHeight);
+        }
+        else if (Constraint == UiScrollConstraint.ConstrainHeight && double.IsFinite(finalRect.Height))
+        {
+            double thickness = ShowScrollbars ? Math.Min(ScrollbarThickness, Math.Max(0, Math.Min(finalRect.Width, finalRect.Height))) : 0;
+            bool hasHorizontal = HorizontalScrollBarVisibility == UiScrollBarVisibility.Visible;
+            double contentHeight = hasHorizontal ? Math.Max(1, finalRect.Height - thickness) : Math.Max(1, finalRect.Height);
+
+            double extentWidth = 0;
+            double extentHeight = 0;
+            foreach (UiElement child in Children)
+            {
+                if (child.Visibility == UiVisibility.Collapsed)
+                    continue;
+
+                BSize desired = child.Measure(new BSize(double.PositiveInfinity, contentHeight));
+                extentWidth = Math.Max(extentWidth, desired.Width);
+                extentHeight = Math.Max(extentHeight, desired.Height);
+            }
+
+            if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > finalRect.Width && thickness > 0)
+            {
+                hasHorizontal = true;
+                contentHeight = Math.Max(1, finalRect.Height - thickness);
+                extentWidth = 0;
+                extentHeight = 0;
+                foreach (UiElement child in Children)
+                {
+                    if (child.Visibility == UiVisibility.Collapsed)
+                        continue;
+
+                    BSize desired = child.Measure(new BSize(double.PositiveInfinity, contentHeight));
+                    extentWidth = Math.Max(extentWidth, desired.Width);
+                    extentHeight = Math.Max(extentHeight, desired.Height);
+                }
+            }
+
+            _contentDesiredExtent = new BSize(extentWidth, extentHeight);
+        }
+
         ScrollbarLayout layout = CalculateLayout(finalRect, _contentDesiredExtent);
         ContentBounds = layout.ContentBounds;
         HasVerticalScrollbar = layout.HasVerticalScrollbar;
@@ -127,7 +319,18 @@ public sealed class StandardScrollView : UiScrollView
                 continue;
             }
 
-            child.Arrange(new BRect(ContentBounds.Left - HorizontalOffset, ContentBounds.Top - VerticalOffset, Math.Max(child.DesiredSize.Width, ContentBounds.Width), Math.Max(child.DesiredSize.Height, ContentBounds.Height)));
+            double arrangeWidth = Constraint == UiScrollConstraint.ConstrainWidth
+                ? ContentBounds.Width
+                : Math.Max(child.DesiredSize.Width, ContentBounds.Width);
+            double arrangeHeight = Constraint == UiScrollConstraint.ConstrainHeight
+                ? ContentBounds.Height
+                : Math.Max(child.DesiredSize.Height, ContentBounds.Height);
+
+            child.Arrange(new BRect(
+                ContentBounds.Left - HorizontalOffset,
+                ContentBounds.Top - VerticalOffset,
+                arrangeWidth,
+                arrangeHeight));
         }
     }
 

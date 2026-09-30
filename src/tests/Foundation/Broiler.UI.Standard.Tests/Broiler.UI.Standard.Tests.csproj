@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -17,10 +17,22 @@
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Tooltip.Standard\Broiler.UI.Tooltip.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.FontDialog.Standard\Broiler.UI.FontDialog.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Layout\Broiler.UI.ScrollView.Standard\Broiler.UI.ScrollView.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\Layout\Broiler.UI.TabView.Standard\Broiler.UI.TabView.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\Content\Broiler.UI.Label.Standard\Broiler.UI.Label.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.ComboBox.Standard\Broiler.UI.ComboBox.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.ListView.Standard\Broiler.UI.ListView.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.SpinBox.Standard\Broiler.UI.SpinBox.Standard.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\Commands\Broiler.UI.Button.Standard\Broiler.UI.Button.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.Edit.Standard\Broiler.UI.Edit.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\Commands\Broiler.UI.Menu\Broiler.UI.Menu.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.CheckBox\Broiler.UI.CheckBox.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.RadioButton\Broiler.UI.RadioButton.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.Slider\Broiler.UI.Slider.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.TreeView\Broiler.UI.TreeView.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.RichEdit\Broiler.UI.RichEdit.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.CodeEditor\Broiler.UI.CodeEditor.csproj" />
+    <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.FormatCodeView\Broiler.UI.FormatCodeView.csproj" />
   </ItemGroup>
 
   <ItemGroup>

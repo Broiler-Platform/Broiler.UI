@@ -60,8 +60,6 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
 
     public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
 
-    public StandardCommand? Command { get; set; }
-
     public StandardCommandDispatcher? CommandDispatcher { get; set; }
 
     public bool IsPressed => _isPressed;
@@ -155,9 +153,6 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
 
     protected override bool OnClicking(UiButtonActivationReason reason)
     {
-        if (Command is not null)
-            return Command.TryExecute();
-
         if (!string.IsNullOrWhiteSpace(CommandName) && CommandDispatcher is not null)
             return CommandDispatcher.TryExecute(CommandName);
 

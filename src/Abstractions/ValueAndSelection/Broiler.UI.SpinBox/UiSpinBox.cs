@@ -36,6 +36,13 @@ public abstract class UiSpinBox : UiElement
     private bool _isEnabled = true;
     private BSize _preferredSize = new(120, 32);
 
+    protected UiSpinBox()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiSpinBoxValueChangedEventArgs>? ValueChanged;

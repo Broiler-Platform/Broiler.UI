@@ -10,4 +10,5 @@ public sealed record UiSemanticNode(
     BRect Bounds,
     UiSemanticState State,
     IReadOnlyList<UiSemanticNode> Children,
-    UiSemanticTextInfo? TextInfo = null);
+    UiSemanticTextInfo? TextInfo = null,
+    long Id = 0);

@@ -5,8 +5,10 @@ public sealed record UiSystemSettings(
     double TextScale,
     bool ReducedMotion,
     UiFlowDirection FlowDirection,
-    UiColorScheme ColorScheme = UiColorScheme.Light)
+    UiColorScheme ColorScheme = UiColorScheme.Light,
+    UiDensity Density = UiDensity.Comfortable)
 {
     public static UiSystemSettings Default { get; } =
-        new(UiContrastPreference.NoPreference, 1, ReducedMotion: false, UiFlowDirection.LeftToRight);
+        new(UiContrastPreference.NoPreference, 1, ReducedMotion: false, UiFlowDirection.LeftToRight, UiColorScheme.Light, UiDensity.Comfortable);
 }
+

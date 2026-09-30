@@ -19,6 +19,13 @@ public abstract class UiRadioButton : UiElement
     private UiRadioGroupScope? _groupScope;
     private UiFlowDirection _flowDirection;
 
+    protected UiRadioButton()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiRadioButtonCheckedChangedEventArgs>? CheckedChanged;

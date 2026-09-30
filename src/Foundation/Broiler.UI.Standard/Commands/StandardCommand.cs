@@ -2,7 +2,7 @@ using System;
 
 namespace Broiler.UI.Standard;
 
-public sealed class StandardCommand
+public sealed class StandardCommand : IUiCommand
 {
     public StandardCommand(string name, Action execute, Func<bool>? canExecute = null)
     {
@@ -16,7 +16,19 @@ public sealed class StandardCommand
 
     public string Name { get; }
 
-    public bool CanExecute => CanExecuteCore?.Invoke() ?? true;
+    public string Label => Name;
+
+    public string? AcceleratorText => null;
+
+    public string? TooltipText => null;
+
+    public bool CanExecute(object? parameter = null) => CanExecuteCore?.Invoke() ?? true;
+
+    public void Execute(object? parameter = null) => ExecuteCore();
+
+    public event EventHandler? CanExecuteChanged;
+
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 
     private Action ExecuteCore { get; }
 
@@ -24,7 +36,7 @@ public sealed class StandardCommand
 
     public bool TryExecute()
     {
-        if (!CanExecute)
+        if (!CanExecute())
             return false;
 
         ExecuteCore();

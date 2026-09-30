@@ -38,6 +38,13 @@ public abstract partial class UiCodeEditor : UiElement, IUiTextEditor, IUiVirtua
     private int _compositionEnd = -1;
     private int _desiredColumn = -1;
 
+    protected UiCodeEditor()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<CodeSelectionChangedEventArgs>? SelectionChanged;

@@ -59,6 +59,11 @@ public abstract class UiTreeView : UiElement
     private TreeSecondaryLabelPlacement _secondaryLabelPlacement;
     private bool _rowsValid;
 
+    protected UiTreeView()
+    {
+        Focusable = true;
+    }
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<TreeSelectionChangedEventArgs>? SelectionChanged;

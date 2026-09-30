@@ -18,6 +18,11 @@ public abstract class UiListView : UiElement
     private double _verticalOffset;
     private BSize _preferredSize = new(200, 160);
 
+    protected UiListView()
+    {
+        Focusable = true;
+    }
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiListSelectionChangedEventArgs>? SelectionChanged;

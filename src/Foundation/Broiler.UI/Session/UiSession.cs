@@ -51,6 +51,8 @@ public sealed class UiSession : IDisposable
     /// </summary>
     public bool IsBlockedByExternalModal => _externalModalDepth > 0;
 
+    public event EventHandler<UiSemanticChangedEventArgs>? SemanticChanged;
+
     public bool IsDisposed => _isDisposed;
 
     public void AddRoot(UiElement root)
@@ -144,7 +146,14 @@ public sealed class UiSession : IDisposable
 
         FocusedElement = element;
         if (element is not null)
+        {
             Invalidate(element, UiInvalidationKind.Semantic | UiInvalidationKind.Render);
+            RaiseSemanticChanged(element, UiSemanticChangeKind.FocusChanged);
+        }
+        else if (previous is not null)
+        {
+            RaiseSemanticChanged(previous, UiSemanticChangeKind.FocusChanged);
+        }
     }
 
     public void CaptureInput(UiElement element)
@@ -212,6 +221,23 @@ public sealed class UiSession : IDisposable
         var invalidation = new UiInvalidation(element, kind);
         _invalidations.Add(invalidation);
         Host.Invalidate(invalidation);
+        if (kind.HasFlag(UiInvalidationKind.Semantic))
+            RaiseSemanticChanged(element, UiSemanticChangeKind.StateChanged);
+    }
+
+    public void AnnounceStatus(UiElement source, string message)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(message);
+        RaiseSemanticChanged(source, UiSemanticChangeKind.StatusAnnounced, message);
+    }
+
+    private void RaiseSemanticChanged(UiElement element, UiSemanticChangeKind change, string? message = null)
+    {
+        if (Host is IUiAccessibilityHost a11yHost)
+            a11yHost.NotifySemanticChanged(element, change);
+        SemanticChanged?.Invoke(this, new UiSemanticChangedEventArgs(element, change, element.SemanticId, message));
     }
 
     public BRenderList RenderFrame()

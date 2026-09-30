@@ -43,10 +43,40 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     protected override BSize MeasureCore(BSize availableSize)
     {
-        foreach (UiTabItem tab in Tabs)
-            tab.Content?.Measure(new BSize(PreferredSize.Width, Math.Max(0, PreferredSize.Height - HeaderHeight)));
+        double availableContentWidth = double.IsFinite(availableSize.Width)
+            ? availableSize.Width
+            : double.PositiveInfinity;
+        double availableContentHeight = double.IsFinite(availableSize.Height)
+            ? Math.Max(0, availableSize.Height - HeaderHeight)
+            : double.PositiveInfinity;
+        BSize contentAvailableSize = new(availableContentWidth, availableContentHeight);
 
-        return new BSize(ClampDesired(PreferredSize.Width, availableSize.Width), ClampDesired(PreferredSize.Height, availableSize.Height));
+        double maxContentWidth = 0;
+        double maxContentHeight = 0;
+
+        foreach (UiTabItem tab in Tabs)
+        {
+            if (tab.Content is null)
+                continue;
+
+            BSize desired = tab.Content.Measure(contentAvailableSize);
+            maxContentWidth = Math.Max(maxContentWidth, desired.Width);
+            maxContentHeight = Math.Max(maxContentHeight, desired.Height);
+        }
+
+        double headersWidth = 0;
+        for (int index = 0; index < Tabs.Count; index++)
+            headersWidth += Math.Max(48, BTextMeasurer.MeasureAdvance(Tabs[index].Header, Font) + HeaderPaddingX * 2);
+
+        double desiredWidth = Math.Max(headersWidth, maxContentWidth);
+        double desiredHeight = HeaderHeight + maxContentHeight;
+
+        if (PreferredSize.Width > 0 && double.IsInfinity(availableSize.Width))
+            desiredWidth = Math.Max(desiredWidth, PreferredSize.Width);
+        if (PreferredSize.Height > 0 && double.IsInfinity(availableSize.Height))
+            desiredHeight = Math.Max(desiredHeight, PreferredSize.Height);
+
+        return new BSize(ClampDesired(desiredWidth, availableSize.Width), ClampDesired(desiredHeight, availableSize.Height));
     }
 
     protected override void ArrangeCore(BRect finalRect)
@@ -61,7 +91,19 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
             content.Visibility = InactiveContentPolicy == UiTabContentLifetimePolicy.CollapseInactive && index != SelectedIndex
                 ? UiVisibility.Collapsed
                 : UiVisibility.Visible;
-            content.Arrange(index == SelectedIndex ? contentRect : BRect.Empty);
+
+            if (index == SelectedIndex)
+            {
+                if (double.IsFinite(contentRect.Width) && Math.Abs(content.Bounds.Width - contentRect.Width) > 0.001 && Math.Abs(content.DesiredSize.Width - contentRect.Width) > 0.001)
+                {
+                    content.Measure(contentRect.Size);
+                }
+                content.Arrange(contentRect);
+            }
+            else
+            {
+                content.Arrange(BRect.Empty);
+            }
         }
     }
 

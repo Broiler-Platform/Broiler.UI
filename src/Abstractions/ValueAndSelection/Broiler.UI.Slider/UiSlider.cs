@@ -21,6 +21,13 @@ public abstract class UiSlider : UiElement
     private UiSliderOrientation _orientation;
     private BSize _preferredSize = new(160, 32);
 
+    protected UiSlider()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiSliderValueChangedEventArgs>? ValueChanged;

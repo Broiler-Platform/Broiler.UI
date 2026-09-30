@@ -16,6 +16,11 @@ public abstract class UiTabView : UiElement
     private BSize _preferredSize = new(320, 220);
     private UiTabContentLifetimePolicy _inactiveContentPolicy;
 
+    protected UiTabView()
+    {
+        Focusable = true;
+    }
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiTabSelectionChangedEventArgs>? SelectionChanged;

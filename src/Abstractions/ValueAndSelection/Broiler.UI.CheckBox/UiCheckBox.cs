@@ -16,6 +16,13 @@ public abstract class UiCheckBox : UiElement
     private BSize _preferredSize = new(120, 32);
     private UiFlowDirection _flowDirection;
 
+    protected UiCheckBox()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiCheckStateChangedEventArgs>? CheckStateChanged;

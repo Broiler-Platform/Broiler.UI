@@ -1,6 +1,8 @@
+using System;
 using System.Diagnostics.CodeAnalysis;
 using Broiler.Graphics;
 using Broiler.Graphics.Color;
+using Broiler.Graphics.Text;
 
 namespace Broiler.UI.Standard;
 
@@ -39,6 +41,8 @@ public sealed record StandardThemeTokens
 
     // Focus
     public required BColor FocusRing { get; init; }
+    public double FocusRingThickness { get; init; } = 1;
+    public double FocusRingOffset { get; init; } = 2;
 
     // Status
     public required BColor Success { get; init; }
@@ -50,6 +54,74 @@ public sealed record StandardThemeTokens
     public double ControlRadius { get; init; } = 6;
     public double SmallRadius { get; init; } = 4;
     public double PillRadius { get; init; } = 999;
+
+    // Typography
+    public string FontFamily { get; init; } = BFontStyle.Default.FamilyName;
+    public BFontStyle FontBody { get; init; } = BFontStyle.Default with { Size = 13 };
+    public BFontStyle FontTitle { get; init; } = BFontStyle.Default with { Size = 18, Weight = BFontWeight.SemiBold };
+    public BFontStyle FontSubtitle { get; init; } = BFontStyle.Default with { Size = 14, Weight = BFontWeight.SemiBold };
+    public BFontStyle FontCaption { get; init; } = BFontStyle.Default with { Size = 11 };
+    public BFontStyle FontCode { get; init; } = new BFontStyle("Consolas", 13);
+
+    // Spacing
+    public double SpacingXs { get; init; } = 4;
+    public double SpacingSm { get; init; } = 8;
+    public double SpacingMd { get; init; } = 12;
+    public double SpacingLg { get; init; } = 16;
+    public double SpacingXl { get; init; } = 24;
+    public double SpacingXxl { get; init; } = 32;
+
+    public double Spacing(int step) =>
+        step switch
+        {
+            <= 0 => 0,
+            1 => SpacingXs,
+            2 => SpacingSm,
+            3 => SpacingMd,
+            4 => SpacingLg,
+            5 => SpacingXl,
+            _ => SpacingXxl + (step - 6) * SpacingSm,
+        };
+
+    // Density
+    public UiDensity Density { get; init; } = UiDensity.Comfortable;
+
+    public double DensityFactor =>
+        Density switch
+        {
+            UiDensity.Compact => 0.8,
+            UiDensity.Spacious => 1.25,
+            _ => 1.0,
+        };
+
+    public double ResolveRowHeight(double baseHeight) =>
+        Math.Round(baseHeight * DensityFactor);
+
+    public (double Horizontal, double Vertical) ResolvePadding(double baseHorizontal, double baseVertical) =>
+        (Math.Round(baseHorizontal * DensityFactor), Math.Round(baseVertical * DensityFactor));
+
+    public double ResolvePadding(double basePadding) =>
+        Math.Round(basePadding * DensityFactor);
+
+    // Motion policy
+    public bool ReducedMotion { get; init; } = false;
+
+    public TimeSpan AnimationDurationFast =>
+        ReducedMotion ? TimeSpan.Zero : TimeSpan.FromMilliseconds(100);
+
+    public TimeSpan AnimationDurationNormal =>
+        ReducedMotion ? TimeSpan.Zero : TimeSpan.FromMilliseconds(200);
+
+    public TimeSpan AnimationDurationSlow =>
+        ReducedMotion ? TimeSpan.Zero : TimeSpan.FromMilliseconds(350);
+
+    // Contrast measurements
+    public double TextContrast => StandardContrast.Ratio(Text, Surface);
+    public double TextMutedContrast => StandardContrast.Ratio(TextMuted, Surface);
+    public double AccentContrast => StandardContrast.Ratio(OnAccent, Accent);
+    public double FocusRingContrast => StandardContrast.Ratio(FocusRing, Surface);
+    public bool MeetsAaNormalText => StandardContrast.Meets(Text, Surface, StandardContrast.AaNormalText);
+    public bool MeetsAaLargeOrUi => StandardContrast.Meets(BorderStrong, Surface, StandardContrast.AaLargeOrUi);
 
     // Metadata
     public bool IsDark { get; init; }
@@ -163,6 +235,7 @@ public sealed record StandardThemeTokens
         AccentSoft = BColor.FromArgb(0xFF, 0xEA, 0xEA, 0xFF),
         OnAccent = BColor.White,
         FocusRing = BColor.Black,
+        FocusRingThickness = 2,
         Success = BColor.FromArgb(0xFF, 0x00, 0x60, 0x00),
         Warning = BColor.FromArgb(0xFF, 0x6E, 0x4A, 0x00),
         Danger = BColor.FromArgb(0xFF, 0xA4, 0x00, 0x00),
@@ -188,6 +261,7 @@ public sealed record StandardThemeTokens
         AccentSoft = BColor.FromArgb(0xFF, 0x00, 0x33, 0x3A),
         OnAccent = BColor.Black,
         FocusRing = BColor.FromArgb(0xFF, 0xFF, 0xFF, 0x00),
+        FocusRingThickness = 2,
         Success = BColor.FromArgb(0xFF, 0x3F, 0xF2, 0x3F),
         Warning = BColor.FromArgb(0xFF, 0xFF, 0xD7, 0x00),
         Danger = BColor.FromArgb(0xFF, 0xFF, 0x60, 0x6A),
@@ -205,4 +279,35 @@ public sealed record StandardThemeTokens
         contrast == UiContrastPreference.More
             ? (dark ? HighContrastDark : HighContrastLight)
             : (dark ? Dark : Light);
+
+    /// <summary>
+    /// Selects a preset configured with contrast, dark mode, density, and motion policy.
+    /// </summary>
+    public static StandardThemeTokens Select(
+        UiContrastPreference contrast,
+        bool dark,
+        UiDensity density,
+        bool reducedMotion = false)
+    {
+        StandardThemeTokens baseTokens = Select(contrast, dark);
+        return baseTokens with
+        {
+            Density = density,
+            ReducedMotion = reducedMotion,
+        };
+    }
+
+    /// <summary>
+    /// Selects a preset configured to match all preferences in <paramref name="settings"/>.
+    /// </summary>
+    public static StandardThemeTokens Select(UiSystemSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        return Select(
+            settings.ContrastPreference,
+            settings.ColorScheme == UiColorScheme.Dark,
+            settings.Density,
+            settings.ReducedMotion);
+    }
 }
+

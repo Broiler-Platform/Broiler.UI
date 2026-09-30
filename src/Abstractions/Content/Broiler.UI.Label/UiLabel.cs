@@ -17,6 +17,7 @@ public abstract class UiLabel : UiElement
     private UiTextWrapping _wrapping;
     private UiTextTrimming _trimming;
     private UiTextDirection _direction;
+    private bool _useMnemonic = true;
     private char? _accessKey;
     private UiElement? _target;
 
@@ -40,7 +41,27 @@ public abstract class UiLabel : UiElement
 
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=3; Fingerprint=TBF
     // Broiler-Human:        PENDING
-    public string DisplayText => StripAccessMarkers(Text);
+    public string DisplayText => UseMnemonic ? StripAccessMarkers(Text) : Text;
+
+    public bool UseMnemonic
+    {
+        get => _useMnemonic;
+        set
+        {
+            ThrowIfDisposed();
+            if (_useMnemonic == value)
+                return;
+
+            _useMnemonic = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    public bool IsLiteral
+    {
+        get => !UseMnemonic;
+        set => UseMnemonic = !value;
+    }
 
     // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
     // Broiler-Human:        PENDING
@@ -142,7 +163,7 @@ public abstract class UiLabel : UiElement
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=3; Fingerprint=TBF
     // Broiler-Falsified-If: an explicit AccessKey is ignored in favour of an '&' marker found in Text
     // Broiler-Human:        PENDING
-    public char? EffectiveAccessKey => AccessKey ?? FindAccessMarker(Text);
+    public char? EffectiveAccessKey => UseMnemonic ? (AccessKey ?? FindAccessMarker(Text)) : AccessKey;
 
     // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
     // Broiler-Falsified-If: a target assigned while the label or the target is detached stays set after the two attach to different UI sessions, with no exception

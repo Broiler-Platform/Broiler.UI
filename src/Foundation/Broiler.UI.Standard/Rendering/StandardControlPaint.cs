@@ -1,8 +1,10 @@
 using System;
+using System.Runtime.CompilerServices;
 using Broiler.Graphics;
 using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
 
 namespace Broiler.UI.Standard;
 
@@ -13,49 +15,121 @@ namespace Broiler.UI.Standard;
 /// (e.g. <see cref="StandardThemeTokens.Dark"/>) re-colors every control that
 /// reads these roles.
 /// </summary>
-/// <remarks>
-/// Phase A applies the palette as a process-wide default that controls read when
-/// constructed; call <see cref="ApplyTheme"/> during host startup, before the
-/// control tree is built. Per-session, render-time theme resolution (so a running
-/// session can switch themes live) is a later phase and layers on top of
-/// <see cref="StandardThemeResolver"/>.
-/// </remarks>
 public static class StandardControlPaint
 {
+    private static readonly ConditionalWeakTable<UiSession, StandardThemeTokens> _sessionThemes = new();
     private static StandardThemeTokens _theme = StandardThemeTokens.Light;
 
     /// <summary>The active palette that the role accessors below resolve against.</summary>
     public static StandardThemeTokens Theme => _theme;
 
     /// <summary>
-    /// Selects the active palette. Apply before building the control tree; controls
-    /// capture these role colors when constructed.
+    /// Selects the active global palette. Controls capture these role colors when constructed.
     /// </summary>
     public static void ApplyTheme(StandardThemeTokens theme) =>
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
 
+    /// <summary>
+    /// Sets a theme scoped to a specific <see cref="UiSession"/>, ensuring thread-safe isolation across windows.
+    /// </summary>
+    public static void SetSessionTheme(UiSession session, StandardThemeTokens theme)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(theme);
+        _sessionThemes.AddOrUpdate(session, theme);
+    }
+
+    /// <summary>
+    /// Gets the theme for a session, falling back to the global active theme if not explicitly set.
+    /// </summary>
+    public static StandardThemeTokens GetTheme(UiSession? session)
+    {
+        if (session is not null && _sessionThemes.TryGetValue(session, out StandardThemeTokens? tokens))
+            return tokens;
+        return _theme;
+    }
+
+    /// <summary>
+    /// Gets the theme for an element's session, falling back to the global active theme.
+    /// </summary>
+    public static StandardThemeTokens GetTheme(UiElement? element) =>
+        GetTheme(element?.Session);
+
+    /// <summary>
+    /// Clears any session-scoped theme for the specified <see cref="UiSession"/>.
+    /// </summary>
+    public static bool ClearSessionTheme(UiSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return _sessionThemes.Remove(session);
+    }
+
+    // Surfaces
     public static BColor Surface => _theme.Surface;
     public static BColor SurfaceAlt => _theme.SurfaceAlt;
     public static BColor SurfaceDisabled => _theme.SurfaceDisabled;
+
+    // Borders
     public static BColor Border => _theme.Border;
     public static BColor BorderStrong => _theme.BorderStrong;
+
+    // Text
     public static BColor Text => _theme.Text;
     public static BColor TextMuted => _theme.TextMuted;
     public static BColor TextDisabled => _theme.TextDisabled;
+
+    // Accent
     public static BColor Accent => _theme.Accent;
     public static BColor AccentHover => _theme.AccentHover;
     public static BColor AccentPressed => _theme.AccentPressed;
     public static BColor AccentSoft => _theme.AccentSoft;
     public static BColor OnAccent => _theme.OnAccent;
+
+    // Focus
     public static BColor Focus => _theme.FocusRing;
+    public static double FocusRingThickness => _theme.FocusRingThickness;
+    public static double FocusRingOffset => _theme.FocusRingOffset;
+
+    // Status
     public static BColor Success => _theme.Success;
     public static BColor Warning => _theme.Warning;
     public static BColor Danger => _theme.Danger;
     public static BColor Info => _theme.Info;
 
+    // Radii
     public static double ControlRadius => _theme.ControlRadius;
     public static double SmallRadius => _theme.SmallRadius;
     public static double PillRadius => _theme.PillRadius;
+
+    // Typography
+    public static string FontFamily => _theme.FontFamily;
+    public static BFontStyle FontBody => _theme.FontBody;
+    public static BFontStyle FontTitle => _theme.FontTitle;
+    public static BFontStyle FontSubtitle => _theme.FontSubtitle;
+    public static BFontStyle FontCaption => _theme.FontCaption;
+    public static BFontStyle FontCode => _theme.FontCode;
+
+    // Spacing
+    public static double SpacingXs => _theme.SpacingXs;
+    public static double SpacingSm => _theme.SpacingSm;
+    public static double SpacingMd => _theme.SpacingMd;
+    public static double SpacingLg => _theme.SpacingLg;
+    public static double SpacingXl => _theme.SpacingXl;
+    public static double SpacingXxl => _theme.SpacingXxl;
+    public static double Spacing(int step) => _theme.Spacing(step);
+
+    // Density
+    public static UiDensity Density => _theme.Density;
+    public static double DensityFactor => _theme.DensityFactor;
+    public static double ResolveRowHeight(double baseHeight) => _theme.ResolveRowHeight(baseHeight);
+    public static (double Horizontal, double Vertical) ResolvePadding(double baseHorizontal, double baseVertical) => _theme.ResolvePadding(baseHorizontal, baseVertical);
+    public static double ResolvePadding(double basePadding) => _theme.ResolvePadding(basePadding);
+
+    // Motion
+    public static bool ReducedMotion => _theme.ReducedMotion;
+    public static TimeSpan AnimationDurationFast => _theme.AnimationDurationFast;
+    public static TimeSpan AnimationDurationNormal => _theme.AnimationDurationNormal;
+    public static TimeSpan AnimationDurationSlow => _theme.AnimationDurationSlow;
 
     public static void FillRounded(BRenderList renderList, BRect rect, BColor color, double radius)
     {
@@ -75,12 +149,19 @@ public static class StandardControlPaint
         renderList.StrokeRoundedRect(rect, color, resolved, resolved, thickness);
     }
 
-    public static void DrawFocusRing(BRenderList renderList, BRect rect, double radius)
+    public static void DrawFocusRing(BRenderList renderList, BRect rect, double radius) =>
+        DrawFocusRing(renderList, rect, radius, _theme);
+
+    public static void DrawFocusRing(BRenderList renderList, BRect rect, double radius, StandardThemeTokens theme)
     {
-        BRect focus = Inset(rect, 2);
+        ArgumentNullException.ThrowIfNull(theme);
+        double offset = theme.FocusRingOffset;
+        double thickness = theme.FocusRingThickness;
+        BRect focus = Inset(rect, offset);
         if (!focus.IsEmpty)
-            StrokeRounded(renderList, focus, Focus, Math.Max(0, radius - 2), 1);
+            StrokeRounded(renderList, focus, theme.FocusRing, Math.Max(0, radius - offset), thickness);
     }
+
 
     public static BRect Inset(BRect rect, double amount) =>
         new(

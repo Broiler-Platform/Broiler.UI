@@ -22,6 +22,13 @@ public abstract class UiEdit : UiElement
     private BSize _preferredSize = new(240, 32);
     private UiEditTextDirection _direction;
 
+    protected UiEdit()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiEditTextChangedEventArgs>? TextChanged;

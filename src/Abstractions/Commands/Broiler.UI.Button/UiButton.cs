@@ -15,6 +15,64 @@ public abstract class UiButton : UiElement
     private bool _isDefault;
     private bool _isCancel;
     private BSize _preferredSize = new(96, 32);
+    private IUiCommand? _command;
+    private object? _commandParameter;
+
+    protected UiButton()
+    {
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
+    public IUiCommand? Command
+    {
+        get => _command;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_command, value))
+                return;
+
+            if (_command is not null)
+                _command.CanExecuteChanged -= OnCommandCanExecuteChanged;
+
+            _command = value;
+
+            if (_command is not null)
+            {
+                _command.CanExecuteChanged += OnCommandCanExecuteChanged;
+                if (!string.IsNullOrEmpty(_command.Label) && string.IsNullOrEmpty(Text))
+                    Text = _command.Label;
+                if (!string.IsNullOrEmpty(_command.TooltipText) && string.IsNullOrEmpty(ToolTipText))
+                    ToolTipText = _command.TooltipText;
+                IsEnabled = _command.CanExecute(_commandParameter);
+            }
+
+            Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    public object? CommandParameter
+    {
+        get => _commandParameter;
+        set
+        {
+            ThrowIfDisposed();
+            if (Equals(_commandParameter, value))
+                return;
+
+            _commandParameter = value;
+            if (_command is not null)
+                IsEnabled = _command.CanExecute(_commandParameter);
+        }
+    }
+
+    private void OnCommandCanExecuteChanged(object? sender, EventArgs e)
+    {
+        if (_command is not null)
+            IsEnabled = _command.CanExecute(_commandParameter);
+    }
 
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
@@ -134,6 +192,7 @@ public abstract class UiButton : UiElement
         if (!OnClicking(reason))
             return;
 
+        _command?.Execute(_commandParameter);
         Clicked?.Invoke(this, new UiButtonClickEventArgs(reason));
         Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
@@ -167,5 +226,15 @@ public abstract class UiButton : UiElement
         if (Session?.FocusedElement == this)
             state |= UiSemanticState.Focused;
         return state;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && _command is not null)
+        {
+            _command.CanExecuteChanged -= OnCommandCanExecuteChanged;
+            _command = null;
+        }
+        base.Dispose(disposing);
     }
 }

@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
 
 namespace Broiler.UI;
 
-public abstract class UiElement : IDisposable
+public abstract class UiElement : IDisposable, IUiFocusable
 {
+    private static long _nextSemanticId;
+    public long SemanticId { get; } = Interlocked.Increment(ref _nextSemanticId);
     private readonly List<UiElement> _children = [];
     private UiVisibility _visibility = UiVisibility.Visible;
     private bool _isDisposed;
@@ -32,6 +35,51 @@ public abstract class UiElement : IDisposable
 
             _visibility = value;
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    public virtual bool Focusable { get; set; }
+    public virtual bool IsTabStop { get; set; } = true;
+    public virtual int TabIndex { get; set; }
+    public bool IsFocused => Session?.FocusedElement == this;
+
+    public virtual bool CanFocus
+    {
+        get
+        {
+            if (_isDisposed || Visibility != UiVisibility.Visible || Session is null || !Focusable)
+                return false;
+
+            for (UiElement? current = Parent; current is not null; current = current.Parent)
+            {
+                if (current.Visibility != UiVisibility.Visible)
+                    return false;
+            }
+
+            return true;
+        }
+    }
+
+    public bool Focus()
+    {
+        if (Session is null || !CanFocus)
+            return false;
+
+        Session.SetFocus(this);
+        return Session.FocusedElement == this;
+    }
+
+    public void BringIntoView(BRect? targetRect = null)
+    {
+        ThrowIfDisposed();
+        BRect rect = targetRect ?? Bounds;
+        for (UiElement? current = Parent; current is not null; current = current.Parent)
+        {
+            if (current is IUiScrollable scrollable)
+            {
+                scrollable.MakeVisible(rect);
+                rect = Bounds;
+            }
         }
     }
 
@@ -173,7 +221,11 @@ public abstract class UiElement : IDisposable
         Session?.Invalidate(this, kind);
     }
 
-    public UiSemanticNode GetSemanticNode() => GetSemanticNodeCore();
+    public UiSemanticNode GetSemanticNode()
+    {
+        UiSemanticNode node = GetSemanticNodeCore();
+        return node.Id == 0 ? node with { Id = SemanticId } : node;
+    }
 
     public void Dispose()
     {
@@ -220,7 +272,9 @@ public abstract class UiElement : IDisposable
             GetType().Name,
             Bounds,
             Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None,
-            CreateChildSemanticNodes());
+            CreateChildSemanticNodes(),
+            null,
+            SemanticId);
 
     protected virtual void OnAttached()
     {
