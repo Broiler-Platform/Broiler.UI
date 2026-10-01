@@ -22,28 +22,138 @@ public sealed class StandardRadioButton : UiRadioButton, IStandardThemedControl
     }
 
     private bool _isPressed;
+    private BColor _background = BColor.Transparent;
+    private BColor _foreground = StandardControlPaint.Text;
+    private BColor _borderColor = StandardControlPaint.BorderStrong;
+    private BColor _accent = StandardControlPaint.Accent;
+    private BColor _disabledForeground = StandardControlPaint.TextDisabled;
+    private BColor _focusRing = StandardControlPaint.Focus;
+    private BFontStyle _font = BFontStyle.Default;
+    private double _markSize = 18;
+    private double _spacing = 8;
+    private double _paddingX = 6;
+    private double _paddingY = 6;
 
-    public BColor Background { get; set; } = BColor.Transparent;
+    public BColor Background
+    {
+        get => _background;
+        set
+        {
+            if (_background == value) return;
+            _background = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor Foreground { get; set; } = StandardControlPaint.Text;
+    public BColor Foreground
+    {
+        get => _foreground;
+        set
+        {
+            if (_foreground == value) return;
+            _foreground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor BorderColor { get; set; } = StandardControlPaint.BorderStrong;
+    public BColor BorderColor
+    {
+        get => _borderColor;
+        set
+        {
+            if (_borderColor == value) return;
+            _borderColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor Accent { get; set; } = StandardControlPaint.Accent;
+    public BColor Accent
+    {
+        get => _accent;
+        set
+        {
+            if (_accent == value) return;
+            _accent = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor DisabledForeground { get; set; } = StandardControlPaint.TextDisabled;
+    public BColor DisabledForeground
+    {
+        get => _disabledForeground;
+        set
+        {
+            if (_disabledForeground == value) return;
+            _disabledForeground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
+    public BColor FocusRing
+    {
+        get => _focusRing;
+        set
+        {
+            if (_focusRing == value) return;
+            _focusRing = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BFontStyle Font { get; set; } = BFontStyle.Default;
+    public BFontStyle Font
+    {
+        get => _font;
+        set
+        {
+            if (_font == value) return;
+            _font = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double MarkSize { get; set; } = 18;
+    public double MarkSize
+    {
+        get => _markSize;
+        set
+        {
+            if (_markSize == value) return;
+            _markSize = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double Spacing { get; set; } = 8;
+    public double Spacing
+    {
+        get => _spacing;
+        set
+        {
+            if (_spacing == value) return;
+            _spacing = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double PaddingX { get; set; } = 6;
+    public double PaddingX
+    {
+        get => _paddingX;
+        set
+        {
+            if (_paddingX == value) return;
+            _paddingX = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double PaddingY { get; set; } = 6;
+    public double PaddingY
+    {
+        get => _paddingY;
+        set
+        {
+            if (_paddingY == value) return;
+            _paddingY = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
     public bool IsPressed => _isPressed;
 

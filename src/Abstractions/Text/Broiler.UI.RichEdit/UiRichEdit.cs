@@ -18,7 +18,7 @@ namespace Broiler.UI.RichEdit;
 // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=4; Fingerprint=TBF
 // Broiler-Falsified-If: an edit through ExecuteCommand, InsertDocument, ReplaceTextRange or a delete primitive changes Document while IsReadOnly is true or IsEnabled is false
 // Broiler-Human:        PENDING
-public abstract class UiRichEdit : UiElement
+public abstract class UiRichEdit : UiElement, IUiScrollable
 {
     private readonly RichTextEditor _editor = new();
     private bool _isEnabled = true;
@@ -27,6 +27,8 @@ public abstract class UiRichEdit : UiElement
     private string _placeholderText = string.Empty;
     private BSize _preferredSize = new(320, 160);
     private RichEditScrollPolicy _verticalScrollPolicy = RichEditScrollPolicy.Auto;
+    private RichEditScrollPolicy _horizontalScrollPolicy = RichEditScrollPolicy.Never;
+    private RichEditWrapping _wrapping = RichEditWrapping.Wrap;
     private RichTextRange? _secondarySelection;
 
     protected UiRichEdit()
@@ -201,6 +203,40 @@ public abstract class UiRichEdit : UiElement
             Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render);
         }
     }
+
+    public RichEditScrollPolicy HorizontalScrollPolicy
+    {
+        get => _horizontalScrollPolicy;
+        set
+        {
+            ThrowIfDisposed();
+            if (_horizontalScrollPolicy == value)
+                return;
+
+            _horizontalScrollPolicy = value;
+            Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
+    public RichEditWrapping Wrapping
+    {
+        get => _wrapping;
+        set
+        {
+            ThrowIfDisposed();
+            if (_wrapping == value)
+                return;
+
+            _wrapping = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
+    public virtual bool MakeVisible(BRect targetRect) => false;
+
+    public virtual void ScrollToStart() { }
+
+    public virtual void ScrollToEnd() { }
 
     /// <summary>The inline style the next typed character would take (pending style applied).</summary>
     public InlineStyle CaretInlineStyle => _editor.CaretInlineStyle;

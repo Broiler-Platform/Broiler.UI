@@ -5,6 +5,7 @@ using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.Text;
 using Broiler.Graphics.Windowing;
+using Broiler.Input;
 using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.UI.Standard;
@@ -20,37 +21,198 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     private bool _showScrollbar = true;
     private bool _isDraggingScrollbar;
     private double _dragPointerOffsetWithinThumb;
+    private bool _itemHeightExplicit;
+    private bool _isHighContrast;
+    private static readonly TimeSpan DoubleClickWindow = TimeSpan.FromMilliseconds(400);
+    private UiTimestamp _lastClickTime;
+    private string? _lastClickItemId;
+
+    public StandardListView()
+    {
+        ItemPresenter = DefaultListItemPresenter.Instance;
+    }
 
     public void ApplyTheme(StandardThemeTokens theme)
     {
+        ArgumentNullException.ThrowIfNull(theme);
         Background = theme.Surface;
         Foreground = theme.Text;
+        SecondaryForeground = theme.TextMuted;
         SelectedBackground = theme.AccentSoft;
         FocusRing = theme.FocusRing;
         BorderColor = theme.Border;
+        Accent = theme.Accent;
         ScrollbarTrack = theme.SurfaceDisabled;
         ScrollbarThumb = theme.BorderStrong;
+        _isHighContrast = Math.Abs(Luminance(theme.Surface) - Luminance(theme.Text)) > 0.9;
+        if (!_itemHeightExplicit && ItemPresenter is not null)
+        {
+            _itemHeight = ItemPresenter.GetItemHeight(null, Density, _contentBounds.Width);
+        }
     }
 
-    public BColor Background { get; set; } = StandardControlPaint.Surface;
+    private static double Luminance(BColor c) =>
+        ((0.2126 * c.R) + (0.7152 * c.G) + (0.0722 * c.B)) / 255.0;
 
-    public BColor Foreground { get; set; } = StandardControlPaint.Text;
+    private BColor _background = StandardControlPaint.Surface;
+    private BColor _foreground = StandardControlPaint.Text;
+    private BColor _secondaryForeground = StandardControlPaint.TextMuted;
+    private BColor _selectedBackground = StandardControlPaint.AccentSoft;
+    private BColor _focusRing = StandardControlPaint.Focus;
+    private BColor _borderColor = StandardControlPaint.Border;
+    private BColor _accent = StandardControlPaint.Accent;
+    private BColor _scrollbarTrack = StandardControlPaint.SurfaceDisabled;
+    private BColor _scrollbarThumb = StandardControlPaint.BorderStrong;
+    private BFontStyle _font = BFontStyle.Default;
+    private double _itemHeight = 28;
+    private double _cornerRadius = StandardControlPaint.ControlRadius;
 
-    public BColor SelectedBackground { get; set; } = StandardControlPaint.AccentSoft;
+    public BColor SecondaryForeground
+    {
+        get => _secondaryForeground;
+        set
+        {
+            if (_secondaryForeground == value) return;
+            _secondaryForeground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
+    public BColor Accent
+    {
+        get => _accent;
+        set
+        {
+            if (_accent == value) return;
+            _accent = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor BorderColor { get; set; } = StandardControlPaint.Border;
+    public double EffectiveItemHeight =>
+        _itemHeightExplicit
+            ? _itemHeight
+            : (ItemPresenter?.GetItemHeight(null, Density, _contentBounds.Width) ?? _itemHeight);
 
-    public BColor ScrollbarTrack { get; set; } = StandardControlPaint.SurfaceDisabled;
+    public BColor Background
+    {
+        get => _background;
+        set
+        {
+            if (_background == value) return;
+            _background = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor ScrollbarThumb { get; set; } = StandardControlPaint.BorderStrong;
+    public BColor Foreground
+    {
+        get => _foreground;
+        set
+        {
+            if (_foreground == value) return;
+            _foreground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BFontStyle Font { get; set; } = BFontStyle.Default;
+    public BColor SelectedBackground
+    {
+        get => _selectedBackground;
+        set
+        {
+            if (_selectedBackground == value) return;
+            _selectedBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public double ItemHeight { get; set; } = 26;
+    public BColor FocusRing
+    {
+        get => _focusRing;
+        set
+        {
+            if (_focusRing == value) return;
+            _focusRing = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
+    public BColor BorderColor
+    {
+        get => _borderColor;
+        set
+        {
+            if (_borderColor == value) return;
+            _borderColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    public BColor ScrollbarTrack
+    {
+        get => _scrollbarTrack;
+        set
+        {
+            if (_scrollbarTrack == value) return;
+            _scrollbarTrack = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    public BColor ScrollbarThumb
+    {
+        get => _scrollbarThumb;
+        set
+        {
+            if (_scrollbarThumb == value) return;
+            _scrollbarThumb = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    public BFontStyle Font
+    {
+        get => _font;
+        set
+        {
+            if (_font == value) return;
+            _font = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
+    public double ItemHeight
+    {
+        get => EffectiveItemHeight;
+        set
+        {
+            if (_itemHeight == value && _itemHeightExplicit) return;
+            _itemHeight = value;
+            _itemHeightExplicit = true;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
+    protected override void OnDensityChanged()
+    {
+        base.OnDensityChanged();
+        if (!_itemHeightExplicit && ItemPresenter is not null)
+        {
+            _itemHeight = ItemPresenter.GetItemHeight(null, Density, _contentBounds.Width);
+        }
+    }
+
+    public double CornerRadius
+    {
+        get => _cornerRadius;
+        set
+        {
+            if (_cornerRadius == value) return;
+            _cornerRadius = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     public double WheelScrollItems { get; set; } = 3;
 
@@ -131,14 +293,36 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, CornerRadius, 1);
         context.RenderList.PushClip(_contentBounds);
 
-        for (int index = FirstVisibleIndex; index < Math.Min(Items.Count, FirstVisibleIndex + VisibleItemCount); index++)
+        IUiListItemPresenter presenter = ItemPresenter ?? DefaultListItemPresenter.Instance;
+        int lastIndex = Math.Min(Items.Count, FirstVisibleIndex + VisibleItemCount);
+        for (int index = FirstVisibleIndex; index < lastIndex; index++)
         {
             BRect row = GetItemBounds(index);
             UiListItem item = Items[index];
-            if (IsSelected(item.Id))
-                context.RenderList.FillRect(StandardControlPaint.Inset(row, 2), SelectedBackground);
+            var itemState = new UiListItemState(
+                IsSelected(item.Id),
+                Session?.FocusedElement == this && SelectedIndex == index,
+                item.IsRead,
+                index,
+                Density);
 
-            context.RenderList.DrawText(new BTextRun(item.Text, Font, Foreground), new BPoint(row.Left + 6, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            var renderContext = new UiListItemRenderContext
+            {
+                RenderList = context.RenderList,
+                Bounds = row,
+                Item = item,
+                State = itemState,
+                Font = Font,
+                Foreground = Foreground,
+                SecondaryForeground = SecondaryForeground,
+                Background = Background,
+                SelectedBackground = SelectedBackground,
+                FocusRing = FocusRing,
+                Accent = Accent,
+                IsHighContrast = _isHighContrast,
+            };
+
+            presenter.Render(renderContext);
         }
 
         context.RenderList.PopClip();
@@ -163,34 +347,74 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     protected override IReadOnlyList<UiSemanticNode> CreateVisibleSemanticNodes()
     {
         UpdateVisibleRange();
+        IUiListItemPresenter presenter = ItemPresenter ?? DefaultListItemPresenter.Instance;
         var nodes = new List<UiSemanticNode>(VisibleItemCount);
-        for (int index = FirstVisibleIndex; index < Math.Min(Items.Count, FirstVisibleIndex + VisibleItemCount); index++)
+        int lastIndex = Math.Min(Items.Count, FirstVisibleIndex + VisibleItemCount);
+        for (int index = FirstVisibleIndex; index < lastIndex; index++)
         {
             UiListItem item = Items[index];
-            UiSemanticState state = UiSemanticState.Visible | UiSemanticState.Enabled;
-            if (IsSelected(item.Id))
-                state |= UiSemanticState.Selected;
-            nodes.Add(new UiSemanticNode(UiSemanticRole.Generic, item.Text, GetItemBounds(index), state, []));
+            var itemState = new UiListItemState(
+                IsSelected(item.Id),
+                Session?.FocusedElement == this && SelectedIndex == index,
+                item.IsRead,
+                index,
+                Density);
+
+            var semanticContext = new UiListItemSemanticContext
+            {
+                Item = item,
+                State = itemState,
+                Bounds = GetItemBounds(index),
+                Index = index,
+            };
+
+            nodes.Add(presenter.CreateSemanticNode(semanticContext));
         }
 
         return nodes;
     }
 
-    public void ScrollIntoView(string itemId)
+    public override void ScrollIntoView(string itemId)
     {
         int index = IndexOf(itemId);
         if (index < 0)
             return;
 
-        double top = index * ItemHeight;
-        double bottom = top + ItemHeight;
+        double top = index * EffectiveItemHeight;
+        double bottom = top + EffectiveItemHeight;
         if (top < VerticalOffset)
             SetVerticalOffset(top);
         else if (bottom > VerticalOffset + ViewportHeight)
             SetVerticalOffset(bottom - ViewportHeight);
 
         CoerceOffset();
+        UpdateVisibleRange();
     }
+
+    public override bool MakeVisible(BRect targetRect)
+    {
+        if (_contentBounds.IsEmpty || targetRect.IsEmpty)
+            return false;
+
+        double delta = 0;
+        if (targetRect.Top < _contentBounds.Top)
+            delta = targetRect.Top - _contentBounds.Top;
+        else if (targetRect.Bottom > _contentBounds.Bottom)
+            delta = targetRect.Bottom - _contentBounds.Bottom;
+
+        if (Math.Abs(delta) < 0.5)
+            return false;
+
+        SetVerticalOffset(VerticalOffset + delta);
+        CoerceOffset();
+        UpdateVisibleRange();
+        return true;
+    }
+
+    protected override double GetItemHeightForAnchoring() => EffectiveItemHeight;
+    protected override int GetFirstVisibleIndexForAnchoring() => FirstVisibleIndex;
+    protected override BRect GetItemBoundsForAccessibility(int index) => GetItemBounds(index);
+    protected override BRect ContentBoundsForAccessibility => _contentBounds.IsEmpty ? Bounds : _contentBounds;
 
     private bool HandlePointerButton(UiInputEvent input)
     {
@@ -198,7 +422,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
             return false;
 
         if (input.MouseButtonTransition == MouseButtonTransition.Down)
-            return HandlePointerDown(input.Position, input.KeyModifiers);
+            return HandlePointerDown(input.Position, input.KeyModifiers, input.Header.Timestamp);
 
         if (input.MouseButtonTransition == MouseButtonTransition.Up && _isDraggingScrollbar)
         {
@@ -209,7 +433,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         return false;
     }
 
-    private bool HandlePointerDown(BPoint position, KeyboardModifierState modifiers)
+    private bool HandlePointerDown(BPoint position, KeyboardModifierState modifiers, InputTimestamp timestamp)
     {
         Session?.SetFocus(this);
         if (HasVerticalScrollbar && TryHandleScrollbarPointerDown(position))
@@ -218,12 +442,25 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         if (!_contentBounds.Contains(position))
             return true;
 
-        int index = (int)Math.Floor((VerticalOffset + position.Y - _contentBounds.Top) / Math.Max(1, ItemHeight));
+        int index = (int)Math.Floor((VerticalOffset + position.Y - _contentBounds.Top) / Math.Max(1, EffectiveItemHeight));
         if ((uint)index < (uint)Items.Count)
         {
             string itemId = Items[index].Id;
             ApplyClick(itemId, modifiers);
             ScrollIntoView(itemId);
+
+            var now = new UiTimestamp(TimeSpan.FromTicks(timestamp.Ticks));
+            if (string.Equals(_lastClickItemId, itemId, StringComparison.Ordinal) &&
+                (now.Elapsed - _lastClickTime.Elapsed) <= DoubleClickWindow)
+            {
+                ActivateItem(itemId);
+                _lastClickItemId = null;
+            }
+            else
+            {
+                _lastClickItemId = itemId;
+                _lastClickTime = now;
+            }
         }
 
         return true;
@@ -291,7 +528,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         if (input.WheelAxis != MouseWheelAxis.Vertical)
             return false;
 
-        SetVerticalOffset(VerticalOffset - input.WheelDeltaNotches * ItemHeight * WheelScrollItems);
+        SetVerticalOffset(VerticalOffset - input.WheelDeltaNotches * EffectiveItemHeight * WheelScrollItems);
         CoerceOffset();
         return true;
     }
@@ -306,9 +543,9 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         int index = SelectedIndex >= 0 ? SelectedIndex : 0;
 
         if (IsKey(input, BVirtualKey.Down, "Down"))
-            return SelectAndReveal(Math.Min(Items.Count - 1, index + 1), extend);
+            return SelectAndReveal(SelectedIndex >= 0 ? Math.Min(Items.Count - 1, SelectedIndex + 1) : 0, extend);
         if (IsKey(input, BVirtualKey.Up, "Up"))
-            return SelectAndReveal(Math.Max(0, index - 1), extend);
+            return SelectAndReveal(SelectedIndex >= 0 ? Math.Max(0, SelectedIndex - 1) : 0, extend);
         if (IsKey(input, BVirtualKey.Home, "Home"))
             return SelectAndReveal(0, extend);
         if (IsKey(input, BVirtualKey.End, "End"))
@@ -318,6 +555,16 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         if (IsKey(input, BVirtualKey.PageUp, "PageUp"))
             return SelectAndReveal(Math.Max(0, index - Math.Max(1, VisibleItemCount - 1)), extend);
 
+        // Enter key activates the selected item
+        if (IsKey(input, BVirtualKey.Enter, "Enter") || input.NativeKeyCode == 13)
+        {
+            if (SelectedIndex >= 0 && SelectedIndex < Items.Count)
+            {
+                ActivateItem(Items[SelectedIndex].Id);
+                return true;
+            }
+        }
+
         // Space toggles without moving, which is the only way to build a
         // discontiguous selection from the keyboard alone.
         if (SelectionMode == UiListSelectionMode.Multiple &&
@@ -325,6 +572,13 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
             SelectedIndex >= 0)
         {
             return ToggleItem(Items[SelectedIndex].Id);
+        }
+
+        // Type-ahead prefix jump
+        if (!string.IsNullOrEmpty(input.KeyName) && input.KeyName.Length == 1 && !char.IsControl(input.KeyName[0]))
+        {
+            if (TypeAhead(input.KeyName))
+                return true;
         }
 
         return false;
@@ -380,13 +634,13 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
 
     private void UpdateVisibleRange()
     {
-        double itemHeight = Math.Max(1, ItemHeight);
+        double itemHeight = Math.Max(1, EffectiveItemHeight);
         FirstVisibleIndex = Math.Clamp((int)Math.Floor(VerticalOffset / itemHeight), 0, Math.Max(0, Items.Count));
         VisibleItemCount = Math.Min(Math.Max(0, Items.Count - FirstVisibleIndex), Math.Max(0, (int)Math.Ceiling(ViewportHeight / itemHeight) + 1));
     }
 
     private BRect GetItemBounds(int index) =>
-        new(_contentBounds.Left, _contentBounds.Top + index * ItemHeight - VerticalOffset, _contentBounds.Width, ItemHeight);
+        new(_contentBounds.Left, _contentBounds.Top + index * EffectiveItemHeight - VerticalOffset, _contentBounds.Width, EffectiveItemHeight);
 
     private void RenderScrollbar(UiRenderContext context)
     {
@@ -413,7 +667,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     private bool ShouldShowVerticalScrollbar(double viewportHeight) =>
         ShowScrollbar && ScrollbarThickness > 0 && viewportHeight > 0 && ExtentHeight > viewportHeight;
 
-    private double ExtentHeight => Items.Count * Math.Max(1, ItemHeight);
+    private double ExtentHeight => Items.Count * Math.Max(1, EffectiveItemHeight);
 
     private double ViewportHeight => _contentBounds.IsEmpty ? Bounds.Height : _contentBounds.Height;
 

@@ -18,4 +18,10 @@ public enum UiToolbarOverflow
     /// that guarantees the bar is wide enough for everything on it.
     /// </summary>
     Clip = 1,
+
+    /// <summary>
+    /// Items that do not fit along the current line wrap onto subsequent rows or columns.
+    /// No dropdown menu is opened; the toolbar expands in the cross axis.
+    /// </summary>
+    Wrap = 2,
 }

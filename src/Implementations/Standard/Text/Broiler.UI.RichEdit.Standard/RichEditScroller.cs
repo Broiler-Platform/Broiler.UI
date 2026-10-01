@@ -71,8 +71,53 @@ internal readonly record struct RichEditScrollMetrics(
     }
 }
 
+internal readonly record struct RichEditHorizontalScrollMetrics(
+    RichEditScrollPolicy Policy,
+    BRect Inner,
+    double Extent,
+    double Thickness,
+    double MinimumThumbLength)
+{
+    public double Viewport => Inner.Width;
+
+    public double MaxOffset => Policy == RichEditScrollPolicy.Never
+        ? 0
+        : Math.Max(0, Extent - Viewport);
+
+    public bool HasScrollbar => Policy == RichEditScrollPolicy.Always ||
+                                (Policy == RichEditScrollPolicy.Auto && MaxOffset > 0);
+
+    public BRect Track
+    {
+        get
+        {
+            double thickness = Math.Clamp(Thickness, 0, Inner.Height);
+            return new BRect(Inner.Left, Inner.Bottom - thickness, Inner.Width, thickness);
+        }
+    }
+
+    public double Clamp(double offset) => Math.Clamp(offset, 0, MaxOffset);
+
+    public BRect Thumb(double offset)
+    {
+        BRect track = Track;
+        if (track.Width <= 0)
+            return BRect.Empty;
+
+        double maxOffset = MaxOffset;
+        double thumbWidth = maxOffset <= 0
+            ? track.Width
+            : Math.Clamp(track.Width * (Viewport / Math.Max(Viewport, Extent)),
+                Math.Min(MinimumThumbLength, track.Width), track.Width);
+        double left = track.Left;
+        if (maxOffset > 0)
+            left += (track.Width - thumbWidth) * (offset / maxOffset);
+        return new BRect(left, track.Top, thumbWidth, track.Height);
+    }
+}
+
 /// <summary>
-/// A rich edit's vertical scroll position and the interactions that move it: the
+/// A rich edit's vertical and horizontal scroll position and the interactions that move it: the
 /// wheel and the caret move it by an amount, the scrollbar by a press or a drag
 /// of its thumb, and touch by a drag of the content once it has travelled far
 /// enough to be a drag rather than a tap.
@@ -89,6 +134,7 @@ internal sealed class RichEditScroller
     public const double TouchScrollThreshold = 6;
 
     private double _thumbGrabOffset;
+    private double _horizontalThumbGrabOffset;
     private long? _touchContactId;
     private BPoint _touchStart;
     private BPoint _touchLast;
@@ -97,8 +143,14 @@ internal sealed class RichEditScroller
     /// <summary>How far the content is scrolled up.</summary>
     public double Offset { get; private set; }
 
-    /// <summary>True while the scrollbar thumb is being dragged.</summary>
+    /// <summary>How far the content is scrolled horizontally.</summary>
+    public double OffsetX { get; private set; }
+
+    /// <summary>True while the vertical scrollbar thumb is being dragged.</summary>
     public bool IsDraggingThumb { get; private set; }
+
+    /// <summary>True while the horizontal scrollbar thumb is being dragged.</summary>
+    public bool IsDraggingHorizontalThumb { get; private set; }
 
     /// <summary>
     /// Moves to <paramref name="offset"/>, clamped to what there is to scroll.
@@ -163,7 +215,55 @@ internal sealed class RichEditScroller
         ScrollTo(Math.Clamp(normalized, 0, 1) * metrics.MaxOffset, metrics);
     }
 
-    public void EndThumbDrag() => IsDraggingThumb = false;
+    public void EndThumbDrag()
+    {
+        IsDraggingThumb = false;
+        IsDraggingHorizontalThumb = false;
+    }
+
+    public bool ScrollToX(double offset, in RichEditHorizontalScrollMetrics metrics)
+    {
+        double clamped = metrics.Clamp(offset);
+        if (clamped == OffsetX)
+            return false;
+
+        OffsetX = clamped;
+        return true;
+    }
+
+    public void ClampX(in RichEditHorizontalScrollMetrics metrics) => OffsetX = metrics.Clamp(OffsetX);
+
+    public bool TryPressHorizontalScrollbar(BPoint position, in RichEditHorizontalScrollMetrics metrics)
+    {
+        if (!metrics.HasScrollbar || !metrics.Track.Contains(position))
+            return false;
+
+        BRect thumb = metrics.Thumb(OffsetX);
+        if (thumb.Contains(position))
+        {
+            IsDraggingHorizontalThumb = true;
+            _horizontalThumbGrabOffset = position.X - thumb.Left;
+        }
+        else
+        {
+            double page = metrics.Viewport * 0.85;
+            ScrollToX(OffsetX + (position.X < thumb.Left ? -page : page), metrics);
+        }
+
+        return true;
+    }
+
+    public void DragHorizontalThumb(double pointerX, in RichEditHorizontalScrollMetrics metrics)
+    {
+        BRect track = metrics.Track;
+        BRect thumb = metrics.Thumb(OffsetX);
+        double travel = track.Width - thumb.Width;
+        if (travel <= 0)
+            return;
+
+        double normalized = (pointerX - _horizontalThumbGrabOffset - track.Left) / travel;
+        ScrollToX(Math.Clamp(normalized, 0, 1) * metrics.MaxOffset, metrics);
+    }
 
     /// <summary>
     /// Follows one touch contact. A press is never handled, so the session can
@@ -225,4 +325,14 @@ internal sealed class RichEditScroller
         StandardControlPaint.FillRounded(renderList, metrics.Track, track, StandardControlPaint.PillRadius);
         StandardControlPaint.FillRounded(renderList, metrics.Thumb(Offset), thumb, StandardControlPaint.PillRadius);
     }
+
+    public void PaintHorizontalScrollbar(BRenderList renderList, in RichEditHorizontalScrollMetrics metrics, BColor track, BColor thumb)
+    {
+        if (!metrics.HasScrollbar)
+            return;
+
+        StandardControlPaint.FillRounded(renderList, metrics.Track, track, StandardControlPaint.PillRadius);
+        StandardControlPaint.FillRounded(renderList, metrics.Thumb(OffsetX), thumb, StandardControlPaint.PillRadius);
+    }
 }
+

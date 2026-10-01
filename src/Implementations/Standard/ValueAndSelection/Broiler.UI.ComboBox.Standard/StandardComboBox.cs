@@ -25,24 +25,114 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
     private int _highlightedIndex = -1;
     private int _openSelectedIndex = -1;
     private UiElement? _focusBeforeOpen;
+    private BColor _background = StandardControlPaint.Surface;
+    private BColor _foreground = StandardControlPaint.Text;
+    private BColor _borderColor = StandardControlPaint.Border;
+    private BColor _selectedBackground = StandardControlPaint.AccentSoft;
+    private BColor _popupBackground = StandardControlPaint.Surface;
+    private BColor _focusRing = StandardControlPaint.Focus;
+    private BFontStyle _font = BFontStyle.Default;
+    private double _itemHeight = 28;
+    private double _cornerRadius = StandardControlPaint.ControlRadius;
 
-    public BColor Background { get; set; } = StandardControlPaint.Surface;
+    public BColor Background
+    {
+        get => _background;
+        set
+        {
+            if (_background == value) return;
+            _background = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor Foreground { get; set; } = StandardControlPaint.Text;
+    public BColor Foreground
+    {
+        get => _foreground;
+        set
+        {
+            if (_foreground == value) return;
+            _foreground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor BorderColor { get; set; } = StandardControlPaint.Border;
+    public BColor BorderColor
+    {
+        get => _borderColor;
+        set
+        {
+            if (_borderColor == value) return;
+            _borderColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor SelectedBackground { get; set; } = StandardControlPaint.AccentSoft;
+    public BColor SelectedBackground
+    {
+        get => _selectedBackground;
+        set
+        {
+            if (_selectedBackground == value) return;
+            _selectedBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor PopupBackground { get; set; } = StandardControlPaint.Surface;
+    public BColor PopupBackground
+    {
+        get => _popupBackground;
+        set
+        {
+            if (_popupBackground == value) return;
+            _popupBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
+    public BColor FocusRing
+    {
+        get => _focusRing;
+        set
+        {
+            if (_focusRing == value) return;
+            _focusRing = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BFontStyle Font { get; set; } = BFontStyle.Default;
+    public BFontStyle Font
+    {
+        get => _font;
+        set
+        {
+            if (_font == value) return;
+            _font = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double ItemHeight { get; set; } = 28;
+    public double ItemHeight
+    {
+        get => _itemHeight;
+        set
+        {
+            if (_itemHeight == value) return;
+            _itemHeight = value;
+            Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
+    public double CornerRadius
+    {
+        get => _cornerRadius;
+        set
+        {
+            if (_cornerRadius == value) return;
+            _cornerRadius = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     public BRect PopupBounds { get; private set; } = BRect.Empty;
 

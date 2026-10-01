@@ -33,7 +33,8 @@ internal readonly struct RichEditViewport
         double paddingY,
         PageGeometry? page,
         double shapeGutter,
-        double scrollY)
+        double scrollY,
+        double scrollX = 0)
     {
         Bounds = bounds;
         PaddingX = paddingX;
@@ -41,6 +42,7 @@ internal readonly struct RichEditViewport
         Page = page;
         ShapeGutter = shapeGutter;
         ScrollY = scrollY;
+        ScrollX = scrollX;
     }
 
     /// <summary>The control's arranged bounds.</summary>
@@ -66,6 +68,9 @@ internal readonly struct RichEditViewport
     /// <summary>How far the content is scrolled up, in content units.</summary>
     public double ScrollY { get; }
 
+    /// <summary>How far the content is scrolled left, in content units.</summary>
+    public double ScrollX { get; }
+
     /// <summary>The control's box less its padding: what the content is clipped to.</summary>
     public BRect Inner => InnerOf(Bounds, PaddingX, PaddingY);
 
@@ -76,14 +81,14 @@ internal readonly struct RichEditViewport
     /// </summary>
     public double PageLeft =>
         Page is PageGeometry page
-            ? Bounds.Left + Math.Max(PaddingX, (Bounds.Width - page.Width) / 2)
-            : Bounds.Left + PaddingX;
+            ? Bounds.Left + Math.Max(PaddingX, (Bounds.Width - page.Width) / 2) - ScrollX
+            : Bounds.Left + PaddingX - ScrollX;
 
     /// <summary>The control-space x of the text column's left edge.</summary>
     public double ContentLeft =>
         Page is PageGeometry page
             ? PageLeft + page.MarginLeft
-            : Bounds.Left + PaddingX + ShapeGutter;
+            : Bounds.Left + PaddingX + ShapeGutter - ScrollX;
 
     /// <summary>The control-space y of the content's top, before scrolling.</summary>
     public double ContentTop =>
@@ -126,8 +131,9 @@ internal readonly struct RichEditViewport
         double paddingY,
         RichTextDocument document,
         double zoom,
-        double scrollY) =>
-        new(bounds, paddingX, paddingY, PageFor(document, zoom), ShapeGutterFor(document, zoom), scrollY);
+        double scrollY,
+        double scrollX = 0) =>
+        new(bounds, paddingX, paddingY, PageFor(document, zoom), ShapeGutterFor(document, zoom), scrollY, scrollX);
 
     /// <summary>
     /// The page a document is written for, at the size it is drawn. A document

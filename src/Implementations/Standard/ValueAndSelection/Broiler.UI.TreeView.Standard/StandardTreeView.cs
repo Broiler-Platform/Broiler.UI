@@ -293,7 +293,10 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         // maximum over the rows on screen rather than over all of them.
         double needed = textLeft + advance + 24 + _horizontalOffset - bounds.Left;
         if (needed > _widestRow)
+        {
             _widestRow = needed;
+            Invalidate(UiInvalidationKind.Arrange);
+        }
     }
 
     /// <summary>

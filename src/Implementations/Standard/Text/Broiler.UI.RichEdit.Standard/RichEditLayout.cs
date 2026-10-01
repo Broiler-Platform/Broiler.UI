@@ -53,6 +53,26 @@ internal sealed class RichEditLayout
     private RichEditLayoutSettings _settings;
     private bool _isValid;
     private double _contentHeight;
+    private double _contentExtentWidth;
+
+    private readonly struct CharAdvanceCacheKey(BFontStyle font, char character, TextCapitalization capitalization) : IEquatable<CharAdvanceCacheKey>
+    {
+        public readonly BFontStyle Font = font;
+        public readonly char Character = character;
+        public readonly TextCapitalization Capitalization = capitalization;
+
+        public bool Equals(CharAdvanceCacheKey other) =>
+            Character == other.Character && Capitalization == other.Capitalization && Font.Equals(other.Font);
+
+        public override int GetHashCode() =>
+            HashCode.Combine(Font, Character, (int)Capitalization);
+
+        public override bool Equals(object? obj) =>
+            obj is CharAdvanceCacheKey other && Equals(other);
+    }
+
+    private readonly Dictionary<CharAdvanceCacheKey, double> _charAdvanceCache = new(256);
+    private const int MaxCharAdvanceCacheSize = 1024;
 
     public RichEditLayout(RichEditImageCache images)
     {
@@ -78,6 +98,11 @@ internal sealed class RichEditLayout
     /// paper, not at it.
     /// </summary>
     public double ContentHeight => _contentHeight;
+
+    /// <summary>
+    /// The maximum horizontal extent of laid-out content across all visual lines.
+    /// </summary>
+    public double ContentExtentWidth => _contentExtentWidth;
 
     private RichTextDocument Document =>
         _document ?? throw new InvalidOperationException("The rich edit has not been laid out.");
@@ -171,15 +196,68 @@ internal sealed class RichEditLayout
     /// </summary>
     public VisualLine LineAt(double y)
     {
-        VisualLine line = _lines[0];
-        for (int i = 0; i < _lines.Count; i++)
+        if (_lines.Count == 0)
+            return default;
+
+        int low = 0;
+        int high = _lines.Count - 1;
+        int result = _lines.Count - 1;
+
+        while (low <= high)
         {
-            line = _lines[i];
-            if (y < line.Top + line.Height)
-                break;
+            int mid = low + ((high - low) / 2);
+            if (y < _lines[mid].Top + _lines[mid].Height)
+            {
+                result = mid;
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
+            }
         }
 
-        return line;
+        return _lines[result];
+    }
+
+    /// <summary>
+    /// Gets the contiguous range of visual lines overlapping the vertical span
+    /// [<paramref name="contentMinY"/>..<paramref name="contentMaxY"/>] using binary search.
+    /// </summary>
+    public (int StartIndex, int Count) GetVisibleLineRange(double contentMinY, double contentMaxY)
+    {
+        if (_lines.Count == 0 || contentMaxY < 0)
+            return (0, 0);
+
+        int low = 0;
+        int high = _lines.Count - 1;
+        int firstVisible = _lines.Count;
+
+        while (low <= high)
+        {
+            int mid = low + ((high - low) / 2);
+            VisualLine line = _lines[mid];
+            if (line.Top + line.Height >= contentMinY)
+            {
+                firstVisible = mid;
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
+            }
+        }
+
+        if (firstVisible >= _lines.Count)
+            return (0, 0);
+
+        int lastVisible = firstVisible;
+        while (lastVisible < _lines.Count && _lines[lastVisible].Top <= contentMaxY)
+        {
+            lastVisible++;
+        }
+
+        return (firstVisible, lastVisible - firstVisible);
     }
 
     /// <summary>The position in a line nearest a control-space x.</summary>
@@ -437,6 +515,16 @@ internal sealed class RichEditLayout
         _contentHeight = RichEditViewport.PageFor(document, _settings.Zoom) is PageGeometry page
             ? y + page.MarginTop + page.MarginBottom
             : y;
+
+        double maxLineWidth = 0;
+        foreach (VisualLine line in _lines)
+        {
+            double lineWidth = LineLeft(line, 0) + AdvanceInLine(line, document.Paragraphs[line.ParagraphIndex], line.End);
+            if (lineWidth > maxLineWidth)
+                maxLineWidth = lineWidth;
+        }
+
+        _contentExtentWidth = Math.Max(contentWidth, maxLineWidth);
     }
 
     /// <summary>
@@ -831,7 +919,7 @@ internal sealed class RichEditLayout
 
     private int MeasureWrap(RichTextParagraph paragraph, int start, int segmentEnd, double contentWidth)
     {
-        if (contentWidth <= 0)
+        if (contentWidth <= 0 || _settings.Wrapping == RichEditWrapping.NoWrap)
             return segmentEnd;
 
         string text = paragraph.Text;
@@ -1029,6 +1117,15 @@ internal sealed class RichEditLayout
         }
 
         step = 1;
-        return RichEditTextShaping.MeasurePieces(text[index].ToString(), style, font);
+        var key = new CharAdvanceCacheKey(font, text[index], style.Capitalization);
+        if (_charAdvanceCache.TryGetValue(key, out double cachedAdvance))
+            return cachedAdvance;
+
+        double measuredAdvance = RichEditTextShaping.MeasurePieces(text[index].ToString(), style, font);
+        if (_charAdvanceCache.Count >= MaxCharAdvanceCacheSize)
+            _charAdvanceCache.Clear();
+
+        _charAdvanceCache[key] = measuredAdvance;
+        return measuredAdvance;
     }
 }

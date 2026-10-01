@@ -66,21 +66,104 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         ApplyEditChrome();
     }
 
-    public BColor Background { get; set; } = StandardControlPaint.Surface;
+    private BColor _background = StandardControlPaint.Surface;
+    private BColor _foreground = StandardControlPaint.Text;
+    private BColor _borderColor = StandardControlPaint.Border;
+    private BColor _arrowColor = StandardControlPaint.TextMuted;
+    private BColor _arrowHoverBackground = StandardControlPaint.AccentSoft;
+    private BColor _arrowPressedBackground = StandardControlPaint.SurfaceDisabled;
+    private BColor _disabledForeground = StandardControlPaint.TextDisabled;
+    private BColor _focusRing = StandardControlPaint.Focus;
+    private double _cornerRadius = StandardControlPaint.ControlRadius;
+    private double _arrowWidth = 18;
 
-    public BColor Foreground { get; set; } = StandardControlPaint.Text;
+    public BColor Background
+    {
+        get => _background;
+        set
+        {
+            if (_background == value) return;
+            _background = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor BorderColor { get; set; } = StandardControlPaint.Border;
+    public BColor Foreground
+    {
+        get => _foreground;
+        set
+        {
+            if (_foreground == value) return;
+            _foreground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor ArrowColor { get; set; } = StandardControlPaint.TextMuted;
+    public BColor BorderColor
+    {
+        get => _borderColor;
+        set
+        {
+            if (_borderColor == value) return;
+            _borderColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor ArrowHoverBackground { get; set; } = StandardControlPaint.AccentSoft;
+    public BColor ArrowColor
+    {
+        get => _arrowColor;
+        set
+        {
+            if (_arrowColor == value) return;
+            _arrowColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor ArrowPressedBackground { get; set; } = StandardControlPaint.SurfaceDisabled;
+    public BColor ArrowHoverBackground
+    {
+        get => _arrowHoverBackground;
+        set
+        {
+            if (_arrowHoverBackground == value) return;
+            _arrowHoverBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor DisabledForeground { get; set; } = StandardControlPaint.TextDisabled;
+    public BColor ArrowPressedBackground
+    {
+        get => _arrowPressedBackground;
+        set
+        {
+            if (_arrowPressedBackground == value) return;
+            _arrowPressedBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
+    public BColor DisabledForeground
+    {
+        get => _disabledForeground;
+        set
+        {
+            if (_disabledForeground == value) return;
+            _disabledForeground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    public BColor FocusRing
+    {
+        get => _focusRing;
+        set
+        {
+            if (_focusRing == value) return;
+            _focusRing = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     public BFontStyle Font
     {
@@ -88,10 +171,28 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         set => _edit.Font = value;
     }
 
-    public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
+    public double CornerRadius
+    {
+        get => _cornerRadius;
+        set
+        {
+            if (_cornerRadius == value) return;
+            _cornerRadius = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     /// <summary>How wide the arrow column is. Both arrows share it, one above the other.</summary>
-    public double ArrowWidth { get; set; } = 18;
+    public double ArrowWidth
+    {
+        get => _arrowWidth;
+        set
+        {
+            if (_arrowWidth == value) return;
+            _arrowWidth = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
     /// <summary>The text half, exposed so a dialog can reach its selection and placeholder.</summary>
     public StandardEdit Edit => _edit;

@@ -231,7 +231,10 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
                 // lines being drawn anyway. See _widestColumns.
                 int columns = VisualWidth(snapshot, line, tabSize);
                 if (columns > _widestColumns)
+                {
                     _widestColumns = columns;
+                    Invalidate(UiInvalidationKind.Arrange);
+                }
             }
         }
         finally

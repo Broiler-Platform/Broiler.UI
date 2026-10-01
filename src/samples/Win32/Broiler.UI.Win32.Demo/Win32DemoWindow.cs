@@ -169,7 +169,6 @@ internal sealed class Win32DemoWindow : Direct2DWindow
 
     protected override void OnCreated()
     {
-        StartAnimationTimer(16);
     }
 
     protected override BRenderList? BuildRenderList(BSize clientSize)
@@ -1860,7 +1859,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         return new BPixelBuffer(width, height, rgba);
     }
 
-    private sealed class DemoUiHost : IUiHost, IUiClipboardHost, IUiTextInputHost, IUiWindowHost, IUiWindowChromeHost
+    private sealed class DemoUiHost : IUiHost, IUiClipboardHost, IUiTextInputHost, IUiWindowHost, IUiWindowChromeHost, IUiAnimationHost
     {
         private readonly Win32DemoWindow _window;
         private readonly List<BreakoutHostWindow> _hostWindows = [];
@@ -1883,6 +1882,10 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         public void Present(BRenderList renderList)
         {
         }
+
+        public void StartAnimation() => _window.StartAnimationTimer(16);
+
+        public void StopAnimation() => _window.StopAnimationTimer();
 
         public bool TryGetText(out string text)
         {

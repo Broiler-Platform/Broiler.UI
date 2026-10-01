@@ -18,21 +18,102 @@ public sealed class StandardProgressBar : UiProgressBar, IStandardThemedControl
 
     private static readonly BSize DefaultHorizontalSize = new(160, 16);
 
-    public BColor TrackColor { get; set; } = BColor.FromArgb(0xFF, 0xE6, 0xEA, 0xF0);
+    private BColor _trackColor = BColor.FromArgb(0xFF, 0xE6, 0xEA, 0xF0);
+    private BColor _fillColor = StandardControlPaint.Accent;
+    private BColor _borderColor = BColor.Transparent;
+    private BColor _valueTextColor = BColor.White;
+    private BFontStyle _valueTextFont = new("Segoe UI", 12, BFontWeight.SemiBold);
+    private bool _showValueText = true;
+    private double _cornerRadius = StandardControlPaint.PillRadius;
+    private double _indeterminateSegmentFraction = 0.35;
 
-    public BColor FillColor { get; set; } = StandardControlPaint.Accent;
+    public BColor TrackColor
+    {
+        get => _trackColor;
+        set
+        {
+            if (_trackColor == value) return;
+            _trackColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor BorderColor { get; set; } = BColor.Transparent;
+    public BColor FillColor
+    {
+        get => _fillColor;
+        set
+        {
+            if (_fillColor == value) return;
+            _fillColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor ValueTextColor { get; set; } = BColor.White;
+    public BColor BorderColor
+    {
+        get => _borderColor;
+        set
+        {
+            if (_borderColor == value) return;
+            _borderColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BFontStyle ValueTextFont { get; set; } = new("Segoe UI", 12, BFontWeight.SemiBold);
+    public BColor ValueTextColor
+    {
+        get => _valueTextColor;
+        set
+        {
+            if (_valueTextColor == value) return;
+            _valueTextColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public bool ShowValueText { get; set; } = true;
+    public BFontStyle ValueTextFont
+    {
+        get => _valueTextFont;
+        set
+        {
+            if (_valueTextFont == value) return;
+            _valueTextFont = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public double CornerRadius { get; set; } = StandardControlPaint.PillRadius;
+    public bool ShowValueText
+    {
+        get => _showValueText;
+        set
+        {
+            if (_showValueText == value) return;
+            _showValueText = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public double IndeterminateSegmentFraction { get; set; } = 0.35;
+    public double CornerRadius
+    {
+        get => _cornerRadius;
+        set
+        {
+            if (_cornerRadius == value) return;
+            _cornerRadius = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    public double IndeterminateSegmentFraction
+    {
+        get => _indeterminateSegmentFraction;
+        set
+        {
+            if (_indeterminateSegmentFraction == value) return;
+            _indeterminateSegmentFraction = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     protected override BSize MeasureCore(BSize availableSize)
     {

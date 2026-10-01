@@ -13,6 +13,13 @@ public abstract class UiElement : IDisposable, IUiFocusable
     private readonly List<UiElement> _children = [];
     private UiVisibility _visibility = UiVisibility.Visible;
     private bool _isDisposed;
+    private bool _isMeasureValid;
+    private bool _isArrangeValid;
+    private BSize? _previousAvailableSize;
+    private BRect? _previousFinalRect;
+
+    public bool IsMeasureValid => _isMeasureValid;
+    public bool IsArrangeValid => _isArrangeValid;
 
     public UiElement? Parent { get; private set; }
 
@@ -116,6 +123,8 @@ public abstract class UiElement : IDisposable, IUiFocusable
 
         _children.Insert(index, child);
         child.Parent = this;
+        child._isMeasureValid = false;
+        child._isArrangeValid = false;
         if (Session is not null)
             child.AttachToSession(Session);
 
@@ -159,6 +168,8 @@ public abstract class UiElement : IDisposable, IUiFocusable
         child.Session?.DetachSubtree(child);
 
         child.Parent = null;
+        child._isMeasureValid = false;
+        child._isArrangeValid = false;
         OnChildRemoved(child);
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         return true;
@@ -167,15 +178,32 @@ public abstract class UiElement : IDisposable, IUiFocusable
     public BSize Measure(BSize availableSize)
     {
         ThrowIfDisposed();
+        if (_isMeasureValid && _previousAvailableSize.HasValue && availableSize == _previousAvailableSize.Value)
+            return DesiredSize;
+
+        _previousAvailableSize = availableSize;
+        BSize oldDesiredSize = DesiredSize;
         DesiredSize = Visibility == UiVisibility.Collapsed ? BSize.Empty : MeasureCore(availableSize);
+        _isMeasureValid = true;
+
+        if (DesiredSize != oldDesiredSize)
+        {
+            _isArrangeValid = false;
+        }
+
         return DesiredSize;
     }
 
     public void Arrange(BRect finalRect)
     {
         ThrowIfDisposed();
+        if (_isArrangeValid && _previousFinalRect.HasValue && finalRect == _previousFinalRect.Value)
+            return;
+
+        _previousFinalRect = finalRect;
         Bounds = Visibility == UiVisibility.Collapsed ? BRect.Empty : finalRect;
         ArrangeCore(Bounds);
+        _isArrangeValid = true;
     }
 
     public void Render(UiRenderContext context)
@@ -218,8 +246,31 @@ public abstract class UiElement : IDisposable, IUiFocusable
         if (kind == UiInvalidationKind.None || _isDisposed)
             return;
 
+        if (kind.HasFlag(UiInvalidationKind.Measure))
+        {
+            _isMeasureValid = false;
+            _isArrangeValid = false;
+            for (UiElement? current = Parent; current is not null && current._isMeasureValid; current = current.Parent)
+            {
+                current._isMeasureValid = false;
+                current._isArrangeValid = false;
+            }
+        }
+        else if (kind.HasFlag(UiInvalidationKind.Arrange))
+        {
+            _isArrangeValid = false;
+            for (UiElement? current = Parent; current is not null && current._isArrangeValid; current = current.Parent)
+            {
+                current._isArrangeValid = false;
+            }
+        }
+
         Session?.Invalidate(this, kind);
     }
+
+    public void InvalidateMeasure() => Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange);
+    public void InvalidateArrange() => Invalidate(UiInvalidationKind.Arrange);
+    public void InvalidateRender() => Invalidate(UiInvalidationKind.Render);
 
     public UiSemanticNode GetSemanticNode()
     {
@@ -331,6 +382,10 @@ public abstract class UiElement : IDisposable, IUiFocusable
             child.DetachFromSession();
         OnDetached();
         Session = null;
+        _isMeasureValid = false;
+        _isArrangeValid = false;
+        _previousAvailableSize = null;
+        _previousFinalRect = null;
     }
 
     public bool IsDescendantOf(UiElement possibleAncestor)

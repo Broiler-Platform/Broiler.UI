@@ -29,36 +29,188 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
 
     private bool _isPressed;
     private bool _isHovering;
+    private BColor _background = StandardControlPaint.Surface;
+    private BColor _foreground = StandardControlPaint.Text;
+    private BColor _borderColor = StandardControlPaint.Border;
+    private BColor _disabledForeground = StandardControlPaint.TextDisabled;
+    private BColor _pressedBackground = StandardControlPaint.AccentPressed;
+    private BColor _hoverBackground = StandardControlPaint.AccentHover;
+    private BColor _focusRing = StandardControlPaint.Focus;
+    private BColor _primaryBackground = StandardControlPaint.Accent;
+    private BColor _primaryForeground = BColor.White;
+    private BColor _secondaryHoverBackground = StandardControlPaint.AccentSoft;
+    private BColor _secondaryPressedBackground = StandardControlPaint.SurfaceDisabled;
+    private BFontStyle _font = BFontStyle.Default;
+    private double _paddingX = 14;
+    private double _paddingY = 7;
+    private double _cornerRadius = StandardControlPaint.ControlRadius;
+    private Action<BRenderList, BRect, BColor>? _iconPainter;
+    private double _iconExtent = 16;
 
-    public BColor Background { get; set; } = StandardControlPaint.Surface;
+    public BColor Background
+    {
+        get => _background;
+        set
+        {
+            if (_background == value) return;
+            _background = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor Foreground { get; set; } = StandardControlPaint.Text;
+    public BColor Foreground
+    {
+        get => _foreground;
+        set
+        {
+            if (_foreground == value) return;
+            _foreground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor BorderColor { get; set; } = StandardControlPaint.Border;
+    public BColor BorderColor
+    {
+        get => _borderColor;
+        set
+        {
+            if (_borderColor == value) return;
+            _borderColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor DisabledForeground { get; set; } = StandardControlPaint.TextDisabled;
+    public BColor DisabledForeground
+    {
+        get => _disabledForeground;
+        set
+        {
+            if (_disabledForeground == value) return;
+            _disabledForeground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor PressedBackground { get; set; } = StandardControlPaint.AccentPressed;
+    public BColor PressedBackground
+    {
+        get => _pressedBackground;
+        set
+        {
+            if (_pressedBackground == value) return;
+            _pressedBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor HoverBackground { get; set; } = StandardControlPaint.AccentHover;
+    public BColor HoverBackground
+    {
+        get => _hoverBackground;
+        set
+        {
+            if (_hoverBackground == value) return;
+            _hoverBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
+    public BColor FocusRing
+    {
+        get => _focusRing;
+        set
+        {
+            if (_focusRing == value) return;
+            _focusRing = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor PrimaryBackground { get; set; } = StandardControlPaint.Accent;
+    public BColor PrimaryBackground
+    {
+        get => _primaryBackground;
+        set
+        {
+            if (_primaryBackground == value) return;
+            _primaryBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor PrimaryForeground { get; set; } = BColor.White;
+    public BColor PrimaryForeground
+    {
+        get => _primaryForeground;
+        set
+        {
+            if (_primaryForeground == value) return;
+            _primaryForeground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor SecondaryHoverBackground { get; set; } = StandardControlPaint.AccentSoft;
+    public BColor SecondaryHoverBackground
+    {
+        get => _secondaryHoverBackground;
+        set
+        {
+            if (_secondaryHoverBackground == value) return;
+            _secondaryHoverBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor SecondaryPressedBackground { get; set; } = StandardControlPaint.SurfaceDisabled;
+    public BColor SecondaryPressedBackground
+    {
+        get => _secondaryPressedBackground;
+        set
+        {
+            if (_secondaryPressedBackground == value) return;
+            _secondaryPressedBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BFontStyle Font { get; set; } = BFontStyle.Default;
+    public BFontStyle Font
+    {
+        get => _font;
+        set
+        {
+            if (_font == value) return;
+            _font = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double PaddingX { get; set; } = 14;
+    public double PaddingX
+    {
+        get => _paddingX;
+        set
+        {
+            if (_paddingX == value) return;
+            _paddingX = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double PaddingY { get; set; } = 7;
+    public double PaddingY
+    {
+        get => _paddingY;
+        set
+        {
+            if (_paddingY == value) return;
+            _paddingY = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
+    public double CornerRadius
+    {
+        get => _cornerRadius;
+        set
+        {
+            if (_cornerRadius == value) return;
+            _cornerRadius = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     public StandardCommandDispatcher? CommandDispatcher { get; set; }
 
@@ -76,10 +228,28 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
     /// existed. <see cref="UiButton.Text"/> is still the accessible name when an icon replaces it
     /// on screen, which is what keeps an icon-only bar reachable by screen reader and by name.
     /// </remarks>
-    public Action<BRenderList, BRect, BColor>? IconPainter { get; set; }
+    public Action<BRenderList, BRect, BColor>? IconPainter
+    {
+        get => _iconPainter;
+        set
+        {
+            if (ReferenceEquals(_iconPainter, value)) return;
+            _iconPainter = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
     /// <summary>The side of the square box <see cref="IconPainter"/> draws into.</summary>
-    public double IconExtent { get; set; } = 16;
+    public double IconExtent
+    {
+        get => _iconExtent;
+        set
+        {
+            if (_iconExtent == value) return;
+            _iconExtent = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
     protected override BSize MeasureCore(BSize availableSize)
     {

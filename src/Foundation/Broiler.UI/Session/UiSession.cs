@@ -36,6 +36,8 @@ public sealed class UiSession : IDisposable
 
     public IReadOnlyList<UiInvalidation> Invalidations => _invalidations;
 
+    public bool HasPendingInvalidations => _invalidations.Count > 0;
+
     public UiElement? FocusedElement { get; private set; }
 
     public UiElement? CapturedElement { get; private set; }

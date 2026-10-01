@@ -25,22 +25,102 @@ public sealed class StandardSlider : UiSlider, IStandardThemedControl
     private static readonly BSize DefaultHorizontalSize = new(160, 32);
 
     private bool _isDragging;
+    private BColor _trackColor = BColor.FromArgb(0xFF, 0xDF, 0xE4, 0xEC);
+    private BColor _fillColor = StandardControlPaint.Accent;
+    private BColor _thumbColor = BColor.White;
+    private BColor _borderColor = StandardControlPaint.BorderStrong;
+    private BColor _disabledColor = StandardControlPaint.TextDisabled;
+    private BColor _focusRing = StandardControlPaint.Focus;
+    private double _trackThickness = 5;
+    private double _thumbSize = 22;
 
-    public BColor TrackColor { get; set; } = BColor.FromArgb(0xFF, 0xDF, 0xE4, 0xEC);
+    public BColor TrackColor
+    {
+        get => _trackColor;
+        set
+        {
+            if (_trackColor == value) return;
+            _trackColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor FillColor { get; set; } = StandardControlPaint.Accent;
+    public BColor FillColor
+    {
+        get => _fillColor;
+        set
+        {
+            if (_fillColor == value) return;
+            _fillColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor ThumbColor { get; set; } = BColor.White;
+    public BColor ThumbColor
+    {
+        get => _thumbColor;
+        set
+        {
+            if (_thumbColor == value) return;
+            _thumbColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor BorderColor { get; set; } = StandardControlPaint.BorderStrong;
+    public BColor BorderColor
+    {
+        get => _borderColor;
+        set
+        {
+            if (_borderColor == value) return;
+            _borderColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor DisabledColor { get; set; } = StandardControlPaint.TextDisabled;
+    public BColor DisabledColor
+    {
+        get => _disabledColor;
+        set
+        {
+            if (_disabledColor == value) return;
+            _disabledColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
+    public BColor FocusRing
+    {
+        get => _focusRing;
+        set
+        {
+            if (_focusRing == value) return;
+            _focusRing = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public double TrackThickness { get; set; } = 5;
+    public double TrackThickness
+    {
+        get => _trackThickness;
+        set
+        {
+            if (_trackThickness == value) return;
+            _trackThickness = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double ThumbSize { get; set; } = 22;
+    public double ThumbSize
+    {
+        get => _thumbSize;
+        set
+        {
+            if (_thumbSize == value) return;
+            _thumbSize = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
     public bool IsDragging => _isDragging;
 

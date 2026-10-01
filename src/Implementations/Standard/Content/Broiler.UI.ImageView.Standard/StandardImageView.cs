@@ -14,11 +14,42 @@ public sealed class StandardImageView : UiImageView, IStandardThemedControl
         PlaceholderBorder = theme.Border;
     }
 
-    public BColor PlaceholderBackground { get; set; } = StandardControlPaint.SurfaceAlt;
+    private BColor _placeholderBackground = StandardControlPaint.SurfaceAlt;
+    private BColor _placeholderBorder = StandardControlPaint.Border;
+    private double _cornerRadius = StandardControlPaint.ControlRadius;
 
-    public BColor PlaceholderBorder { get; set; } = StandardControlPaint.Border;
+    public BColor PlaceholderBackground
+    {
+        get => _placeholderBackground;
+        set
+        {
+            if (_placeholderBackground == value) return;
+            _placeholderBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
+    public BColor PlaceholderBorder
+    {
+        get => _placeholderBorder;
+        set
+        {
+            if (_placeholderBorder == value) return;
+            _placeholderBorder = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    public double CornerRadius
+    {
+        get => _cornerRadius;
+        set
+        {
+            if (_cornerRadius == value) return;
+            _cornerRadius = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     protected override BSize MeasureCore(BSize availableSize)
     {

@@ -75,6 +75,15 @@ public sealed partial class StandardRichEdit
             return true;
         }
 
+        if (_scroller.IsDraggingHorizontalThumb)
+        {
+            double before = _scroller.OffsetX;
+            _scroller.DragHorizontalThumb(input.Position.X, HorizontalScrollMetrics);
+            if (_scroller.OffsetX != before)
+                Invalidate(UiInvalidationKind.Render);
+            return true;
+        }
+
         RichTextPosition position = PositionFromPoint(input.Position);
         Selection = new RichTextRange(Selection.Anchor, position);
         EnsureCaretVisible();
@@ -83,6 +92,18 @@ public sealed partial class StandardRichEdit
 
     private bool HandleWheel(UiInputEvent input)
     {
+        bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+        if (shift && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
+        {
+            double delta = input.WheelDeltaNotches * DefaultLineHeight * 3;
+            if (_scroller.ScrollToX(_scroller.OffsetX - delta, HorizontalScrollMetrics))
+            {
+                Invalidate(UiInvalidationKind.Render);
+                return true;
+            }
+            return false;
+        }
+
         if (VerticalScrollPolicy == RichEditScrollPolicy.Never)
             return false;
 
@@ -107,11 +128,21 @@ public sealed partial class StandardRichEdit
     private bool TryBeginScrollbarInteraction(BPoint position)
     {
         double before = _scroller.Offset;
-        if (!_scroller.TryPressScrollbar(position, ScrollMetrics))
-            return false;
+        if (_scroller.TryPressScrollbar(position, ScrollMetrics))
+        {
+            InvalidateIfScrolled(before);
+            return true;
+        }
 
-        InvalidateIfScrolled(before);
-        return true;
+        double beforeX = _scroller.OffsetX;
+        if (_scroller.TryPressHorizontalScrollbar(position, HorizontalScrollMetrics))
+        {
+            if (_scroller.OffsetX != beforeX)
+                Invalidate(UiInvalidationKind.Render);
+            return true;
+        }
+
+        return false;
     }
 
     private void InvalidateIfScrolled(double before)
@@ -122,10 +153,21 @@ public sealed partial class StandardRichEdit
 
     // --- Text and IME ------------------------------------------------------
 
-    private bool HandleTextInput(UiInputEvent input) => InsertCommittedText(input.Text ?? string.Empty);
+    private bool HandleTextInput(UiInputEvent input)
+    {
+        if (IsReadOnly)
+            return false;
+        return InsertCommittedText(input.Text ?? string.Empty);
+    }
 
     private bool HandleTextComposition(UiInputEvent input)
     {
+        if (IsReadOnly)
+        {
+            _compositionText = string.Empty;
+            return false;
+        }
+
         TextCompositionState state = input.CompositionState ?? TextCompositionState.Updated;
         if (state is TextCompositionState.Started or TextCompositionState.Updated)
         {
@@ -147,6 +189,9 @@ public sealed partial class StandardRichEdit
 
     private bool InsertCommittedText(string text)
     {
+        if (IsReadOnly)
+            return false;
+
         text = SanitizeCommittedText(text);
         if (text.Length == 0)
             return false;
@@ -197,10 +242,21 @@ public sealed partial class StandardRichEdit
         // the text, so only a plain or shifted Tab is the editor's to answer.
         bool alt = input.KeyModifiers.HasFlag(KeyboardModifierState.Alt);
         if (!control && !alt && IsKey(input, BVirtualKey.Tab, "Tab"))
+        {
+            if (IsReadOnly)
+                return false;
             return HandleTab(shift);
+        }
 
         if (IsKey(input, BVirtualKey.Enter, "Enter"))
         {
+            if (IsReadOnly)
+            {
+                if (!AcceptsReturn)
+                    Submit();
+                return false;
+            }
+
             if (shift)
                 RunCommand(RichEditCommand.InsertLineBreak);
             else if (AcceptsReturn)
@@ -211,12 +267,16 @@ public sealed partial class StandardRichEdit
         }
         if (IsKey(input, BVirtualKey.Back, "Backspace"))
         {
+            if (IsReadOnly)
+                return false;
             if (DeleteBackward())
                 EnsureCaretVisible();
             return true;
         }
         if (IsKey(input, 0x2E, "Delete"))
         {
+            if (IsReadOnly)
+                return false;
             if (DeleteForward())
                 EnsureCaretVisible();
             return true;
@@ -346,6 +406,9 @@ public sealed partial class StandardRichEdit
             RunCommand(RichEditCommand.Copy);
             return true;
         }
+        if (IsReadOnly)
+            return false;
+
         if (IsKey(input, 0x58, "X"))
         {
             RunCommand(RichEditCommand.Cut);
@@ -463,17 +526,35 @@ public sealed partial class StandardRichEdit
     {
         EnsureLayout();
         double viewport = InnerBounds.Height;
-        if (viewport <= 0)
-            return;
+        bool changed = false;
+        if (viewport > 0)
+        {
+            VisualLine line = _layout.LineForPosition(Selection.Focus).Line;
+            double newScroll = _scroller.Offset;
+            if (line.Top < newScroll)
+                newScroll = line.Top;
+            else if (line.Top + line.Height > newScroll + viewport)
+                newScroll = line.Top + line.Height - viewport;
 
-        VisualLine line = _layout.LineForPosition(Selection.Focus).Line;
-        double newScroll = _scroller.Offset;
-        if (line.Top < newScroll)
-            newScroll = line.Top;
-        else if (line.Top + line.Height > newScroll + viewport)
-            newScroll = line.Top + line.Height - viewport;
+            if (_scroller.ScrollTo(newScroll, ScrollMetrics))
+                changed = true;
+        }
 
-        if (_scroller.ScrollTo(newScroll, ScrollMetrics))
+        double viewportWidth = InnerBounds.Width;
+        if (viewportWidth > 0 && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
+        {
+            double caretContentX = _layout.CaretX(Selection.Focus, 0);
+            double newScrollX = _scroller.OffsetX;
+            if (caretContentX < newScrollX)
+                newScrollX = caretContentX;
+            else if (caretContentX > newScrollX + viewportWidth - 20)
+                newScrollX = caretContentX - viewportWidth + 20;
+
+            if (_scroller.ScrollToX(newScrollX, HorizontalScrollMetrics))
+                changed = true;
+        }
+
+        if (changed)
             Invalidate(UiInvalidationKind.Render);
     }
 }

@@ -29,32 +29,164 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
 
     private bool _isPressed;
     private bool _isHovering;
+    private BColor _background = StandardControlPaint.Surface;
+    private BColor _checkedBackground = StandardControlPaint.AccentSoft;
+    private BColor _indeterminateBackground = BColor.FromArgb(0xFF, 0xF0, 0xF5, 0xFF);
+    private BColor _foreground = StandardControlPaint.Accent;
+    private BColor _borderColor = BColor.FromArgb(0xFF, 0x9B, 0xBA, 0xE0);
+    private BColor _disabledForeground = StandardControlPaint.TextDisabled;
+    private BColor _pressedBackground = BColor.FromArgb(0xFF, 0xD8, 0xE8, 0xFC);
+    private BColor _hoverBackground = BColor.FromArgb(0xFF, 0xF2, 0xF7, 0xFF);
+    private BColor _focusRing = StandardControlPaint.Focus;
+    private BFontStyle _font = BFontStyle.Default;
+    private double _paddingX = 14;
+    private double _paddingY = 7;
+    private double _cornerRadius = StandardControlPaint.ControlRadius;
+    private Action<BRenderList, BRect, BColor>? _iconPainter;
+    private double _iconExtent = 16;
 
-    public BColor Background { get; set; } = StandardControlPaint.Surface;
+    public BColor Background
+    {
+        get => _background;
+        set
+        {
+            if (_background == value) return;
+            _background = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor CheckedBackground { get; set; } = StandardControlPaint.AccentSoft;
+    public BColor CheckedBackground
+    {
+        get => _checkedBackground;
+        set
+        {
+            if (_checkedBackground == value) return;
+            _checkedBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor IndeterminateBackground { get; set; } = BColor.FromArgb(0xFF, 0xF0, 0xF5, 0xFF);
+    public BColor IndeterminateBackground
+    {
+        get => _indeterminateBackground;
+        set
+        {
+            if (_indeterminateBackground == value) return;
+            _indeterminateBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor Foreground { get; set; } = StandardControlPaint.Accent;
+    public BColor Foreground
+    {
+        get => _foreground;
+        set
+        {
+            if (_foreground == value) return;
+            _foreground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor BorderColor { get; set; } = BColor.FromArgb(0xFF, 0x9B, 0xBA, 0xE0);
+    public BColor BorderColor
+    {
+        get => _borderColor;
+        set
+        {
+            if (_borderColor == value) return;
+            _borderColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor DisabledForeground { get; set; } = StandardControlPaint.TextDisabled;
+    public BColor DisabledForeground
+    {
+        get => _disabledForeground;
+        set
+        {
+            if (_disabledForeground == value) return;
+            _disabledForeground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor PressedBackground { get; set; } = BColor.FromArgb(0xFF, 0xD8, 0xE8, 0xFC);
+    public BColor PressedBackground
+    {
+        get => _pressedBackground;
+        set
+        {
+            if (_pressedBackground == value) return;
+            _pressedBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor HoverBackground { get; set; } = BColor.FromArgb(0xFF, 0xF2, 0xF7, 0xFF);
+    public BColor HoverBackground
+    {
+        get => _hoverBackground;
+        set
+        {
+            if (_hoverBackground == value) return;
+            _hoverBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
+    public BColor FocusRing
+    {
+        get => _focusRing;
+        set
+        {
+            if (_focusRing == value) return;
+            _focusRing = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
-    public BFontStyle Font { get; set; } = BFontStyle.Default;
+    public BFontStyle Font
+    {
+        get => _font;
+        set
+        {
+            if (_font == value) return;
+            _font = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double PaddingX { get; set; } = 14;
+    public double PaddingX
+    {
+        get => _paddingX;
+        set
+        {
+            if (_paddingX == value) return;
+            _paddingX = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double PaddingY { get; set; } = 7;
+    public double PaddingY
+    {
+        get => _paddingY;
+        set
+        {
+            if (_paddingY == value) return;
+            _paddingY = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
-    public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
+    public double CornerRadius
+    {
+        get => _cornerRadius;
+        set
+        {
+            if (_cornerRadius == value) return;
+            _cornerRadius = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     public StandardCommandDispatcher? CommandDispatcher { get; set; }
 
@@ -66,10 +198,28 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     /// the icon without it knowing anything about them. Null leaves the control drawing its
     /// caption, exactly as it did before icons existed.
     /// </summary>
-    public Action<BRenderList, BRect, BColor>? IconPainter { get; set; }
+    public Action<BRenderList, BRect, BColor>? IconPainter
+    {
+        get => _iconPainter;
+        set
+        {
+            if (ReferenceEquals(_iconPainter, value)) return;
+            _iconPainter = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
     /// <summary>The side of the square box <see cref="IconPainter"/> draws into.</summary>
-    public double IconExtent { get; set; } = 16;
+    public double IconExtent
+    {
+        get => _iconExtent;
+        set
+        {
+            if (_iconExtent == value) return;
+            _iconExtent = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
 
     protected override BSize MeasureCore(BSize availableSize)
     {

@@ -40,7 +40,8 @@ internal readonly record struct RichEditPaintFrame(
     RichTextRange? SecondarySelection,
     string PlaceholderText,
     string CompositionText,
-    InlineStyle CompositionStyle);
+    InlineStyle CompositionStyle,
+    bool IsReadOnly = false);
 
 /// <summary>
 /// Paints a laid-out rich-text document: the sheet, the floating and running
@@ -508,18 +509,27 @@ internal sealed class RichEditPainter
             yield return line.ToString();
     }
 
+    private (int Start, int Count) VisibleLines(RichEditViewport view, BRect inner)
+    {
+        double contentMinY = Math.Max(0, inner.Top - view.ContentTop + view.ScrollY);
+        double contentMaxY = inner.Bottom - view.ContentTop + view.ScrollY;
+        return _layout.GetVisibleLineRange(contentMinY, contentMaxY);
+    }
+
     private void DrawRunBackgrounds(BRenderList renderList, in RichEditPaintFrame frame, BRect inner)
     {
         if (!frame.IsEnabled)
             return;
 
         RichEditViewport view = frame.View;
-        foreach (VisualLine line in _layout.Lines)
+        (int start, int count) = VisibleLines(view, inner);
+        for (int i = start; i < start + count; i++)
         {
-            double y = view.ToControlY(line.Top);
-            if (y + line.Height < inner.Top || y > inner.Bottom || line.End <= line.Start)
+            VisualLine line = _layout.Lines[i];
+            if (line.End <= line.Start)
                 continue;
 
+            double y = view.ToControlY(line.Top);
             foreach (LineSegment segment in _layout.LineSegments(line, view.ContentLeft))
             {
                 if (!segment.Style.Background.IsEmpty && segment.Advance > 0)
@@ -534,12 +544,11 @@ internal sealed class RichEditPainter
             return;
 
         RichEditViewport view = frame.View;
-        foreach (VisualLine line in _layout.Lines)
+        (int start, int count) = VisibleLines(view, inner);
+        for (int i = start; i < start + count; i++)
         {
+            VisualLine line = _layout.Lines[i];
             double y = view.ToControlY(line.Top);
-            if (y + line.Height < inner.Top || y > inner.Bottom)
-                continue;
-
             if (_layout.TrySelectionSpan(line, selection, view.ContentLeft, out double left, out double width))
                 renderList.FillRect(new BRect(left, y, width, line.Height), color);
         }
@@ -549,12 +558,14 @@ internal sealed class RichEditPainter
     {
         RichEditViewport view = frame.View;
         BColor fallback = frame.IsEnabled ? frame.Palette.Foreground : frame.Palette.PlaceholderForeground;
-        foreach (VisualLine line in _layout.Lines)
+        (int start, int count) = VisibleLines(view, inner);
+        for (int i = start; i < start + count; i++)
         {
-            double y = view.ToControlY(line.Top);
-            if (y + line.Height < inner.Top || y > inner.Bottom || line.End <= line.Start)
+            VisualLine line = _layout.Lines[i];
+            if (line.End <= line.Start)
                 continue;
 
+            double y = view.ToControlY(line.Top);
             foreach (LineSegment segment in _layout.LineSegments(line, view.ContentLeft))
             {
                 BColor color = frame.IsEnabled && !segment.Style.Foreground.IsEmpty ? segment.Style.Foreground : fallback;
@@ -586,9 +597,11 @@ internal sealed class RichEditPainter
     {
         RichEditViewport view = frame.View;
         BColor fallback = frame.IsEnabled ? frame.Palette.Foreground : frame.Palette.PlaceholderForeground;
+        (int start, int count) = VisibleLines(view, inner);
         int drawnParagraph = -1;
-        foreach (VisualLine line in _layout.Lines)
+        for (int i = start; i < start + count; i++)
         {
+            VisualLine line = _layout.Lines[i];
             if (line.ParagraphIndex == drawnParagraph)
                 continue;
 
@@ -598,9 +611,6 @@ internal sealed class RichEditPainter
                 continue;
 
             double y = view.ToControlY(line.Top);
-            if (y + line.Height < inner.Top || y > inner.Bottom)
-                continue;
-
             InlineStyle style = frame.Document.Paragraphs[line.ParagraphIndex].StyleAt(0);
             BColor color = frame.IsEnabled && !style.Foreground.IsEmpty ? style.Foreground : fallback;
             // The marker travels with the text it introduces, so a centered or
@@ -685,7 +695,7 @@ internal sealed class RichEditPainter
 
     private void DrawCaret(BRenderList renderList, in RichEditPaintFrame frame)
     {
-        if (!frame.IsFocused || !frame.IsEnabled)
+        if (!frame.IsFocused || !frame.IsEnabled || frame.IsReadOnly)
             return;
 
         renderList.FillRect(_layout.CaretBounds(frame.Selection.Focus, frame.View), frame.Palette.CaretColor);

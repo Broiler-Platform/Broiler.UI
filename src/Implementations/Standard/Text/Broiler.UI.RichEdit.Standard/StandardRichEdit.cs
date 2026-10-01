@@ -257,9 +257,23 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
 
     protected override BSize MeasureCore(BSize availableSize)
     {
-        double width = ClampDesired(PreferredSize.Width, availableSize.Width);
-        double height = ClampDesired(PreferredSize.Height, availableSize.Height);
-        return new BSize(width, height);
+        if (VerticalScrollPolicy == RichEditScrollPolicy.Never)
+        {
+            double contentWidth = double.IsFinite(availableSize.Width) && availableSize.Width > 0
+                ? Math.Max(0, availableSize.Width - (PaddingX * 2))
+                : PreferredSize.Width;
+
+            _layout.Update(Document, new RichEditLayoutSettings(contentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping));
+            double measuredHeight = _layout.ContentHeight + (PaddingY * 2);
+            double width = double.IsFinite(availableSize.Width) && availableSize.Width > 0
+                ? availableSize.Width
+                : (Wrapping == RichEditWrapping.NoWrap ? _layout.ContentExtentWidth + (PaddingX * 2) : PreferredSize.Width);
+            return new BSize(Math.Max(1, width), Math.Max(1, measuredHeight));
+        }
+
+        double w = ClampDesired(PreferredSize.Width, availableSize.Width);
+        double h = ClampDesired(PreferredSize.Height, availableSize.Height);
+        return new BSize(w, h);
     }
 
     protected override void RenderCore(UiRenderContext context)
@@ -297,10 +311,12 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
             SecondarySelection,
             PlaceholderText,
             _compositionText,
-            focused && _compositionText.Length > 0 ? CaretInlineStyle : InlineStyle.Default));
+            focused && _compositionText.Length > 0 ? CaretInlineStyle : InlineStyle.Default,
+            IsReadOnly));
         renderList.PopClip();
 
         _scroller.PaintScrollbar(renderList, ScrollMetrics, ScrollbarTrack, ScrollbarThumb);
+        _scroller.PaintHorizontalScrollbar(renderList, HorizontalScrollMetrics, ScrollbarTrack, ScrollbarThumb);
         PublishCaret(focused, view);
         if (IsContextMenuOpen)
             context.Defer(RenderContextMenu);
@@ -366,10 +382,70 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     /// have moved since the last one.
     /// </summary>
     private RichEditViewport View =>
-        RichEditViewport.Create(Bounds, PaddingX, PaddingY, Document, _zoom, _scroller.Offset);
+        RichEditViewport.Create(Bounds, PaddingX, PaddingY, Document, _zoom, _scroller.Offset, _scroller.OffsetX);
 
     private RichEditScrollMetrics ScrollMetrics =>
         new(VerticalScrollPolicy, InnerBounds, _layout.ContentHeight, ScrollbarThickness, MinimumScrollbarThumbLength);
+
+    private RichEditHorizontalScrollMetrics HorizontalScrollMetrics =>
+        new(HorizontalScrollPolicy, InnerBounds, _layout.ContentExtentWidth, ScrollbarThickness, MinimumScrollbarThumbLength);
+
+    public double HorizontalScrollOffset => _scroller.OffsetX;
+
+    public bool HasHorizontalScrollbar => HorizontalScrollMetrics.HasScrollbar;
+
+    public override void ScrollToStart()
+    {
+        _scroller.ScrollTo(0, ScrollMetrics);
+        _scroller.ScrollToX(0, HorizontalScrollMetrics);
+        Invalidate(UiInvalidationKind.Render);
+    }
+
+    public override void ScrollToEnd()
+    {
+        _scroller.ScrollTo(ScrollMetrics.MaxOffset, ScrollMetrics);
+        Invalidate(UiInvalidationKind.Render);
+    }
+
+    public override bool MakeVisible(BRect targetRect)
+    {
+        EnsureLayout();
+        bool scrolled = false;
+        double viewportHeight = InnerBounds.Height;
+        if (viewportHeight > 0 && VerticalScrollPolicy != RichEditScrollPolicy.Never)
+        {
+            double newScrollY = _scroller.Offset;
+            double top = targetRect.Top - View.ContentTop + _scroller.Offset;
+            double bottom = targetRect.Bottom - View.ContentTop + _scroller.Offset;
+            if (top < newScrollY)
+                newScrollY = top;
+            else if (bottom > newScrollY + viewportHeight)
+                newScrollY = bottom - viewportHeight;
+
+            if (_scroller.ScrollTo(newScrollY, ScrollMetrics))
+                scrolled = true;
+        }
+
+        double viewportWidth = InnerBounds.Width;
+        if (viewportWidth > 0 && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
+        {
+            double newScrollX = _scroller.OffsetX;
+            double left = targetRect.Left - View.ContentLeft + _scroller.OffsetX;
+            double right = targetRect.Right - View.ContentLeft + _scroller.OffsetX;
+            if (left < newScrollX)
+                newScrollX = left;
+            else if (right > newScrollX + viewportWidth)
+                newScrollX = right - viewportWidth;
+
+            if (_scroller.ScrollToX(newScrollX, HorizontalScrollMetrics))
+                scrolled = true;
+        }
+
+        if (scrolled)
+            Invalidate(UiInvalidationKind.Render);
+
+        return scrolled;
+    }
 
     private BRect InnerBounds => RichEditViewport.InnerOf(Bounds, PaddingX, PaddingY);
 
@@ -388,12 +464,13 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     private void EnsureLayout()
     {
         RichTextDocument document = Document;
-        var settings = new RichEditLayoutSettings(View.ContentWidth, _zoom, Font, IndentWidth, TabStopWidth);
+        var settings = new RichEditLayoutSettings(View.ContentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping);
         if (!_layout.Update(document, settings))
             return;
 
         _images.ReleaseUnused(document);
         _scroller.Clamp(ScrollMetrics);
+        _scroller.ClampX(HorizontalScrollMetrics);
     }
 
     private void SetLayoutSpacing(ref double field, double value)

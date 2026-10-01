@@ -29,7 +29,8 @@ internal readonly record struct RichEditLayoutSettings(
     double Zoom,
     BFontStyle Font,
     double IndentWidth,
-    double TabStopWidth)
+    double TabStopWidth,
+    RichEditWrapping Wrapping = RichEditWrapping.Wrap)
 {
     /// <summary>
     /// The default distance between tab stops: half an inch at 96 dpi, which is

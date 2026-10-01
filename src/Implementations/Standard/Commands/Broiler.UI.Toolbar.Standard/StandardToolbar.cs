@@ -81,6 +81,92 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
             Math.Max(0, availableSize.Width - Padding * 2),
             Math.Max(0, availableSize.Height - Padding * 2));
 
+        if (Overflow == UiToolbarOverflow.Wrap)
+        {
+            if (Orientation == UiToolbarOrientation.Horizontal && double.IsFinite(contentAvailable.Width) && contentAvailable.Width > 0)
+            {
+                double maxLineWidth = 0;
+                double totalHeight = 0;
+                double currentLineWidth = 0;
+                double currentLineHeight = 0;
+                int itemsOnLine = 0;
+
+                foreach (UiElement child in Children)
+                {
+                    if (child.Visibility == UiVisibility.Collapsed)
+                        continue;
+
+                    BSize desired = child.Measure(contentAvailable);
+                    double lead = itemsOnLine > 0 ? BreakExtent(child) + Spacing : 0;
+                    if (itemsOnLine > 0 && currentLineWidth + lead + desired.Width > contentAvailable.Width)
+                    {
+                        maxLineWidth = Math.Max(maxLineWidth, currentLineWidth);
+                        totalHeight += currentLineHeight + Spacing;
+                        currentLineWidth = desired.Width;
+                        currentLineHeight = desired.Height;
+                        itemsOnLine = 1;
+                    }
+                    else
+                    {
+                        currentLineWidth += lead + desired.Width;
+                        currentLineHeight = Math.Max(currentLineHeight, desired.Height);
+                        itemsOnLine++;
+                    }
+                }
+
+                if (itemsOnLine > 0)
+                {
+                    maxLineWidth = Math.Max(maxLineWidth, currentLineWidth);
+                    totalHeight += currentLineHeight;
+                }
+
+                double wrapWidth = Math.Max(maxLineWidth + Padding * 2, PreferredSize.Width);
+                double wrapHeight = Math.Max(totalHeight + Padding * 2, PreferredSize.Height);
+                return new BSize(ClampDesired(wrapWidth, availableSize.Width), ClampDesired(wrapHeight, availableSize.Height));
+            }
+            else if (Orientation == UiToolbarOrientation.Vertical && double.IsFinite(contentAvailable.Height) && contentAvailable.Height > 0)
+            {
+                double maxColHeight = 0;
+                double totalWidth = 0;
+                double currentColHeight = 0;
+                double currentColWidth = 0;
+                int itemsOnCol = 0;
+
+                foreach (UiElement child in Children)
+                {
+                    if (child.Visibility == UiVisibility.Collapsed)
+                        continue;
+
+                    BSize desired = child.Measure(contentAvailable);
+                    double lead = itemsOnCol > 0 ? BreakExtent(child) + Spacing : 0;
+                    if (itemsOnCol > 0 && currentColHeight + lead + desired.Height > contentAvailable.Height)
+                    {
+                        maxColHeight = Math.Max(maxColHeight, currentColHeight);
+                        totalWidth += currentColWidth + Spacing;
+                        currentColHeight = desired.Height;
+                        currentColWidth = desired.Width;
+                        itemsOnCol = 1;
+                    }
+                    else
+                    {
+                        currentColHeight += lead + desired.Height;
+                        currentColWidth = Math.Max(currentColWidth, desired.Width);
+                        itemsOnCol++;
+                    }
+                }
+
+                if (itemsOnCol > 0)
+                {
+                    maxColHeight = Math.Max(maxColHeight, currentColHeight);
+                    totalWidth += currentColWidth;
+                }
+
+                double wrapWidth = Math.Max(totalWidth + Padding * 2, PreferredSize.Width);
+                double wrapHeight = Math.Max(maxColHeight + Padding * 2, PreferredSize.Height);
+                return new BSize(ClampDesired(wrapWidth, availableSize.Width), ClampDesired(wrapHeight, availableSize.Height));
+            }
+        }
+
         double primary = 0;
         double cross = 0;
         int visibleCount = 0;
@@ -135,6 +221,105 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
         {
             if (child.Visibility == UiVisibility.Collapsed)
                 child.Arrange(BRect.Empty);
+        }
+
+        if (Overflow == UiToolbarOverflow.Wrap)
+        {
+            CloseOverflow();
+            if (horizontal)
+            {
+                double currentLineWidth = 0;
+                double currentLineHeight = 0;
+                int itemsOnLine = 0;
+                var currentLineItems = new List<(UiElement Element, double Width, double Height, double Lead)>();
+                double lineY = content.Top;
+
+                void FlushLine()
+                {
+                    if (currentLineItems.Count == 0) return;
+                    double x = content.Left;
+                    foreach (var item in currentLineItems)
+                    {
+                        x += item.Lead;
+                        double y = lineY + Math.Max(0, (currentLineHeight - item.Height) / 2);
+                        item.Element.Arrange(new BRect(x, y, item.Width, item.Height));
+                        x += item.Width;
+                    }
+                    lineY += currentLineHeight + Spacing;
+                    currentLineItems.Clear();
+                    currentLineWidth = 0;
+                    currentLineHeight = 0;
+                    itemsOnLine = 0;
+                }
+
+                foreach (UiElement child in visible)
+                {
+                    double lead = itemsOnLine > 0 ? BreakExtent(child) + Spacing : 0;
+                    double w = child.DesiredSize.Width;
+                    double h = child.DesiredSize.Height;
+
+                    if (itemsOnLine > 0 && currentLineWidth + lead + w > content.Width)
+                    {
+                        FlushLine();
+                        lead = 0;
+                    }
+
+                    currentLineItems.Add((child, w, h, lead));
+                    currentLineWidth += lead + w;
+                    currentLineHeight = Math.Max(currentLineHeight, h);
+                    itemsOnLine++;
+                }
+
+                FlushLine();
+            }
+            else
+            {
+                double currentColHeight = 0;
+                double currentColWidth = 0;
+                int itemsOnCol = 0;
+                var currentColItems = new List<(UiElement Element, double Width, double Height, double Lead)>();
+                double colX = content.Left;
+
+                void FlushColumn()
+                {
+                    if (currentColItems.Count == 0) return;
+                    double y = content.Top;
+                    foreach (var item in currentColItems)
+                    {
+                        y += item.Lead;
+                        double x = colX + Math.Max(0, (currentColWidth - item.Width) / 2);
+                        item.Element.Arrange(new BRect(x, y, item.Width, item.Height));
+                        y += item.Height;
+                    }
+                    colX += currentColWidth + Spacing;
+                    currentColItems.Clear();
+                    currentColHeight = 0;
+                    currentColWidth = 0;
+                    itemsOnCol = 0;
+                }
+
+                foreach (UiElement child in visible)
+                {
+                    double lead = itemsOnCol > 0 ? BreakExtent(child) + Spacing : 0;
+                    double w = child.DesiredSize.Width;
+                    double h = child.DesiredSize.Height;
+
+                    if (itemsOnCol > 0 && currentColHeight + lead + h > content.Height)
+                    {
+                        FlushColumn();
+                        lead = 0;
+                    }
+
+                    currentColItems.Add((child, w, h, lead));
+                    currentColHeight += lead + h;
+                    currentColWidth = Math.Max(currentColWidth, w);
+                    itemsOnCol++;
+                }
+
+                FlushColumn();
+            }
+
+            return;
         }
 
         double available = Math.Max(0, horizontal ? content.Width : content.Height);
@@ -692,15 +877,15 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
             if (Orientation == UiToolbarOrientation.Horizontal)
             {
                 double x = child.Bounds.Left - Math.Max(2, Spacing / 2);
-                double top = Bounds.Top + Padding + 4;
-                double height = Math.Max(0, Bounds.Height - (Padding + 4) * 2);
+                double top = Overflow == UiToolbarOverflow.Wrap ? child.Bounds.Top : Bounds.Top + Padding + 4;
+                double height = Overflow == UiToolbarOverflow.Wrap ? child.Bounds.Height : Math.Max(0, Bounds.Height - (Padding + 4) * 2);
                 context.RenderList.FillRect(new BRect(x, top, 1, height), SeparatorColor);
             }
             else
             {
                 double y = child.Bounds.Top - Math.Max(2, Spacing / 2);
-                double left = Bounds.Left + Padding + 4;
-                double width = Math.Max(0, Bounds.Width - (Padding + 4) * 2);
+                double left = Overflow == UiToolbarOverflow.Wrap ? child.Bounds.Left : Bounds.Left + Padding + 4;
+                double width = Overflow == UiToolbarOverflow.Wrap ? child.Bounds.Width : Math.Max(0, Bounds.Width - (Padding + 4) * 2);
                 context.RenderList.FillRect(new BRect(left, y, width, 1), SeparatorColor);
             }
         }

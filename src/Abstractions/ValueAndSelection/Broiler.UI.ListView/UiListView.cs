@@ -9,7 +9,7 @@ namespace Broiler.UI.ListView;
 // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
 // Broiler-Falsified-If: after a selection method or SetItems returns, SelectedItemIds holds an id that is not among Items
 // Broiler-Human:        PENDING
-public abstract class UiListView : UiElement
+public abstract class UiListView : UiElement, IUiScrollable
 {
     private IReadOnlyList<UiListItem> _items = [];
     private string? _selectedItemId;
@@ -26,6 +26,54 @@ public abstract class UiListView : UiElement
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiListSelectionChangedEventArgs>? SelectionChanged;
+
+    /// <summary>
+    /// Raised when an item is activated, for example by pressing Enter on the keyboard or double-clicking.
+    /// </summary>
+    public event EventHandler<UiListItemEventArgs>? ItemActivated;
+
+    private IUiListItemPresenter? _itemPresenter;
+    private UiDensity _density = UiDensity.Comfortable;
+
+    /// <summary>
+    /// Presenter responsible for measuring, painting, and providing accessibility semantics for items.
+    /// </summary>
+    public IUiListItemPresenter? ItemPresenter
+    {
+        get => _itemPresenter;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_itemPresenter, value))
+                return;
+            _itemPresenter = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// Display density governing row heights and padding.
+    /// </summary>
+    public UiDensity Density
+    {
+        get => _density;
+        set
+        {
+            ThrowIfDisposed();
+            if (_density == value)
+                return;
+            _density = value;
+            OnDensityChanged();
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// Whether scroll anchoring is enabled across item insertions and removals.
+    /// </summary>
+    public bool EnableScrollAnchoring { get; set; } = true;
+
+    protected virtual void OnDensityChanged() { }
 
     public IReadOnlyList<UiListItem> Items => _items;
 
@@ -136,6 +184,19 @@ public abstract class UiListView : UiElement
         if (copy.Select(static item => item.Id).Distinct(StringComparer.Ordinal).Count() != copy.Length)
             throw new ArgumentException("List item IDs must be unique.", nameof(items));
 
+        string? anchorItemId = null;
+        double anchorRelativeOffset = 0;
+        double itemHeight = GetItemHeightForAnchoring();
+        if (EnableScrollAnchoring && _items.Count > 0 && VerticalOffset > 0 && itemHeight > 0)
+        {
+            int firstVisible = GetFirstVisibleIndexForAnchoring();
+            if ((uint)firstVisible < (uint)_items.Count)
+            {
+                anchorItemId = _items[firstVisible].Id;
+                anchorRelativeOffset = VerticalOffset - (firstVisible * itemHeight);
+            }
+        }
+
         string? oldSelection = _selectedItemId;
         string[] oldSelections = [.. _selectedItemIds];
         _items = copy;
@@ -144,6 +205,16 @@ public abstract class UiListView : UiElement
         _selectedItemIds.RemoveAll(id => IndexOf(id) < 0);
         if (_selectedItemId is not null && IndexOf(_selectedItemId) < 0)
             _selectedItemId = _selectedItemIds.Count > 0 ? _selectedItemIds[0] : null;
+
+        if (anchorItemId is not null)
+        {
+            int newIndex = IndexOf(anchorItemId);
+            if (newIndex >= 0)
+            {
+                double newOffset = (newIndex * itemHeight) + anchorRelativeOffset;
+                SetVerticalOffset(newOffset);
+            }
+        }
 
         if (!StringComparer.Ordinal.Equals(oldSelection, _selectedItemId) ||
             !oldSelections.SequenceEqual(_selectedItemIds, StringComparer.Ordinal))
@@ -339,6 +410,112 @@ public abstract class UiListView : UiElement
             state |= UiSemanticState.Focused;
         return state;
     }
+
+    public abstract void ScrollIntoView(string itemId);
+
+    public virtual void ScrollIntoView(int index)
+    {
+        ThrowIfDisposed();
+        if ((uint)index < (uint)Items.Count)
+            ScrollIntoView(Items[index].Id);
+    }
+
+    public void EnsureSelectedVisible()
+    {
+        ThrowIfDisposed();
+        if (SelectedItemId is not null)
+            ScrollIntoView(SelectedItemId);
+    }
+
+    public virtual bool MakeVisible(BRect targetRect) => false;
+
+    public void ActivateItem(string itemId)
+    {
+        ThrowIfDisposed();
+        int index = IndexOf(itemId);
+        if (index >= 0)
+            ItemActivated?.Invoke(this, new UiListItemEventArgs(Items[index]));
+    }
+
+    /// <summary>
+    /// Selects the next item whose label or secondary text starts with <paramref name="prefix"/>,
+    /// searching from the current selection and wrapping.
+    /// </summary>
+    public bool TypeAhead(string prefix)
+    {
+        ThrowIfDisposed();
+        if (string.IsNullOrEmpty(prefix) || Items.Count == 0)
+            return false;
+
+        int start = SelectedIndex >= 0 ? SelectedIndex + 1 : 0;
+        for (int i = 0; i < Items.Count; i++)
+        {
+            int index = (start + i) % Items.Count;
+            UiListItem item = Items[index];
+            if (item.Text.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase) ||
+                (item.SecondaryText?.StartsWith(prefix, StringComparison.CurrentCultureIgnoreCase) ?? false))
+            {
+                SelectIndex(index);
+                ScrollIntoView(item.Id);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Brings an off-screen item into view, realizing its visual presence for accessibility clients.
+    /// </summary>
+    public virtual bool RealizeItem(int index)
+    {
+        ThrowIfDisposed();
+        if ((uint)index >= (uint)Items.Count)
+            return false;
+
+        ScrollIntoView(index);
+        return true;
+    }
+
+    /// <summary>
+    /// Generates or queries an accessibility semantic node for an item by index, even if currently off-screen.
+    /// </summary>
+    public virtual UiSemanticNode? GetItemSemanticNode(int index)
+    {
+        ThrowIfDisposed();
+        if ((uint)index >= (uint)Items.Count)
+            return null;
+
+        UiListItem item = Items[index];
+        UiSemanticState state = UiSemanticState.Enabled;
+        if (IsSelected(item.Id))
+            state |= UiSemanticState.Selected;
+        if (Session?.FocusedElement == this && SelectedIndex == index)
+            state |= UiSemanticState.Focused;
+
+        BRect bounds = GetItemBoundsForAccessibility(index);
+        if (!ContentBoundsForAccessibility.Intersect(bounds).IsEmpty)
+            state |= UiSemanticState.Visible;
+
+        if (ItemPresenter is not null)
+        {
+            var ctx = new UiListItemSemanticContext
+            {
+                Item = item,
+                State = new UiListItemState(IsSelected(item.Id), Session?.FocusedElement == this && SelectedIndex == index, item.IsRead, index, Density),
+                Bounds = bounds,
+                Index = index,
+            };
+            return ItemPresenter.CreateSemanticNode(ctx);
+        }
+
+        return new UiSemanticNode(UiSemanticRole.ListItem, item.Text, bounds, state, []);
+    }
+
+    protected virtual double GetItemHeightForAnchoring() => 26.0;
+    protected virtual int GetFirstVisibleIndexForAnchoring() => (int)Math.Floor(VerticalOffset / Math.Max(1, GetItemHeightForAnchoring()));
+    protected virtual BRect GetItemBoundsForAccessibility(int index) => BRect.Empty;
+    protected virtual BRect ContentBoundsForAccessibility => Bounds;
 
     // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
     // Broiler-Falsified-If: a NaN value is returned unchanged rather than as 0
