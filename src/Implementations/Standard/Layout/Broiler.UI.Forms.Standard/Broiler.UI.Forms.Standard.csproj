@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Commands/Broiler.UI.Toolbar.Standard/Broiler.UI.Toolbar.Standard.csproj" />
+    <ProjectReference Include="../../Commands/Broiler.UI.Button.Standard/Broiler.UI.Button.Standard.csproj" />
+    <ProjectReference Include="../../Content/Broiler.UI.Label.Standard/Broiler.UI.Label.Standard.csproj" />
+    <ProjectReference Include="../../Text/Broiler.UI.Edit.Standard/Broiler.UI.Edit.Standard.csproj" />
+    <ProjectReference Include="../Broiler.UI.Panel.Standard/Broiler.UI.Panel.Standard.csproj" />
+    <ProjectReference Include="../Broiler.UI.ScrollView.Standard/Broiler.UI.ScrollView.Standard.csproj" />
+  </ItemGroup>
+</Project>

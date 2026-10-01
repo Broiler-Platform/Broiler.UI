@@ -266,6 +266,12 @@
     </Project>
   </Folder>
   <Folder Name="/src/Implementations/Standard/Layout/">
+    <Project Path="src/Implementations/Standard/Layout/Broiler.UI.Forms.Standard/Broiler.UI.Forms.Standard.csproj">
+      <BuildType Solution="Debug-Linux|*" Project="Debug" />
+      <BuildType Solution="Debug-Windows|*" Project="Debug" />
+      <BuildType Project="Release" Solution="Release-Linux|*" />
+      <BuildType Project="Release" Solution="Release-Windows|*" />
+    </Project>
     <Project Path="src/Implementations/Standard/Layout/Broiler.UI.Panel.Standard/Broiler.UI.Panel.Standard.csproj">
       <BuildType Project="Debug" Solution="Debug-Linux|*" />
       <BuildType Project="Release" Solution="Release-Linux|*" />
