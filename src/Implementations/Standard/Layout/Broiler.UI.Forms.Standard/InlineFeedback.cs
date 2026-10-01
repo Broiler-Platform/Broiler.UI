@@ -6,7 +6,7 @@ using Broiler.UI.Standard;
 namespace Broiler.UI.Forms.Standard;
 
 /// <summary>Text and semantic state always accompany the status color. No animation timer is needed.</summary>
-public sealed class InlineFeedback : UiElement, IStandardThemedControl
+public sealed class InlineFeedback : UiElement, IInlineFeedback, IStandardThemedControl
 {
     private readonly StandardLabel _label = FormField.Text("");
     private StandardThemeTokens _theme = StandardControlPaint.Theme;

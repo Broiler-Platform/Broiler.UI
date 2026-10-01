@@ -1,4 +1,4 @@
-﻿<Solution>
+<Solution>
   <Configurations>
     <BuildType Name="Debug" />
     <BuildType Name="Release" />
@@ -86,6 +86,12 @@
     </Project>
   </Folder>
   <Folder Name="/src/Abstractions/Layout/">
+    <Project Path="src/Abstractions/Layout/Broiler.UI.Forms/Broiler.UI.Forms.csproj">
+      <BuildType Solution="Debug-Linux|*" Project="Debug" />
+      <BuildType Solution="Debug-Windows|*" Project="Debug" />
+      <BuildType Project="Release" Solution="Release-Linux|*" />
+      <BuildType Project="Release" Solution="Release-Windows|*" />
+    </Project>
     <Project Path="src/Abstractions/Layout/Broiler.UI.Panel/Broiler.UI.Panel.csproj">
       <BuildType Project="Debug" Solution="Debug-Linux|*" />
       <BuildType Project="Release" Solution="Release-Linux|*" />

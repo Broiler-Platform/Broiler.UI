@@ -8,7 +8,7 @@ using Broiler.UI.Toolbar.Standard;
 namespace Broiler.UI.Forms.Standard;
 
 /// <summary>Scrollable form with wrapping actions that remain visible; long feedback scrolls independently.</summary>
-public sealed class FormSurface : UiElement
+public sealed class FormSurface : UiElement, IFormSurface
 {
     private readonly FormViewport _feedback;
     private readonly UiElement _feedbackContent;
@@ -51,16 +51,19 @@ public sealed class FormSurface : UiElement
         foreach (var button in buttons) bar.AddChild(button);
         return bar;
     }
-    public void Reveal(FormField field)
+    public void Reveal(FormField field) => Reveal((IFormField)field);
+
+    public void Reveal(IFormField field)
     {
+        if (field is not UiElement element) return;
         // Expand ancestors before measuring, then use the existing host-independent reveal behavior.
-        for (var parent = field.Parent; parent is not null; parent = parent.Parent)
-            if (parent is FormSection section) section.IsExpanded = true;
+        for (var parent = element.Parent; parent is not null; parent = parent.Parent)
+            if (parent is IFormSection section) section.IsExpanded = true;
         Session?.RenderFrame();
         Session?.SetFocus(field.Control);
         var scroll = Content.Scroll;
         double delta = field.Control.Bounds.Bottom > scroll.ContentBounds.Bottom ? field.Control.Bounds.Bottom - scroll.ContentBounds.Bottom
-            : field.Bounds.Top < scroll.ContentBounds.Top ? field.Bounds.Top - scroll.ContentBounds.Top : 0;
+            : element.Bounds.Top < scroll.ContentBounds.Top ? element.Bounds.Top - scroll.ContentBounds.Top : 0;
         scroll.ScrollBy(0, delta);
     }
 }

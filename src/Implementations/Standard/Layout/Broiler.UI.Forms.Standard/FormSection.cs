@@ -6,7 +6,7 @@ using Broiler.UI.Panel.Standard;
 namespace Broiler.UI.Forms.Standard;
 
 /// <summary>Named field group with an optional keyboard-operable disclosure.</summary>
-public sealed class FormSection : UiElement
+public sealed class FormSection : UiElement, IFormSection
 {
     private readonly StandardPanel _layout = new() { Spacing = 8 };
     private readonly string _title;

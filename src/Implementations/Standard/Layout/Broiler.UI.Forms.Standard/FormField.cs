@@ -9,7 +9,7 @@ using Broiler.UI.Standard;
 namespace Broiler.UI.Forms.Standard;
 
 /// <summary>A labeled control with optional description and a persistent, literal validation message.</summary>
-public sealed class FormField : UiElement, IStandardThemedControl
+public sealed class FormField : UiElement, IFormField, IStandardThemedControl
 {
     private readonly StandardPanel _layout = new() { Spacing = 4 };
     private readonly StandardLabel _description;

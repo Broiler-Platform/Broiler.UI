@@ -1,10 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Broiler.UI.Forms.Standard</RootNamespace>
+    <AssemblyName>Broiler.UI.Forms.Standard</AssemblyName>
+    <PackageId>Broiler.UI.Forms.Standard</PackageId>
+    <Description>Standard platform-neutral Broiler form implementation.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Abstractions\Layout\Broiler.UI.Forms\Broiler.UI.Forms.csproj" />
     <ProjectReference Include="../../Commands/Broiler.UI.Toolbar.Standard/Broiler.UI.Toolbar.Standard.csproj" />
     <ProjectReference Include="../../Commands/Broiler.UI.Button.Standard/Broiler.UI.Button.Standard.csproj" />
     <ProjectReference Include="../../Content/Broiler.UI.Label.Standard/Broiler.UI.Label.Standard.csproj" />
