@@ -40,7 +40,15 @@ problems that originate in Broiler.UI, not in the host bridge (ADR 0008):
   for content it keeps alive but does not present. Such a child is left out of the default semantic
   children and reports `Offscreen` without `Visible`; `UiElement.IsHiddenFromAccessibility` (which
   includes ancestors) lets host bridges that walk the element tree skip it. `UiTabView` hides all but
-  the selected tab's content and unhides content it removes.
+  the selected tab's content and unhides content it removes. `UiSplitContainer` hides a collapsed
+  pane, and its splitter while either pane is collapsed: both stay attached and `Visible` but are
+  arranged to an empty rectangle. It unhides a pane it replaces.
+- **Focus traversal follows the same rules.** `StandardFocusScope.MoveFocus` skips hidden content,
+  so Tab never reaches inactive tab content or a collapsed pane, and orders candidates by `TabIndex`
+  with a stable sort, so equal indexes keep document order (`List.Sort` is unstable beyond 16
+  items). `UiSplitter` is focusable while enabled, since it resizes with the arrow, Page, Home, and
+  End keys, and `UiSplitContainer` keeps its children in visual order (first pane, splitter, second
+  pane), so traversal and the semantic tree meet the splitter between the panes.
 - **Layout elements have no name.** The default `UiElement` node, `UiPanel`, an untitled `UiToolbar`,
   and `UiScrollView` now report an empty name. The type name remains available to hosts as a class
   name.
@@ -55,5 +63,7 @@ problems that originate in Broiler.UI, not in the host bridge (ADR 0008):
   re-read the target's name, or raise a name-change event for it, when the label changes.
 - Applications should name controls that have no visible label, for example a message reader
   (`AccessibleName = "Message text"`).
+- Behavior change: the splitter is now a Tab stop, and code that indexes `UiSplitContainer.Children`
+  must not assume the splitter comes first.
 - Behavior change: code or tests that read an edit's text, or a layout element's type name, from
   `UiSemanticNode.Name` must read `TextInfo.Value` or the element type instead.

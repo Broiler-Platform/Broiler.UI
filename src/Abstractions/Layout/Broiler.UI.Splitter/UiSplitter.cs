@@ -20,6 +20,14 @@ public abstract class UiSplitter : UiElement
     private double _dragExtent = 400;
     private BSize _preferredSize = new(8, 8);
 
+    protected UiSplitter()
+    {
+        // The grip resizes with the arrow, Page, Home, and End keys, so it is a Tab stop like any control.
+        Focusable = true;
+    }
+
+    public override bool CanFocus => base.CanFocus && IsEnabled;
+
     // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Human:        PENDING
     public event EventHandler<UiSplitterValueChangedEventArgs>? ValueChanged;

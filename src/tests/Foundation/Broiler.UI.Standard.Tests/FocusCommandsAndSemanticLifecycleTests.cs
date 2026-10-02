@@ -278,6 +278,69 @@ public sealed class FocusCommandsAndSemanticLifecycleTests
     }
 
     [Fact]
+    public void MoveFocus_Keeps_Document_Order_Among_Equal_TabIndexes()
+    {
+        var host = new TestUiHost(new BSize(400, 300));
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var focus = new StandardFocusScope(session);
+
+        // More than 16 candidates: List.Sort switches from insertion sort to an unstable introsort there.
+        var root = new TestContainerElement();
+        var buttons = Enumerable.Range(0, 40).Select(index => new StandardButton { Text = $"B{index}", TabIndex = index % 3 == 0 ? 1 : 0 }).ToList();
+        foreach (var button in buttons)
+            root.AddChild(button);
+        session.AddRoot(root);
+
+        var expected = buttons.Where(button => button.TabIndex == 0).Concat(buttons.Where(button => button.TabIndex == 1)).ToList();
+        var visited = new List<UiElement>();
+        for (int step = 0; step < expected.Count; step++)
+        {
+            Assert.True(focus.MoveFocus(1));
+            visited.Add(session.FocusedElement!);
+        }
+
+        Assert.Equal(expected, visited);
+    }
+
+    [Fact]
+    public void MoveFocus_Skips_Inactive_Tab_Content_Without_A_Scope_Root()
+    {
+        var host = new TestUiHost(new BSize(400, 300));
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var focus = new StandardFocusScope(session);
+
+        var root = new TestContainerElement();
+        var tabView = new StandardTabView();
+        var first = new StandardButton { Text = "First tab button" };
+        var second = new StandardButton { Text = "Second tab button" };
+        tabView.AddTab("first", "First", first);
+        tabView.AddTab("second", "Second", second);
+        root.AddChild(tabView);
+        session.AddRoot(root);
+
+        var visited = new List<UiElement>();
+        for (int step = 0; step < 4; step++)
+        {
+            Assert.True(focus.MoveFocus(1));
+            visited.Add(session.FocusedElement!);
+        }
+
+        Assert.Contains(first, visited);
+        Assert.DoesNotContain(second, visited);
+
+        tabView.SelectedIndex = 1;
+        visited.Clear();
+        for (int step = 0; step < 4; step++)
+        {
+            Assert.True(focus.MoveFocus(1));
+            visited.Add(session.FocusedElement!);
+        }
+
+        Assert.Contains(second, visited);
+        Assert.DoesNotContain(first, visited);
+    }
+
+    [Fact]
     public void MoveFocus_Confined_To_ModalElement()
     {
         var host = new TestUiHost(new BSize(400, 300));
