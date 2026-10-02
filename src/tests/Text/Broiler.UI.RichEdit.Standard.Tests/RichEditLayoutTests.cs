@@ -28,6 +28,48 @@ public sealed class RichEditLayoutTests
         document.Paragraphs[line.ParagraphIndex].Text[line.Start..line.End];
 
     [Fact]
+    public void Line_Segments_Are_Reused_Across_Frames_Until_The_Lines_Are_Rebuilt()
+    {
+        RichTextDocument document = RichTextDocument.FromPlainText("alpha beta gamma");
+        RichEditLayout layout = Layout(document);
+        VisualLine line = layout.Lines[0];
+
+        LineSegment[] first = layout.LineSegments(line, contentLeft: 10);
+        Assert.Same(first, layout.LineSegments(line, contentLeft: 10));
+
+        // Another origin, for example after scrolling sideways, is measured again.
+        LineSegment[] shifted = layout.LineSegments(line, contentLeft: 30);
+        Assert.NotSame(first, shifted);
+        Assert.Equal(first[0].X + 20, shifted[0].X, 6);
+
+        RichTextDocument edited = RichTextDocument.FromPlainText("omega beta gamma");
+        layout.Update(edited, Settings());
+        LineSegment[] rebuilt = layout.LineSegments(layout.Lines[0], contentLeft: 10);
+        Assert.StartsWith("omega", string.Concat(rebuilt.Select(segment => segment.Text)));
+
+        layout.Invalidate();
+        layout.Update(edited, Settings());
+        Assert.NotSame(rebuilt, layout.LineSegments(layout.Lines[0], contentLeft: 10));
+    }
+
+    [Fact]
+    public void Run_Fonts_Are_Resolved_Once_Per_Style_And_Follow_The_Zoom()
+    {
+        RichTextDocument document = RichTextDocument.FromPlainText("text");
+        RichEditLayout layout = Layout(document);
+        var bold = InlineStyle.Default with { Bold = true };
+
+        BFontStyle font = layout.RunFont(bold);
+        Assert.Same(font, layout.RunFont(bold));
+        Assert.Equal(Settings().RunFont(bold), font);
+
+        layout.Update(document, Settings(zoom: 2));
+        BFontStyle zoomed = layout.RunFont(bold);
+        Assert.Equal(Settings(zoom: 2).RunFont(bold), zoomed);
+        Assert.Equal(font.Size * 2, zoomed.Size, 6);
+    }
+
+    [Fact]
     public void An_Empty_Document_Still_Has_A_Line_For_The_Caret()
     {
         RichEditLayout layout = Layout(RichTextDocument.FromPlainText(string.Empty));

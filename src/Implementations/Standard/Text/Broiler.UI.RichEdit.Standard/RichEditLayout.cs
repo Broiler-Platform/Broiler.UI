@@ -74,6 +74,17 @@ internal sealed class RichEditLayout
     private readonly Dictionary<CharAdvanceCacheKey, double> _charAdvanceCache = new(256);
     private const int MaxCharAdvanceCacheSize = 1024;
 
+    // Resolved fonts by run style. RichEditLayoutSettings.RunFont builds a new BFontStyle on every
+    // call, and layout and painting asked for one per run, segment, and measurement.
+    private readonly Dictionary<InlineStyle, BFontStyle> _runFonts = new();
+    private (BFontStyle? Font, double Zoom) _runFontsFor;
+    private const int MaxRunFontCacheSize = 256;
+
+    // A visual line's segments, kept across frames: painting split, shaped, and copied the text of
+    // every visible line again on each frame. Cleared whenever the lines are rebuilt.
+    private readonly Dictionary<VisualLine, (double ContentLeft, LineSegment[] Segments)> _segments = new();
+    private const int MaxSegmentCacheSize = 4096;
+
     public RichEditLayout(RichEditImageCache images)
     {
         ArgumentNullException.ThrowIfNull(images);
@@ -82,6 +93,42 @@ internal sealed class RichEditLayout
 
     /// <summary>The settings the current lines were built with.</summary>
     public RichEditLayoutSettings Settings => _settings;
+
+    /// <summary>
+    /// The inline style at an offset, like <see cref="RichTextParagraph.StyleAt"/> but without its
+    /// foreach over an IReadOnlyList, which boxed an enumerator for every character wrapping measured.
+    /// </summary>
+    public static InlineStyle StyleAt(RichTextParagraph paragraph, int offset)
+    {
+        IReadOnlyList<StyleRun> runs = paragraph.Runs;
+        if (runs.Count == 0)
+            return InlineStyle.Default;
+
+        int position = 0;
+        for (int index = 0; index < runs.Count; index++)
+        {
+            StyleRun run = runs[index];
+            if (offset < position + run.Length)
+                return run.Style;
+            position += run.Length;
+        }
+
+        return runs[^1].Style;
+    }
+
+    /// <summary>The font a run style is drawn with under the current settings; resolved once per style.</summary>
+    public BFontStyle RunFont(InlineStyle style)
+    {
+        if (!Equals(_runFontsFor.Font, _settings.Font) || _runFontsFor.Zoom != _settings.Zoom || _runFonts.Count >= MaxRunFontCacheSize)
+        {
+            _runFonts.Clear();
+            _runFontsFor = (_settings.Font, _settings.Zoom);
+        }
+
+        if (!_runFonts.TryGetValue(style, out BFontStyle? font))
+            _runFonts[style] = font = _settings.RunFont(style);
+        return font;
+    }
 
     /// <summary>
     /// The visual lines, top to bottom. Never empty once built: a document with no
@@ -129,7 +176,11 @@ internal sealed class RichEditLayout
     }
 
     /// <summary>Makes the next <see cref="Update"/> rebuild whatever it is given.</summary>
-    public void Invalidate() => _isValid = false;
+    public void Invalidate()
+    {
+        _isValid = false;
+        _segments.Clear();
+    }
 
     // --- Queries -----------------------------------------------------------
 
@@ -356,14 +407,33 @@ internal sealed class RichEditLayout
     /// with no glyphs whose advance reaches the next tab stop, so the run
     /// background and underline it carries are still drawn across the gap it opens.
     /// </summary>
-    public IEnumerable<LineSegment> LineSegments(VisualLine line, double contentLeft)
+    public LineSegment[] LineSegments(VisualLine line, double contentLeft)
+    {
+        if (_segments.TryGetValue(line, out var cached) && cached.ContentLeft == contentLeft)
+            return cached.Segments;
+
+        LineSegment[] segments = [.. ComputeLineSegments(line, contentLeft)];
+        // An inline image's size can change once it decodes, so lines holding one are measured each time.
+        if (!Array.Exists(segments, segment => segment.Image is not null))
+        {
+            if (_segments.Count >= MaxSegmentCacheSize)
+                _segments.Clear();
+            _segments[line] = (contentLeft, segments);
+        }
+
+        return segments;
+    }
+
+    private IEnumerable<LineSegment> ComputeLineSegments(VisualLine line, double contentLeft)
     {
         RichTextParagraph paragraph = Document.Paragraphs[line.ParagraphIndex];
         double left = LineLeft(line, contentLeft);
         double x = left;
         int pos = 0;
-        foreach (StyleRun run in paragraph.Runs)
+        // An index loop: foreach over IReadOnlyList boxes an enumerator for every paragraph and line.
+        for (int runIndex = 0; runIndex < paragraph.Runs.Count; runIndex++)
         {
+            StyleRun run = paragraph.Runs[runIndex];
             int runStart = pos;
             int runEnd = pos + run.Length;
             pos = runEnd;
@@ -390,8 +460,8 @@ internal sealed class RichEditLayout
                     }
 
                     string single = character.ToString();
-                    double advance = RichEditTextShaping.MeasurePieces(single, run.Style, _settings.RunFont(run.Style));
-                    yield return new LineSegment(single, run.Style, _settings.RunFont(run.Style), x, advance);
+                    double advance = RichEditTextShaping.MeasurePieces(single, run.Style, RunFont(run.Style));
+                    yield return new LineSegment(single, run.Style, RunFont(run.Style), x, advance);
                     x += advance;
                 }
 
@@ -403,12 +473,12 @@ internal sealed class RichEditLayout
                 if (isTab)
                 {
                     double stop = left + _settings.NextTabStop(x - left);
-                    yield return LineSegment.ForTab(run.Style, _settings.RunFont(run.Style), x, stop - x);
+                    yield return LineSegment.ForTab(run.Style, RunFont(run.Style), x, stop - x);
                     x = stop;
                     continue;
                 }
 
-                foreach (ShapedPiece shaped in RichEditTextShaping.ShapePieces(piece, run.Style, _settings.RunFont(run.Style)))
+                foreach (ShapedPiece shaped in RichEditTextShaping.ShapePieces(piece, run.Style, RunFont(run.Style)))
                 {
                     // A justified line is drawn a word at a time. Widening a
                     // segment's advance alone would move only what comes after it,
@@ -488,6 +558,7 @@ internal sealed class RichEditLayout
 
     private void Build()
     {
+        _segments.Clear();
         _lines.Clear();
         _cells.Clear();
         _wrap = new TextWrapExclusions();
@@ -857,7 +928,7 @@ internal sealed class RichEditLayout
             };
 
             double indent = Math.Max(0, style.IndentLevel) * _settings.ZoomedIndentWidth;
-            _decorations.Add(new ParagraphDecoration(marker, _settings.RunFont(paragraph.StyleAt(0)), indent, indent));
+            _decorations.Add(new ParagraphDecoration(marker, RunFont(StyleAt(paragraph, 0)), indent, indent));
         }
 
         ApplyMarkerGutters(document);
@@ -1013,8 +1084,10 @@ internal sealed class RichEditLayout
 
         double height = fallback;
         int position = 0;
-        foreach (StyleRun run in paragraph.Runs)
+        // An index loop: foreach over IReadOnlyList boxes an enumerator for every paragraph and line.
+        for (int runIndex = 0; runIndex < paragraph.Runs.Count; runIndex++)
         {
+            StyleRun run = paragraph.Runs[runIndex];
             int runStart = position;
             int runEnd = position + run.Length;
             position = runEnd;
@@ -1025,7 +1098,7 @@ internal sealed class RichEditLayout
             // would be clipped by the surrounding text's line height.
             height = run.Style.Image is InlineImage image
                 ? Math.Max(height, ImageDisplaySize(image).Height + (_settings.ZoomedImageMargin * 2))
-                : Math.Max(height, BTextMeasurer.GetLineHeight(_settings.RunFont(run.Style)));
+                : Math.Max(height, BTextMeasurer.GetLineHeight(RunFont(run.Style)));
         }
 
         return height;
@@ -1048,8 +1121,10 @@ internal sealed class RichEditLayout
 
         double advance = 0;
         int position = 0;
-        foreach (StyleRun run in paragraph.Runs)
+        // An index loop: foreach over IReadOnlyList boxes an enumerator for every paragraph and line.
+        for (int runIndex = 0; runIndex < paragraph.Runs.Count; runIndex++)
         {
+            StyleRun run = paragraph.Runs[runIndex];
             int runStart = position;
             int runEnd = position + run.Length;
             position = runEnd;
@@ -1074,14 +1149,14 @@ internal sealed class RichEditLayout
     private double MeasureRunText(string text, InlineStyle style)
     {
         if (style.Image is not InlineImage image)
-            return RichEditTextShaping.MeasurePieces(text, style, _settings.RunFont(style));
+            return RichEditTextShaping.MeasurePieces(text, style, RunFont(style));
 
         double advance = 0;
         foreach (char character in text)
         {
             advance += character == InlineImage.Placeholder
                 ? ImageDisplaySize(image).Width
-                : RichEditTextShaping.MeasurePieces(character.ToString(), style, _settings.RunFont(style));
+                : RichEditTextShaping.MeasurePieces(character.ToString(), style, RunFont(style));
         }
 
         return advance;
@@ -1102,8 +1177,8 @@ internal sealed class RichEditLayout
             return _settings.NextTabStop(advance) - advance;
         }
 
-        InlineStyle style = paragraph.StyleAt(index);
-        BFontStyle font = _settings.RunFont(style);
+        InlineStyle style = StyleAt(paragraph, index);
+        BFontStyle font = RunFont(style);
         if (text[index] == InlineImage.Placeholder && style.Image is InlineImage image)
         {
             step = 1;
