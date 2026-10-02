@@ -50,11 +50,15 @@ public abstract class UiSplitContainer : UiElement
                 return;
 
             if (_firstPane is not null)
+            {
+                SetHiddenFromAccessibility(_firstPane, false);
                 RemoveChild(_firstPane);
+            }
 
             _firstPane = value;
             if (_firstPane is not null)
-                AddChild(_firstPane);
+                InsertChild(0, _firstPane);
+            UpdatePaneAccessibility();
 
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
@@ -71,11 +75,15 @@ public abstract class UiSplitContainer : UiElement
                 return;
 
             if (_secondPane is not null)
+            {
+                SetHiddenFromAccessibility(_secondPane, false);
                 RemoveChild(_secondPane);
+            }
 
             _secondPane = value;
             if (_secondPane is not null)
-                AddChild(_secondPane);
+                InsertChild(IndexAfter(_splitter), _secondPane);
+            UpdatePaneAccessibility();
 
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
@@ -96,13 +104,15 @@ public abstract class UiSplitContainer : UiElement
             if (_splitter is not null)
             {
                 _splitter.ValueChanged -= OnSplitterValueChanged;
+                SetHiddenFromAccessibility(_splitter, false);
                 RemoveChild(_splitter);
             }
 
             _splitter = value;
             _splitter.Orientation = _orientation;
             _splitter.ValueChanged += OnSplitterValueChanged;
-            AddChild(_splitter);
+            InsertChild(IndexAfter(_firstPane), _splitter);
+            UpdatePaneAccessibility();
 
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
@@ -244,6 +254,7 @@ public abstract class UiSplitContainer : UiElement
             _isFirstPaneCollapsed = value;
             if (value)
                 _isSecondPaneCollapsed = false;
+            UpdatePaneAccessibility();
 
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
@@ -262,6 +273,7 @@ public abstract class UiSplitContainer : UiElement
             _isSecondPaneCollapsed = value;
             if (value)
                 _isFirstPaneCollapsed = false;
+            UpdatePaneAccessibility();
 
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
@@ -279,6 +291,7 @@ public abstract class UiSplitContainer : UiElement
 
         _isFirstPaneCollapsed = false;
         _isSecondPaneCollapsed = false;
+        UpdatePaneAccessibility();
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
@@ -454,6 +467,35 @@ public abstract class UiSplitContainer : UiElement
         double oldDistance = oldFraction * _lastNetExtent;
         double newDistance = newFraction * _lastNetExtent;
         SplitterPositionChanged?.Invoke(this, new UiSplitterPositionChangedEventArgs(oldFraction, newFraction, oldDistance, newDistance));
+    }
+
+    /// <summary>
+    /// A collapsed pane, and the splitter while either pane is collapsed, stay attached and visible but
+    /// are arranged to an empty rectangle. Mark them hidden so assistive technology and focus traversal
+    /// do not reach controls the user cannot see.
+    /// </summary>
+    private void UpdatePaneAccessibility()
+    {
+        if (_firstPane is not null)
+            SetHiddenFromAccessibility(_firstPane, _isFirstPaneCollapsed);
+        if (_secondPane is not null)
+            SetHiddenFromAccessibility(_secondPane, _isSecondPaneCollapsed);
+        SetHiddenFromAccessibility(_splitter, _isFirstPaneCollapsed || _isSecondPaneCollapsed);
+    }
+
+    // Children stay in visual order (first pane, splitter, second pane) so traversal, semantics, and
+    // rendering meet the splitter between the panes.
+    private int IndexAfter(UiElement? element)
+    {
+        if (element is null)
+            return 0;
+        for (int index = 0; index < Children.Count; index++)
+        {
+            if (ReferenceEquals(Children[index], element))
+                return index + 1;
+        }
+
+        return Children.Count;
     }
 
     private IReadOnlyList<UiSemanticNode> CreateChildSemanticNodes()

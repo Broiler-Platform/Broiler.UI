@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Broiler.UI.Standard;
 
@@ -74,6 +75,9 @@ public sealed class StandardFocusScope
     /// <summary>
     /// Moves focus sequentially in the specified direction (+1 forward, -1 backward).
     /// Respects active modal boundaries, tab boundaries, disabled/collapsed controls, and tab stops.
+    /// Content a container hides while keeping it alive (<see cref="UiElement.IsHiddenFromAccessibility"/>,
+    /// such as inactive tab content or a collapsed split pane) is skipped. Candidates are ordered by
+    /// <see cref="UiElement.TabIndex"/>; equal indexes keep document order.
     /// </summary>
     public bool MoveFocus(int direction, UiElement? scopeRoot = null)
     {
@@ -95,7 +99,8 @@ public sealed class StandardFocusScope
         if (candidates.Count == 0)
             return false;
 
-        candidates.Sort((a, b) => a.TabIndex.CompareTo(b.TabIndex));
+        // List.Sort is unstable and would scramble document order among equal TabIndex values.
+        candidates = candidates.OrderBy(candidate => candidate.TabIndex).ToList();
 
         int currentIndex = candidates.IndexOf(_session.FocusedElement!);
         int nextIndex = currentIndex < 0
@@ -110,7 +115,7 @@ public sealed class StandardFocusScope
 
     private static void CollectFocusable(UiElement element, List<UiElement> candidates)
     {
-        if (element.Visibility != UiVisibility.Visible)
+        if (element.Visibility != UiVisibility.Visible || element.IsHiddenFromAccessibility)
             return;
 
         if (element.CanFocus && element.IsTabStop)
