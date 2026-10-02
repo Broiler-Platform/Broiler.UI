@@ -108,7 +108,8 @@ public sealed class Phase2StandardServicesTests
 
         StandardSemanticSnapshot semantics = StandardSemanticSnapshot.Capture(session);
         UiSemanticNode semanticRoot = Assert.Single(semantics.Roots);
-        Assert.Equal("Phase2Element", semanticRoot.Name);
+        // Layout-only elements have no name; the type name is not content to be read aloud.
+        Assert.Equal("", semanticRoot.Name);
         Assert.Single(semanticRoot.Children);
 
         var hitTest = new StandardHitTestService(session);

@@ -137,6 +137,7 @@ public abstract class UiTabView : UiElement
             AddChild(content);
         if (_selectedIndex < 0)
             _selectedIndex = 0;
+        UpdateContentAccessibility();
 
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         return item;
@@ -211,6 +212,9 @@ public abstract class UiTabView : UiElement
             _selectedIndex = -1;
         else if (_selectedIndex > index || _selectedIndex >= _tabs.Count)
             _selectedIndex = Math.Clamp(_selectedIndex - 1, 0, _tabs.Count - 1);
+        if (tab.Content is not null)
+            SetHiddenFromAccessibility(tab.Content, false);
+        UpdateContentAccessibility();
 
         TabRemoved?.Invoke(this, new UiTabChangedEventArgs(tab));
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange |
@@ -256,6 +260,7 @@ public abstract class UiTabView : UiElement
         if (selected is not null)
             _selectedIndex = _tabs.IndexOf(selected);
 
+        UpdateContentAccessibility();
         Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         return true;
     }
@@ -296,6 +301,7 @@ public abstract class UiTabView : UiElement
 
         int oldIndex = _selectedIndex;
         _selectedIndex = index;
+        UpdateContentAccessibility();
         SelectionChanged?.Invoke(this, new UiTabSelectionChangedEventArgs(oldIndex, _selectedIndex));
         Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         return true;
@@ -326,6 +332,19 @@ public abstract class UiTabView : UiElement
     // Broiler-AI:           Origin=AI; Spec=ADR-0024; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
     // Broiler-Falsified-If: the accessible name of a dirty tab does not mention unsaved changes, or a tab at index VisibleTabCapacity lacks the Offscreen state
     // Broiler-Human:        PENDING
+    /// <summary>
+    /// Inactive tab content stays alive (and, under the default lifetime policy, visible to layout),
+    /// but assistive technology must only reach the selected tab's content.
+    /// </summary>
+    private void UpdateContentAccessibility()
+    {
+        for (int index = 0; index < _tabs.Count; index++)
+        {
+            if (_tabs[index].Content is { } content)
+                SetHiddenFromAccessibility(content, index != _selectedIndex);
+        }
+    }
+
     private IReadOnlyList<UiSemanticNode> CreateTabSemanticNodes()
     {
         var nodes = new List<UiSemanticNode>(_tabs.Count);
