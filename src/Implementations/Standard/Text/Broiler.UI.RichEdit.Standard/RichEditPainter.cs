@@ -250,7 +250,7 @@ internal sealed class RichEditPainter
         double height = 0;
         foreach (RichTextParagraph paragraph in paragraphs)
         {
-            BFontStyle font = _layout.Settings.RunFont(paragraph.Length > 0 ? paragraph.StyleAt(0) : InlineStyle.Default);
+            BFontStyle font = _layout.RunFont(paragraph.Length > 0 ? RichEditLayout.StyleAt(paragraph, 0) : InlineStyle.Default);
             double lineHeight = BTextMeasurer.GetLineHeight(font);
             foreach (string _ in WrapToWidth(paragraph.Text, font, width))
                 height += lineHeight;
@@ -454,8 +454,8 @@ internal sealed class RichEditPainter
         double y = bounds.Top;
         foreach (RichTextParagraph paragraph in paragraphs)
         {
-            InlineStyle inline = paragraph.Length > 0 ? paragraph.StyleAt(0) : InlineStyle.Default;
-            BFontStyle font = _layout.Settings.RunFont(inline);
+            InlineStyle inline = paragraph.Length > 0 ? RichEditLayout.StyleAt(paragraph, 0) : InlineStyle.Default;
+            BFontStyle font = _layout.RunFont(inline);
             double lineHeight = BTextMeasurer.GetLineHeight(font);
             BColor color = inline.Foreground.IsEmpty ? frame.Palette.Foreground : inline.Foreground;
 
@@ -611,7 +611,7 @@ internal sealed class RichEditPainter
                 continue;
 
             double y = view.ToControlY(line.Top);
-            InlineStyle style = frame.Document.Paragraphs[line.ParagraphIndex].StyleAt(0);
+            InlineStyle style = RichEditLayout.StyleAt(frame.Document.Paragraphs[line.ParagraphIndex], 0);
             BColor color = frame.IsEnabled && !style.Foreground.IsEmpty ? style.Foreground : fallback;
             // The marker travels with the text it introduces, so a centered or
             // right-aligned item keeps its bullet against the item, not the margin.
@@ -677,7 +677,7 @@ internal sealed class RichEditPainter
 
         double x = _layout.CaretX(frame.Selection.Focus, view.ContentLeft);
         InlineStyle style = frame.CompositionStyle;
-        BFontStyle font = _layout.Settings.RunFont(style);
+        BFontStyle font = _layout.RunFont(style);
         double advance = RichEditTextShaping.MeasurePieces(frame.CompositionText, style, font);
         BColor color = frame.IsEnabled ? frame.Palette.Foreground : frame.Palette.PlaceholderForeground;
 
