@@ -106,6 +106,26 @@ public sealed class CompactFormsTests
         Assert.Equal(new[] { "Progress: Connecting & checking" }, announced);
     }
 
+    [Fact]
+    public void RevealBringsAFieldsErrorIntoViewNotOnlyItsControl()
+    {
+        var fields = new StandardPanel { Spacing = 8 };
+        FormField? last = null;
+        for (int index = 1; index <= 12; index++)
+            fields.AddChild(last = new FormField($"Field {index}", new StandardEdit()));
+        using var surface = new FormSurface(fields, FormSurface.ActionBar(new StandardButton { Text = "Save" }), new InlineFeedback());
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+
+        last!.SetError("Enter a value.");
+        surface.Reveal(last);
+        session.RenderFrame();
+        Assert.True(last.Bounds.Bottom <= surface.Content.Scroll.ContentBounds.Bottom + 0.5,
+            $"The error ends at {last.Bounds.Bottom}, below the viewport's {surface.Content.Scroll.ContentBounds.Bottom}.");
+        Assert.Same(last.Control, session.FocusedElement);
+    }
+
     private static IEnumerable<UiElement> Descendants(UiElement element)
     {
         yield return element;

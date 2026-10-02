@@ -62,7 +62,11 @@ public sealed class FormSurface : UiElement, IFormSurface
         Session?.RenderFrame();
         Session?.SetFocus(field.Control);
         var scroll = Content.Scroll;
-        double delta = field.Control.Bounds.Bottom > scroll.ContentBounds.Bottom ? field.Control.Bounds.Bottom - scroll.ContentBounds.Bottom
+        // The whole field, including the error below the control, comes into view. A field taller
+        // than the viewport keeps the control's top visible instead.
+        double bottom = Math.Max(field.Control.Bounds.Bottom, element.Bounds.Bottom);
+        double delta = bottom > scroll.ContentBounds.Bottom
+            ? Math.Min(bottom - scroll.ContentBounds.Bottom, field.Control.Bounds.Top - scroll.ContentBounds.Top)
             : element.Bounds.Top < scroll.ContentBounds.Top ? element.Bounds.Top - scroll.ContentBounds.Top : 0;
         scroll.ScrollBy(0, delta);
     }
