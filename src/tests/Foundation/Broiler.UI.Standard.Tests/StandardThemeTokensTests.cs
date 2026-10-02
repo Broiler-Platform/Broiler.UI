@@ -3,6 +3,7 @@ using Broiler.Graphics.Color;
 
 namespace Broiler.UI.Standard.Tests;
 
+[Collection(GlobalThemeCollection.Name)]
 public sealed class StandardThemeTokensTests
 {
     [Fact]
