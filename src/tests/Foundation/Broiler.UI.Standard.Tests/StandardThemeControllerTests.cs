@@ -5,6 +5,7 @@ using Broiler.UI.ListView.Standard;
 
 namespace Broiler.UI.Standard.Tests;
 
+[Collection(GlobalThemeCollection.Name)]
 public sealed class StandardThemeControllerTests
 {
     [Fact]

@@ -13,6 +13,7 @@ using Broiler.UI.Standard;
 
 namespace Broiler.UI.Standard.Tests;
 
+[Collection(GlobalThemeCollection.Name)]
 public sealed class CompactFormsTests
 {
     [Theory]

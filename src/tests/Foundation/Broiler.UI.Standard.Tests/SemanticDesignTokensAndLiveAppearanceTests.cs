@@ -14,8 +14,15 @@ using Xunit;
 
 namespace Broiler.UI.Standard.Tests;
 
-public sealed class SemanticDesignTokensAndLiveAppearanceTests
+[Collection(GlobalThemeCollection.Name)]
+public sealed class SemanticDesignTokensAndLiveAppearanceTests : IDisposable
 {
+    // Several tests switch the global theme through StandardThemeController; xUnit creates one
+    // instance per test, so restoring here keeps each test independent of the order they run in.
+    private readonly StandardThemeTokens _originalTheme = StandardControlPaint.Theme;
+
+    public void Dispose() => StandardControlPaint.ApplyTheme(_originalTheme);
+
     [Fact]
     public void StandardLabel_Retains_Semantic_Roles_Across_Theme_Switches()
     {
