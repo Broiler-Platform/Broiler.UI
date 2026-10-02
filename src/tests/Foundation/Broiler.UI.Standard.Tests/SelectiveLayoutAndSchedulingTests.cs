@@ -350,6 +350,66 @@ public sealed class SelectiveLayoutAndSchedulingTests
         }
     }
 
+    [Fact]
+    public void A_Change_Below_An_Element_Left_Invalid_During_Its_Parents_Measure_Still_Relayouts()
+    {
+        var host = new TestHost(new BSize(800, 600));
+        using var session = new UiSession(host, new ImmediateUiDispatcher(), new ManualClock());
+
+        // The middle element invalidates its child while measuring, as a layout that changes a
+        // child's visibility mid-measure does. The child is left invalid under a valid parent.
+        var leaf = new SizedElement { Size = new BSize(100, 20) };
+        var child = new TestContainer();
+        child.AddChild(leaf);
+        var middle = new InvalidatesChildWhileMeasuring(child);
+        var root = new TestContainer();
+        root.AddChild(middle);
+        session.AddRoot(root);
+        session.RenderFrame();
+        Assert.True(middle.IsMeasureValid);
+        Assert.False(child.IsMeasureValid);
+
+        // Later the leaf grows. Stopping the walk at the already-invalid child left the root valid,
+        // so the frame kept the old layout until something else re-measured it (a resize).
+        leaf.Size = new BSize(100, 60);
+        session.RenderFrame();
+        Assert.Equal(60, root.DesiredSize.Height);
+        Assert.Equal(60, leaf.Bounds.Height);
+    }
+
+    private sealed class SizedElement : UiElement
+    {
+        private BSize _size;
+
+        public BSize Size
+        {
+            get => _size;
+            set { _size = value; InvalidateMeasure(); }
+        }
+
+        protected override BSize MeasureCore(BSize availableSize) => _size;
+    }
+
+    private sealed class InvalidatesChildWhileMeasuring : UiElement
+    {
+        private readonly UiElement _child;
+
+        public InvalidatesChildWhileMeasuring(UiElement child)
+        {
+            _child = child;
+            AddChild(child);
+        }
+
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            BSize size = _child.Measure(availableSize);
+            _child.InvalidateMeasure();
+            return size;
+        }
+
+        protected override void ArrangeCore(BRect finalRect) => _child.Arrange(finalRect);
+    }
+
     private sealed class CountingMeasureElement : UiElement
     {
         public int MeasureCount { get; private set; }

@@ -309,7 +309,10 @@ public abstract class UiElement : IDisposable, IUiFocusable
         {
             _isMeasureValid = false;
             _isArrangeValid = false;
-            for (UiElement? current = Parent; current is not null && current._isMeasureValid; current = current.Parent)
+            // Every ancestor, not only up to the first already-invalid one: an element can be left
+            // invalid under a valid parent (for example, invalidated while that parent was measuring
+            // it), and stopping there kept a later change from ever reaching the root.
+            for (UiElement? current = Parent; current is not null; current = current.Parent)
             {
                 current._isMeasureValid = false;
                 current._isArrangeValid = false;
