@@ -714,7 +714,7 @@ public abstract class UiWindow : UiElement
         var nodes = new List<UiSemanticNode>(Children.Count);
         foreach (UiElement child in Children)
         {
-            if (child.Visibility != UiVisibility.Collapsed)
+            if (child.Visibility != UiVisibility.Collapsed && !child.IsHiddenFromAccessibility)
                 nodes.Add(child.GetSemanticNode());
         }
 

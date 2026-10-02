@@ -385,12 +385,12 @@ public abstract class UiEdit : UiElement
     // Broiler-AI:           Origin=AI; Spec=ADR-0008; IP=Low; Security=High; Resources=0; Fingerprint=TBF
     // Broiler-Falsified-If: a field whose IsPassword is true, with non-empty Text and an empty PlaceholderText, is named by its Text instead of a generic label
     // Broiler-Human:        PENDING
+    // The text is the field's value (text info), not its name. Without a label or an explicit
+    // accessible name, the placeholder is the best available description of the field.
     private string GetSemanticName()
     {
         if (IsPassword)
             return string.IsNullOrEmpty(PlaceholderText) ? "Password field" : PlaceholderText;
-        if (!string.IsNullOrEmpty(Text))
-            return Text;
         return PlaceholderText;
     }
 

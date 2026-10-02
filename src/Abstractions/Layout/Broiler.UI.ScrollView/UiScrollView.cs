@@ -252,7 +252,8 @@ public abstract class UiScrollView : UiElement, IUiScrollable
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.ScrollView,
-            $"{HorizontalOffset:0.###},{VerticalOffset:0.###}",
+            // Offsets are scroll state, not a name; a provider exposes them through a scroll pattern.
+            string.Empty,
             Bounds,
             Visibility == UiVisibility.Visible ? UiSemanticState.Visible | UiSemanticState.Enabled : UiSemanticState.None,
             []);

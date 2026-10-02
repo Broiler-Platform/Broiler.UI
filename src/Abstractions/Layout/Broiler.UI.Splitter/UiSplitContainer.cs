@@ -464,7 +464,7 @@ public abstract class UiSplitContainer : UiElement
         var nodes = new System.Collections.Generic.List<UiSemanticNode>(Children.Count);
         foreach (UiElement child in Children)
         {
-            if (child.Visibility != UiVisibility.Collapsed)
+            if (child.Visibility != UiVisibility.Collapsed && !child.IsHiddenFromAccessibility)
                 nodes.Add(child.GetSemanticNode());
         }
 

@@ -13,6 +13,9 @@ public abstract class UiElement : IDisposable, IUiFocusable
     private readonly List<UiElement> _children = [];
     private UiVisibility _visibility = UiVisibility.Visible;
     private bool _isDisposed;
+    private string? _accessibleName;
+    private UiElement? _labeledBy;
+    private bool _hiddenFromAccessibility;
     private bool _isMeasureValid;
     private bool _isArrangeValid;
     private BSize? _previousAvailableSize;
@@ -42,6 +45,62 @@ public abstract class UiElement : IDisposable, IUiFocusable
 
             _visibility = value;
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// An explicit name for assistive technology. When set, it replaces both a <see cref="LabeledBy"/>
+    /// label and the name the control derives itself (for example from its text or placeholder).
+    /// </summary>
+    public string? AccessibleName
+    {
+        get => _accessibleName;
+        set
+        {
+            ThrowIfDisposed();
+            if (_accessibleName == value)
+                return;
+
+            _accessibleName = value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// The element whose text names this one, usually a visible label. Its own semantic name is used
+    /// when <see cref="AccessibleName"/> is empty. Assigning a label's <c>Target</c> sets this
+    /// automatically, so a field keeps its label as its name and its text as its value.
+    /// </summary>
+    public UiElement? LabeledBy
+    {
+        get => _labeledBy;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_labeledBy, value))
+                return;
+
+            _labeledBy = ReferenceEquals(value, this) ? null : value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// True when a container has hidden this element, or one of its ancestors, from assistive
+    /// technology while keeping it alive, such as the content of an inactive tab. Accessibility
+    /// providers that walk the element tree should skip such elements.
+    /// </summary>
+    public bool IsHiddenFromAccessibility
+    {
+        get
+        {
+            for (UiElement? current = this; current is not null; current = current.Parent)
+            {
+                if (current._hiddenFromAccessibility)
+                    return true;
+            }
+
+            return false;
         }
     }
 
@@ -275,7 +334,40 @@ public abstract class UiElement : IDisposable, IUiFocusable
     public UiSemanticNode GetSemanticNode()
     {
         UiSemanticNode node = GetSemanticNodeCore();
-        return node.Id == 0 ? node with { Id = SemanticId } : node;
+        if (node.Id == 0)
+            node = node with { Id = SemanticId };
+        if (ResolveAccessibleName() is { Length: > 0 } name)
+            node = node with { Name = name };
+        if (_hiddenFromAccessibility)
+            node = node with { State = (node.State | UiSemanticState.Offscreen) & ~UiSemanticState.Visible };
+        return node;
+    }
+
+    /// <summary>
+    /// Lets a container hide a child it keeps alive (for example inactive tab content) from
+    /// assistive technology. The child is left out of the parent's default semantic children and
+    /// reports the Offscreen state; <see cref="IsHiddenFromAccessibility"/> exposes it to providers.
+    /// </summary>
+    protected static void SetHiddenFromAccessibility(UiElement element, bool hidden)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (element._hiddenFromAccessibility == hidden)
+            return;
+
+        element._hiddenFromAccessibility = hidden;
+        element.Invalidate(UiInvalidationKind.Semantic);
+        element.Parent?.Invalidate(UiInvalidationKind.Semantic);
+    }
+
+    private string? ResolveAccessibleName()
+    {
+        if (!string.IsNullOrWhiteSpace(_accessibleName))
+            return _accessibleName;
+        // The label's own core node gives its text; going through GetSemanticNode could recurse
+        // when two elements label each other.
+        if (_labeledBy is { IsDisposed: false } label)
+            return label.GetSemanticNodeCore().Name.Trim();
+        return null;
     }
 
     public void Dispose()
@@ -317,10 +409,12 @@ public abstract class UiElement : IDisposable, IUiFocusable
         return true;
     }
 
+    // Layout-only elements have no name of their own; the type name is available to providers as a
+    // class name and must not be read out as if it were content.
     protected virtual UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.Generic,
-            GetType().Name,
+            string.Empty,
             Bounds,
             Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None,
             CreateChildSemanticNodes(),
@@ -412,7 +506,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
         var nodes = new List<UiSemanticNode>(_children.Count);
         foreach (UiElement child in _children)
         {
-            if (child.Visibility != UiVisibility.Collapsed)
+            if (child.Visibility != UiVisibility.Collapsed && !child._hiddenFromAccessibility)
                 nodes.Add(child.GetSemanticNode());
         }
 

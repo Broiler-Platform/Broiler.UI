@@ -179,7 +179,13 @@ public abstract class UiLabel : UiElement
             if (ReferenceEquals(_target, value))
                 return;
 
+            UiElement? previous = _target;
             _target = value;
+            // The label names its target unless the target already has another label relation.
+            if (previous is { IsDisposed: false } && ReferenceEquals(previous.LabeledBy, this))
+                previous.LabeledBy = null;
+            if (value is not null && value.LabeledBy is null)
+                value.LabeledBy = this;
             Invalidate(UiInvalidationKind.Semantic);
         }
     }

@@ -93,7 +93,8 @@ public abstract class UiPanel : UiElement
     protected override UiSemanticNode GetSemanticNodeCore() =>
         new(
             UiSemanticRole.Panel,
-            GetType().Name,
+            // A panel only arranges its children; it has nothing to say itself.
+            string.Empty,
             Bounds,
             Visibility == UiVisibility.Visible ? UiSemanticState.Visible : UiSemanticState.None,
             CreateChildSemanticNodes());
@@ -117,7 +118,7 @@ public abstract class UiPanel : UiElement
         var nodes = new List<UiSemanticNode>(Children.Count);
         foreach (UiElement child in Children)
         {
-            if (child.Visibility != UiVisibility.Collapsed)
+            if (child.Visibility != UiVisibility.Collapsed && !child.IsHiddenFromAccessibility)
                 nodes.Add(child.GetSemanticNode());
         }
 

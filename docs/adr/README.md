@@ -39,3 +39,4 @@ Broiler.UI decisions, not product decisions: the product context is in
 | [0024](0024-tab-view-document-behavior.md) | TabView document behavior |
 | [0025](0025-host-window-breakout.md) | Host-window break-out for secondary windows |
 | [0026](0026-owner-drawn-window-chrome.md) | Owner-drawn window chrome and break-out by default |
+| [0027](0027-accessible-names-labels-and-hidden-content.md) | Accessible names, label relations, and hidden content |

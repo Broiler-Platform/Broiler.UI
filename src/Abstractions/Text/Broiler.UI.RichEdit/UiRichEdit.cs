@@ -696,11 +696,9 @@ public abstract class UiRichEdit : UiElement, IUiScrollable
     // Broiler-AI:           Origin=AI; Spec=ADR-0017; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
     // Broiler-Falsified-If: an empty document with a PlaceholderText produces an empty semantic name instead of the placeholder
     // Broiler-Human:        PENDING
-    private string GetSemanticName()
-    {
-        string plain = _editor.Document.PlainText;
-        return plain.Length > 0 ? plain : _placeholderText;
-    }
+    // The document is the value (text info), never the name: a long message would otherwise be read
+    // out in full as the control's name. Labels or an explicit accessible name provide the name.
+    private string GetSemanticName() => _placeholderText;
 
     // Broiler-AI:           Origin=AI; Spec=ADR-0017; IP=Low; Security=Low; Resources=0; Fingerprint=TBF
     // Broiler-Falsified-If: a rich edit whose IsReadOnly is true reports no ReadOnly semantic state
