@@ -154,6 +154,30 @@ public sealed class ScrollViewControlTests
         Assert.Null(session.CapturedElement);
     }
 
+    [Fact]
+    public void Standard_ScrollView_Shift_Wheel_Scrolls_Horizontally()
+    {
+        var scrollView = new StandardScrollView { ScrollbarThickness = 10 };
+        scrollView.AddChild(new FixedElement(new BSize(300, 300)));
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out _);
+
+        Assert.True(scrollView.DispatchInput(Wheel(-1, InputModifiers.Shift, 1)));
+
+        Assert.True(scrollView.HorizontalOffset > 0);
+        Assert.Equal(0, scrollView.VerticalOffset);
+    }
+
+    private static UiInputEvent Wheel(double notches, InputModifiers modifiers, long sequence) =>
+        UiInputEvent.FromMouseWheel(
+            new MouseWheelEvent(
+                Header(sequence),
+                InputPoint.ClientDeviceIndependentPixels(50, 50),
+                MouseButtons.None,
+                MouseWheelAxis.Vertical,
+                notches,
+                InputEventSource.Synthetic,
+                modifiers));
+
     private static UiSession AttachAndRender(StandardScrollView scrollView, BSize viewportSize, out BRenderList renderList)
     {
         var host = new TestHost(viewportSize);

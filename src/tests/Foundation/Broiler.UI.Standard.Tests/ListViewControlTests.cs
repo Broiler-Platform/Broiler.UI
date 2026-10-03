@@ -73,6 +73,28 @@ public sealed class ListViewControlTests
         Assert.Null(session.CapturedElement);
     }
 
+    [Fact]
+    public void Standard_ListView_Leaves_A_Wheel_It_Cannot_Scroll_To_Its_Container()
+    {
+        var listView = CreateOverflowingListView();
+        using UiSession session = AttachAndRender(listView, new BSize(120, 80), out _);
+
+        // Already at the top: scrolling up changes nothing, so an outer scroll view may take the wheel.
+        Assert.False(listView.DispatchInput(Wheel(1, 1)));
+        Assert.True(listView.DispatchInput(Wheel(-1, 2)));
+        Assert.True(listView.VerticalOffset > 0);
+    }
+
+    private static UiInputEvent Wheel(double notches, long sequence) =>
+        UiInputEvent.FromMouseWheel(
+            new MouseWheelEvent(
+                Header("mouse", sequence),
+                InputPoint.ClientDeviceIndependentPixels(40, 40),
+                MouseButtons.None,
+                MouseWheelAxis.Vertical,
+                notches,
+                InputEventSource.Synthetic));
+
     private static void SetSampleItems(StandardListView listView) =>
         listView.SetItems(
         [

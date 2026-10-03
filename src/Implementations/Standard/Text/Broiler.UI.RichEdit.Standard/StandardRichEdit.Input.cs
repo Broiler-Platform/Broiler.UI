@@ -93,7 +93,7 @@ public sealed partial class StandardRichEdit
     private bool HandleWheel(UiInputEvent input)
     {
         bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
-        if (shift && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
+        if ((shift || input.WheelAxis == MouseWheelAxis.Horizontal) && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
         {
             double delta = input.WheelDeltaNotches * DefaultLineHeight * 3;
             if (_scroller.ScrollToX(_scroller.OffsetX - delta, HorizontalScrollMetrics))
