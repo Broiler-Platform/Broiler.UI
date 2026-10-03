@@ -23,6 +23,15 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
             _ => 28,
         };
 
+    /// <summary>At least the density's height, and tall enough for a line in <paramref name="font"/> with the same margin.</summary>
+    public double GetItemHeight(UiListItem? item, UiDensity density, double availableWidth, BFontStyle font)
+    {
+        ArgumentNullException.ThrowIfNull(font);
+        double height = GetItemHeight(item, density, availableWidth);
+        double margin = Math.Max(0, height - BTextMeasurer.GetLineHeight(BFontStyle.Default));
+        return Math.Max(height, Math.Ceiling(BTextMeasurer.GetLineHeight(font) + margin));
+    }
+
     public void Render(UiListItemRenderContext context)
     {
         ArgumentNullException.ThrowIfNull(context);

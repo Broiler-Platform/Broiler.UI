@@ -14,6 +14,15 @@ public sealed class StandardRadioButton : UiRadioButton, IStandardThemedControl
 {
     public void ApplyTheme(StandardThemeTokens theme)
     {
+        // Follow the theme's body font, including a text-scaled theme, unless the application set its own.
+        BFontStyle themeFont = StandardThemeFonts.For(theme, StandardTextStyle.Body);
+        BFontStyle followed = StandardThemeFonts.Follow(Font, _themeFont, themeFont);
+        _themeFont = themeFont;
+        if (followed != Font)
+        {
+            Font = followed;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
         Foreground = theme.Text;
         BorderColor = theme.BorderStrong;
         Accent = theme.Accent;
@@ -28,7 +37,8 @@ public sealed class StandardRadioButton : UiRadioButton, IStandardThemedControl
     private BColor _accent = StandardControlPaint.Accent;
     private BColor _disabledForeground = StandardControlPaint.TextDisabled;
     private BColor _focusRing = StandardControlPaint.Focus;
-    private BFontStyle _font = BFontStyle.Default;
+    private BFontStyle _font = StandardControlPaint.Theme.FontBody;
+    private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
     private double _markSize = 18;
     private double _spacing = 8;
     private double _paddingX = 6;

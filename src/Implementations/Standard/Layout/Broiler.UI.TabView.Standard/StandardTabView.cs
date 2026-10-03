@@ -14,6 +14,15 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 {
     public void ApplyTheme(StandardThemeTokens theme)
     {
+        // Follow the theme's body font, including a text-scaled theme, unless the application set its own.
+        BFontStyle themeFont = StandardThemeFonts.For(theme, StandardTextStyle.Body);
+        BFontStyle followed = StandardThemeFonts.Follow(Font, _themeFont, themeFont);
+        _themeFont = themeFont;
+        if (followed != Font)
+        {
+            Font = followed;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
         Background = theme.Surface;
         SelectedHeaderBackground = theme.Surface;
         Foreground = theme.Text;
@@ -33,9 +42,18 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
 
-    public BFontStyle Font { get; set; } = BFontStyle.Default;
+    public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;
+
+    private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
 
     public double HeaderHeight { get; set; } = 32;
+
+    /// <summary>
+    /// The height the header strip actually takes: <see cref="HeaderHeight"/>, or more when the font
+    /// (for example, at a larger system text size) needs it, so tab names are never cut off.
+    /// </summary>
+    public double EffectiveHeaderHeight => Math.Max(HeaderHeight,
+        Math.Ceiling(BTextMeasurer.GetLineHeight(Font) + Math.Max(0, HeaderHeight - BTextMeasurer.GetLineHeight(BFontStyle.Default))));
 
     public double HeaderPaddingX { get; set; } = 12;
 
@@ -47,7 +65,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
             ? availableSize.Width
             : double.PositiveInfinity;
         double availableContentHeight = double.IsFinite(availableSize.Height)
-            ? Math.Max(0, availableSize.Height - HeaderHeight)
+            ? Math.Max(0, availableSize.Height - EffectiveHeaderHeight)
             : double.PositiveInfinity;
         BSize contentAvailableSize = new(availableContentWidth, availableContentHeight);
 
@@ -69,7 +87,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
             headersWidth += Math.Max(48, BTextMeasurer.MeasureAdvance(Tabs[index].Header, Font) + HeaderPaddingX * 2);
 
         double desiredWidth = Math.Max(headersWidth, maxContentWidth);
-        double desiredHeight = HeaderHeight + maxContentHeight;
+        double desiredHeight = EffectiveHeaderHeight + maxContentHeight;
 
         if (PreferredSize.Width > 0 && double.IsInfinity(availableSize.Width))
             desiredWidth = Math.Max(desiredWidth, PreferredSize.Width);
@@ -81,7 +99,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     protected override void ArrangeCore(BRect finalRect)
     {
-        BRect contentRect = new(finalRect.Left, finalRect.Top + HeaderHeight, finalRect.Width, Math.Max(0, finalRect.Height - HeaderHeight));
+        BRect contentRect = new(finalRect.Left, finalRect.Top + EffectiveHeaderHeight, finalRect.Width, Math.Max(0, finalRect.Height - EffectiveHeaderHeight));
         for (int index = 0; index < Tabs.Count; index++)
         {
             UiElement? content = Tabs[index].Content;
@@ -109,7 +127,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     protected override void RenderCore(UiRenderContext context)
     {
-        BRect content = new(Bounds.Left, Bounds.Top + HeaderHeight, Bounds.Width, Math.Max(0, Bounds.Height - HeaderHeight));
+        BRect content = new(Bounds.Left, Bounds.Top + EffectiveHeaderHeight, Bounds.Width, Math.Max(0, Bounds.Height - EffectiveHeaderHeight));
         StandardControlPaint.FillRounded(context.RenderList, content, Background, CornerRadius);
         StandardControlPaint.StrokeRounded(context.RenderList, content, BorderColor, CornerRadius, 1);
 
@@ -124,7 +142,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
                 StandardControlPaint.FillRounded(context.RenderList, header, headerBackground, CornerRadius);
 
             BColor headerForeground = selected ? StandardControlPaint.Accent : Foreground;
-            context.RenderList.DrawText(new BTextRun(Tabs[index].Header, Font, headerForeground), new BPoint(header.Left + HeaderPaddingX, header.Top + Math.Max(0, (HeaderHeight - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            context.RenderList.DrawText(new BTextRun(Tabs[index].Header, Font, headerForeground), new BPoint(header.Left + HeaderPaddingX, header.Top + Math.Max(0, (EffectiveHeaderHeight - BTextMeasurer.GetLineHeight(Font)) / 2)));
         }
 
         SelectedTab?.Content?.Render(context);
@@ -189,7 +207,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
     private BRect GetHeaderBounds(int index, double left)
     {
         double width = BTextMeasurer.MeasureAdvance(Tabs[index].Header, Font) + HeaderPaddingX * 2;
-        return new BRect(left, Bounds.Top, Math.Max(48, width), HeaderHeight);
+        return new BRect(left, Bounds.Top, Math.Max(48, width), EffectiveHeaderHeight);
     }
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>

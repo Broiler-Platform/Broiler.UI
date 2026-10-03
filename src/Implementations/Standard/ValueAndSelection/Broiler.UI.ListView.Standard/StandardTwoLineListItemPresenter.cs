@@ -24,6 +24,30 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
             _ => 52,
         };
 
+    /// <summary>
+    /// At least the density's height, and tall enough for both lines in <paramref name="font"/> with the
+    /// margin the density leaves around them at the default font, so the default size is unchanged.
+    /// </summary>
+    public double GetItemHeight(UiListItem? item, UiDensity density, double availableWidth, BFontStyle font)
+    {
+        ArgumentNullException.ThrowIfNull(font);
+        double height = GetItemHeight(item, density, availableWidth);
+        // Not clamped: compact rows are slightly shorter than their two lines at the default font, and
+        // that geometry is kept rather than changed at the default size.
+        double margin = height - LinesHeight(BFontStyle.Default);
+        return Math.Max(height, Math.Ceiling(LinesHeight(font) + margin));
+    }
+
+    private static double LinesHeight(BFontStyle font) =>
+        BTextMeasurer.GetLineHeight(font) + 2 + BTextMeasurer.GetLineHeight(font with { Size = Math.Max(10, font.Size - 1) });
+
+    private static double TopPadding(UiDensity density) => density switch
+    {
+        UiDensity.Compact => 4,
+        UiDensity.Spacious => 10,
+        _ => 6,
+    };
+
     public void Render(UiListItemRenderContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -40,12 +64,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
 
         bool isUnread = !context.State.IsRead;
         double primaryLineHeight = BTextMeasurer.GetLineHeight(context.Font);
-        double primaryTop = bounds.Top + (context.State.Density switch
-        {
-            UiDensity.Compact => 4,
-            UiDensity.Spacious => 10,
-            _ => 6,
-        });
+        double primaryTop = bounds.Top + TopPadding(context.State.Density);
 
         double primaryLeft = bounds.Left + 10;
 

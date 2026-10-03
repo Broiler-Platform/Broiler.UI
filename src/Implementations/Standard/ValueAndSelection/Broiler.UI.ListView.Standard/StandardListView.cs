@@ -35,6 +35,15 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     public void ApplyTheme(StandardThemeTokens theme)
     {
         ArgumentNullException.ThrowIfNull(theme);
+        // Follow the theme's body font, including a text-scaled theme, unless the application set its own.
+        BFontStyle themeFont = StandardThemeFonts.For(theme, StandardTextStyle.Body);
+        BFontStyle followed = StandardThemeFonts.Follow(Font, _themeFont, themeFont);
+        _themeFont = themeFont;
+        if (followed != Font)
+        {
+            Font = followed;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
         Background = theme.Surface;
         Foreground = theme.Text;
         SecondaryForeground = theme.TextMuted;
@@ -47,7 +56,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         _isHighContrast = Math.Abs(Luminance(theme.Surface) - Luminance(theme.Text)) > 0.9;
         if (!_itemHeightExplicit && ItemPresenter is not null)
         {
-            _itemHeight = ItemPresenter.GetItemHeight(null, Density, _contentBounds.Width);
+            _itemHeight = ItemPresenter.GetItemHeight(null, Density, _contentBounds.Width, Font);
         }
     }
 
@@ -63,7 +72,8 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     private BColor _accent = StandardControlPaint.Accent;
     private BColor _scrollbarTrack = StandardControlPaint.SurfaceDisabled;
     private BColor _scrollbarThumb = StandardControlPaint.BorderStrong;
-    private BFontStyle _font = BFontStyle.Default;
+    private BFontStyle _font = StandardControlPaint.Theme.FontBody;
+    private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
     private double _itemHeight = 28;
     private double _cornerRadius = StandardControlPaint.ControlRadius;
 
@@ -92,7 +102,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     public double EffectiveItemHeight =>
         _itemHeightExplicit
             ? _itemHeight
-            : (ItemPresenter?.GetItemHeight(null, Density, _contentBounds.Width) ?? _itemHeight);
+            : (ItemPresenter?.GetItemHeight(null, Density, _contentBounds.Width, Font) ?? _itemHeight);
 
     public BColor Background
     {
@@ -199,7 +209,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         base.OnDensityChanged();
         if (!_itemHeightExplicit && ItemPresenter is not null)
         {
-            _itemHeight = ItemPresenter.GetItemHeight(null, Density, _contentBounds.Width);
+            _itemHeight = ItemPresenter.GetItemHeight(null, Density, _contentBounds.Width, Font);
         }
     }
 
