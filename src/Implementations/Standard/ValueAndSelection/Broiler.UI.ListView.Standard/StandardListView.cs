@@ -538,9 +538,10 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         if (input.WheelAxis != MouseWheelAxis.Vertical)
             return false;
 
+        double before = VerticalOffset;
         SetVerticalOffset(VerticalOffset - input.WheelDeltaNotches * EffectiveItemHeight * WheelScrollItems);
         CoerceOffset();
-        return true;
+        return VerticalOffset != before;
     }
 
     private bool HandleKeyboard(UiInputEvent input)

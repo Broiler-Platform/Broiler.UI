@@ -2,6 +2,7 @@ using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.Text;
 using Broiler.Graphics.Windowing;
+using Broiler.Input;
 using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.Input.Text;
@@ -227,6 +228,23 @@ public sealed class StandardRichEditReadOnlyAndScrollingTests
         scene.Edit.ScrollToStart();
         Assert.Equal(0, scene.Edit.VerticalScrollOffset);
         Assert.Equal(0, scene.Edit.HorizontalScrollOffset);
+        scene.Session.Dispose();
+    }
+
+    [Fact]
+    public void A_Horizontal_Wheel_Scrolls_Sideways_Like_Shift_Wheel()
+    {
+        string text = string.Join("\n", Enumerable.Range(0, 5).Select(i => $"long line {i} with lots and lots of text to induce horizontal scrolling"));
+        RichEditScene scene = Focused(text, new BSize(150, 100));
+        scene.Edit.Wrapping = RichEditWrapping.NoWrap;
+        scene.Edit.HorizontalScrollPolicy = RichEditScrollPolicy.Auto;
+        scene.Session.RenderFrame();
+
+        scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Horizontal, -1, InputEventSource.Synthetic));
+
+        Assert.True(scene.Edit.HorizontalScrollOffset > 0);
+        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
         scene.Session.Dispose();
     }
 

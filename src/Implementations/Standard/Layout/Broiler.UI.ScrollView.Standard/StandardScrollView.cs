@@ -416,8 +416,9 @@ public sealed class StandardScrollView : UiScrollView
 
     private bool HandleWheel(UiInputEvent input)
     {
+        bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
         double delta = -input.WheelDeltaNotches * LineScrollAmount;
-        return input.WheelAxis == MouseWheelAxis.Horizontal
+        return (input.WheelAxis == MouseWheelAxis.Horizontal || shift)
             ? ScrollBy(delta, 0)
             : ScrollBy(0, delta);
     }
