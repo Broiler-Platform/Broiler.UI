@@ -16,6 +16,15 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
 {
     public void ApplyTheme(StandardThemeTokens theme)
     {
+        // Follow the theme's body font, including a text-scaled theme, unless the application set its own.
+        BFontStyle themeFont = StandardThemeFonts.For(theme, StandardTextStyle.Body);
+        BFontStyle followed = StandardThemeFonts.Follow(Font, _themeFont, themeFont);
+        _themeFont = themeFont;
+        if (followed != Font)
+        {
+            Font = followed;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
         Background = theme.Surface;
         Foreground = theme.Text;
         PlaceholderForeground = theme.TextDisabled;
@@ -62,7 +71,9 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
 
     public BColor CaretColor { get; set; } = BColor.Black;
 
-    public BFontStyle Font { get; set; } = BFontStyle.Default;
+    public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;
+
+    private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
 
     public double PaddingX { get; set; } = 8;
 

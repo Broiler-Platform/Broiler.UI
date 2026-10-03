@@ -14,6 +14,15 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
 {
     public void ApplyTheme(StandardThemeTokens theme)
     {
+        // Follow the theme's body font, including a text-scaled theme, unless the application set its own.
+        BFontStyle themeFont = StandardThemeFonts.For(theme, StandardTextStyle.Body);
+        BFontStyle followed = StandardThemeFonts.Follow(Font, _themeFont, themeFont);
+        _themeFont = themeFont;
+        if (followed != Font)
+        {
+            Font = followed;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
         Background = theme.Surface;
         Foreground = theme.Text;
         BorderColor = theme.Border;
@@ -31,7 +40,8 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
     private BColor _selectedBackground = StandardControlPaint.AccentSoft;
     private BColor _popupBackground = StandardControlPaint.Surface;
     private BColor _focusRing = StandardControlPaint.Focus;
-    private BFontStyle _font = BFontStyle.Default;
+    private BFontStyle _font = StandardControlPaint.Theme.FontBody;
+    private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
     private double _itemHeight = 28;
     private double _cornerRadius = StandardControlPaint.ControlRadius;
 

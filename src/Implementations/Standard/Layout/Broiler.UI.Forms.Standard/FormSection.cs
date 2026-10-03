@@ -17,7 +17,7 @@ public sealed class FormSection : UiElement, IFormSection
         if (!collapsible)
         {
             var heading = FormField.Text(title);
-            heading.Font = heading.Font with { Size = 20 };
+            heading.TextStyle = Broiler.UI.Standard.StandardTextStyle.Subtitle;
             _layout.AddChild(heading);
         }
         if (collapsible)

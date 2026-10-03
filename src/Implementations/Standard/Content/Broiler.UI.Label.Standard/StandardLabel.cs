@@ -12,6 +12,8 @@ namespace Broiler.UI.Label.Standard;
 public sealed class StandardLabel : UiLabel, IStandardThemedControl
 {
     private StandardLabelRole _role = StandardLabelRole.Default;
+    private StandardTextStyle _textStyle = StandardTextStyle.Body;
+    private BFontStyle _themeFont;
     private double _cachedWidth = double.NaN;
     private string? _cachedDisplayText;
     private BFontStyle? _cachedFont;
@@ -23,6 +25,23 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
     public StandardLabel()
     {
         Foreground = GetRoleColor(_role, StandardControlPaint.Theme);
+        _themeFont = StandardThemeFonts.For(StandardControlPaint.Theme, _textStyle);
+        Font = _themeFont;
+    }
+
+    /// <summary>
+    /// The type role whose font the label shows. It follows theme changes, including a text-scaled
+    /// theme, until the application sets <see cref="UiLabel.Font"/> itself.
+    /// </summary>
+    public StandardTextStyle TextStyle
+    {
+        get => _textStyle;
+        set
+        {
+            _textStyle = value;
+            _themeFont = StandardThemeFonts.For(StandardControlPaint.GetTheme(this), value);
+            Font = _themeFont;
+        }
     }
 
     public StandardLabel(string text, StandardLabelRole role = StandardLabelRole.Default) : this()
@@ -53,6 +72,9 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
         {
             Foreground = GetRoleColor(Role, theme);
         }
+        BFontStyle themeFont = StandardThemeFonts.For(theme, _textStyle);
+        Font = StandardThemeFonts.Follow(Font, _themeFont, themeFont);
+        _themeFont = themeFont;
     }
 
     public static BColor GetRoleColor(StandardLabelRole role, StandardThemeTokens theme) =>
@@ -75,10 +97,10 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
     public static StandardLabel Accent(string text = "") => new(text, StandardLabelRole.Accent);
     public static StandardLabel Info(string text = "") => new(text, StandardLabelRole.Info);
 
-    public static StandardLabel Title(string text = "") => new(text) { Font = StandardControlPaint.FontTitle };
-    public static StandardLabel Subtitle(string text = "") => new(text) { Font = StandardControlPaint.FontSubtitle };
-    public static StandardLabel Caption(string text = "") => new(text, StandardLabelRole.Muted) { Font = StandardControlPaint.FontCaption };
-    public static StandardLabel Code(string text = "") => new(text) { Font = StandardControlPaint.FontCode };
+    public static StandardLabel Title(string text = "") => new(text) { TextStyle = StandardTextStyle.Title };
+    public static StandardLabel Subtitle(string text = "") => new(text) { TextStyle = StandardTextStyle.Subtitle };
+    public static StandardLabel Caption(string text = "") => new(text, StandardLabelRole.Muted) { TextStyle = StandardTextStyle.Caption };
+    public static StandardLabel Code(string text = "") => new(text) { TextStyle = StandardTextStyle.Code };
 
     protected override BSize MeasureCore(BSize availableSize)
     {

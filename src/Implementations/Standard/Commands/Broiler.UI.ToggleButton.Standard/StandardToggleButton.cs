@@ -16,6 +16,15 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
 {
     public void ApplyTheme(StandardThemeTokens theme)
     {
+        // Follow the theme's body font, including a text-scaled theme, unless the application set its own.
+        BFontStyle themeFont = StandardThemeFonts.For(theme, StandardTextStyle.Body);
+        BFontStyle followed = StandardThemeFonts.Follow(Font, _themeFont, themeFont);
+        _themeFont = themeFont;
+        if (followed != Font)
+        {
+            Font = followed;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
         Background = theme.Surface;
         CheckedBackground = theme.AccentSoft;
         IndeterminateBackground = theme.AccentSoft;
@@ -38,7 +47,8 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     private BColor _pressedBackground = BColor.FromArgb(0xFF, 0xD8, 0xE8, 0xFC);
     private BColor _hoverBackground = BColor.FromArgb(0xFF, 0xF2, 0xF7, 0xFF);
     private BColor _focusRing = StandardControlPaint.Focus;
-    private BFontStyle _font = BFontStyle.Default;
+    private BFontStyle _font = StandardControlPaint.Theme.FontBody;
+    private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
     private double _paddingX = 14;
     private double _paddingY = 7;
     private double _cornerRadius = StandardControlPaint.ControlRadius;

@@ -55,13 +55,41 @@ public sealed record StandardThemeTokens
     public double SmallRadius { get; init; } = 4;
     public double PillRadius { get; init; } = 999;
 
-    // Typography
+    // Typography. Body is the size controls have always drawn (BFontStyle.Default); the others are
+    // ranked around it: a surface title, a section heading (as FormSection has drawn it), and a caption.
     public string FontFamily { get; init; } = BFontStyle.Default.FamilyName;
-    public BFontStyle FontBody { get; init; } = BFontStyle.Default with { Size = 13 };
-    public BFontStyle FontTitle { get; init; } = BFontStyle.Default with { Size = 18, Weight = BFontWeight.SemiBold };
-    public BFontStyle FontSubtitle { get; init; } = BFontStyle.Default with { Size = 14, Weight = BFontWeight.SemiBold };
-    public BFontStyle FontCaption { get; init; } = BFontStyle.Default with { Size = 11 };
+    public BFontStyle FontBody { get; init; } = BFontStyle.Default;
+    public BFontStyle FontTitle { get; init; } = BFontStyle.Default with { Size = 24, Weight = BFontWeight.SemiBold };
+    public BFontStyle FontSubtitle { get; init; } = BFontStyle.Default with { Size = 20 };
+    public BFontStyle FontCaption { get; init; } = BFontStyle.Default with { Size = 13 };
     public BFontStyle FontCode { get; init; } = new BFontStyle("Consolas", 13);
+
+    /// <summary>The system text size these fonts are scaled to; 1 is unscaled. See <see cref="WithTextScale"/>.</summary>
+    public double TextScale { get; init; } = 1.0;
+
+    /// <summary>
+    /// A copy whose fonts are <paramref name="scale"/> times their unscaled sizes, for the system's text
+    /// size setting (Windows "Make text bigger"). Scaling an already scaled theme does not compound.
+    /// </summary>
+    public StandardThemeTokens WithTextScale(double scale)
+    {
+        if (!double.IsFinite(scale) || scale <= 0)
+            throw new ArgumentOutOfRangeException(nameof(scale), scale, "Text scale must be a positive, finite number.");
+        double factor = scale / TextScale;
+        if (Math.Abs(factor - 1) < 1e-9)
+            return this;
+
+        BFontStyle Scale(BFontStyle font) => font with { Size = Math.Round(font.Size * factor * 100) / 100 };
+        return this with
+        {
+            TextScale = scale,
+            FontBody = Scale(FontBody),
+            FontTitle = Scale(FontTitle),
+            FontSubtitle = Scale(FontSubtitle),
+            FontCaption = Scale(FontCaption),
+            FontCode = Scale(FontCode),
+        };
+    }
 
     // Spacing
     public double SpacingXs { get; init; } = 4;
@@ -307,7 +335,7 @@ public sealed record StandardThemeTokens
             settings.ContrastPreference,
             settings.ColorScheme == UiColorScheme.Dark,
             settings.Density,
-            settings.ReducedMotion);
+            settings.ReducedMotion).WithTextScale(double.IsFinite(settings.TextScale) && settings.TextScale > 0 ? settings.TextScale : 1);
     }
 }
 
