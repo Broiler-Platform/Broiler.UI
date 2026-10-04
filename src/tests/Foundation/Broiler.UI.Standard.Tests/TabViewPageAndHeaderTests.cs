@@ -3,6 +3,8 @@ using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.Graphics.Text;
+using Broiler.Input;
+using Broiler.Input.Mouse;
 using Broiler.UI.TabView.Standard;
 
 namespace Broiler.UI.Standard.Tests;
@@ -84,6 +86,69 @@ public sealed class TabViewPageAndHeaderTests
         }
     }
 
+    [Theory]
+    [MemberData(nameof(Presets))]
+    public void OnlyTheSelectedTabIsMarkedByABarUnderItsLabelThatStandsOutFromTheStrip(StandardThemeTokens theme)
+    {
+        StandardTabView tabs = ThreeTabs();
+        tabs.ApplyTheme(theme);
+        using UiSession session = Attach(tabs, 400, 200);
+        Assert.Equal(theme.AccentText, tabs.SelectedIndicatorColor);
+
+        for (int selected = 0; selected < tabs.Tabs.Count; selected++)
+        {
+            tabs.SelectedIndex = selected;
+            BRenderList frame = session.RenderFrame();
+
+            // One bar, under the selected label, along the bottom of its header.
+            BRect header = tabs.GetTabHeaderBounds(selected);
+            BRect bar = Assert.Single(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == tabs.SelectedIndicatorColor).Rect;
+            Assert.Equal(new BRect(header.Left + tabs.HeaderPaddingX, header.Bottom - 3, header.Width - (tabs.HeaderPaddingX * 2), 3), bar);
+        }
+
+        // A mark that is not text needs 3:1 against what lies around it: the selected header's fill, and the
+        // strip, which shows what is behind the tab view.
+        foreach (BColor strip in new[] { tabs.SelectedHeaderBackground, theme.Surface, theme.SurfaceAlt })
+        {
+            double ratio = StandardContrast.Ratio(tabs.SelectedIndicatorColor, strip);
+            Assert.True(ratio >= StandardContrast.AaLargeOrUi, $"{theme.Name}: the bar stands out at {ratio:0.00}:1 from {strip}.");
+        }
+    }
+
+    [Fact]
+    public void TheBarLeavesTheHeadersAndTheirHitTestingAsTheyWere()
+    {
+        StandardTabView tabs = ThreeTabs();
+        using UiSession session = Attach(tabs, 400, 200);
+        double height = tabs.EffectiveHeaderHeight;
+        BRect[] headers = [.. Enumerable.Range(0, tabs.Tabs.Count).Select(tabs.GetTabHeaderBounds)];
+        Assert.Equal(tabs.HeaderHeight, height);
+
+        // Turned off, nothing is drawn and nothing moves.
+        tabs.SelectedIndicatorThickness = 0;
+        BRenderList frame = session.RenderFrame();
+        Assert.DoesNotContain(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == tabs.SelectedIndicatorColor);
+        Assert.Equal(height, tabs.EffectiveHeaderHeight);
+        Assert.Equal(headers, Enumerable.Range(0, tabs.Tabs.Count).Select(tabs.GetTabHeaderBounds));
+
+        // A color of its own leaves the label alone.
+        BColor custom = BColor.FromArgb(0xFF, 0xC0, 0x30, 0x90);
+        tabs.SelectedIndicatorThickness = 3;
+        tabs.SelectedIndicatorColor = custom;
+        frame = session.RenderFrame();
+        Assert.Single(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == custom);
+        Assert.Equal(tabs.SelectedHeaderForeground, Label(frame, "Inbox").Color);
+        Assert.Equal(height, tabs.EffectiveHeaderHeight);
+        Assert.Equal(headers, Enumerable.Range(0, tabs.Tabs.Count).Select(tabs.GetTabHeaderBounds));
+
+        // The strip where a bar is drawn still selects the tab under it.
+        BRect sent = tabs.GetTabHeaderBounds(1);
+        session.DispatchInput(MouseDown(sent.Left + (sent.Width / 2), sent.Bottom - 1));
+        Assert.Equal(1, tabs.SelectedIndex);
+        BRect bar = Assert.Single(session.RenderFrame().Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == custom).Rect;
+        Assert.True(sent.Contains(new BPoint(bar.Left + (bar.Width / 2), bar.Top + (bar.Height / 2))));
+    }
+
     private static StandardTabView ThreeTabs()
     {
         var tabs = new StandardTabView();
@@ -116,6 +181,19 @@ public sealed class TabViewPageAndHeaderTests
         Assert.Fail("No command matched.");
         return null;
     }
+
+    private static UiInputEvent MouseDown(double x, double y) =>
+        UiInputEvent.FromMouseButton(
+            new MouseButtonEvent(
+                new InputEventHeader(
+                    InputDeviceId.FromOpaqueValue("mouse"),
+                    new InputTimestamp(1, TimeSpan.TicksPerSecond, "tab-header-test"),
+                    1),
+                InputPoint.ClientDeviceIndependentPixels(x, y),
+                MouseButtons.Left,
+                MouseButton.Left,
+                MouseButtonTransition.Down,
+                InputEventSource.Synthetic));
 
     private static UiSession Attach(UiElement root, double width, double height)
     {

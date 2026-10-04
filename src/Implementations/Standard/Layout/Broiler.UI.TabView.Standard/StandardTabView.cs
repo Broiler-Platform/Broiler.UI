@@ -32,6 +32,8 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
     }
 
     private BColor? _selectedHeaderForeground;
+    private BColor? _selectedIndicatorColor;
+    private double _selectedIndicatorThickness = 3;
 
     public BColor Background { get; set; } = StandardControlPaint.Surface;
 
@@ -55,6 +57,43 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
                 return;
 
             _selectedHeaderForeground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    /// <summary>
+    /// The thickness of the bar drawn under the selected tab's label, along the bottom of its header: a mark
+    /// of the selected tab that does not rely on the label's color alone (WCAG 1.4.1). 3 DIP by default; 0
+    /// draws none. The bar lies inside the header, so <see cref="EffectiveHeaderHeight"/>, the header bounds
+    /// and hit testing are the same with or without it.
+    /// </summary>
+    public double SelectedIndicatorThickness
+    {
+        get => _selectedIndicatorThickness;
+        set
+        {
+            if (_selectedIndicatorThickness.Equals(value))
+                return;
+
+            _selectedIndicatorThickness = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    /// <summary>
+    /// The color of the bar under the selected tab's label: <see cref="SelectedHeaderForeground"/> until the
+    /// application sets it. That is the theme's accent text, which in every preset has at least 4.5:1 against
+    /// the selected header's fill, more than the 3:1 a mark that is not text needs.
+    /// </summary>
+    public BColor SelectedIndicatorColor
+    {
+        get => _selectedIndicatorColor ?? SelectedHeaderForeground;
+        set
+        {
+            if (_selectedIndicatorColor == value)
+                return;
+
+            _selectedIndicatorColor = value;
             Invalidate(UiInvalidationKind.Render);
         }
     }
@@ -216,6 +255,10 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
             BColor headerForeground = selected ? SelectedHeaderForeground : Foreground;
             context.RenderList.DrawText(new BTextRun(Tabs[index].Header, Font, headerForeground), new BPoint(header.Left + HeaderPaddingX, header.Top + Math.Max(0, (EffectiveHeaderHeight - BTextMeasurer.GetLineHeight(Font)) / 2)));
+
+            BRect indicator = selected ? GetSelectedIndicatorBounds(header) : BRect.Empty;
+            if (!indicator.IsEmpty)
+                StandardControlPaint.FillRounded(context.RenderList, indicator, SelectedIndicatorColor, indicator.Height / 2);
         }
 
         if (SelectedTab?.Content is { } selectedContent)
@@ -310,6 +353,20 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
     {
         double width = BTextMeasurer.MeasureAdvance(Tabs[index].Header, Font) + HeaderPaddingX * 2;
         return new BRect(left, Bounds.Top, Math.Max(48, width), EffectiveHeaderHeight);
+    }
+
+    /// <summary>
+    /// The bar under the selected label: along the bottom of the header, on the page's frame, and as wide as
+    /// the header less its padding on each side (the whole header when that leaves nothing).
+    /// </summary>
+    private BRect GetSelectedIndicatorBounds(BRect header)
+    {
+        double thickness = Math.Min(SelectedIndicatorThickness, header.Height);
+        if (!(thickness > 0) || header.IsEmpty)
+            return BRect.Empty;
+
+        double inset = header.Width > HeaderPaddingX * 2 ? Math.Max(0, HeaderPaddingX) : 0;
+        return new BRect(header.Left + inset, header.Bottom - thickness, header.Width - (inset * 2), thickness);
     }
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>
