@@ -156,6 +156,36 @@ public sealed class SelectionTextRoleTests
         Assert.Single(SelectionOutlines(flagged));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_Focus_Ring_Of_A_High_Contrast_Row_Leaves_The_Selection_Outline_Visible(bool twoLine)
+    {
+        // A system palette whose focus ring is the highlight that fills the selection.
+        StandardThemeTokens system = SystemHighContrast() with { FocusRing = Highlight };
+        var bounds = new BRect(0, 0, 240, 52);
+
+        List<BRenderCommand.StrokeRect> strokes = RenderFocusedSelectedRow(system, bounds, twoLine);
+
+        // The outline is not painted over, and the ring inside it is drawn in the selected text color, since
+        // the ring's own color would vanish on the fill.
+        Assert.Equal(
+            [(StandardControlPaint.Inset(bounds, 2), system.Text), (StandardControlPaint.Inset(bounds, 4), HighlightText)],
+            strokes.Select(stroke => (stroke.Rect, stroke.Color)));
+
+        // A high-contrast preset keeps its own ring color, inside the outline.
+        StandardThemeTokens preset = StandardThemeTokens.HighContrastDark;
+        Assert.Equal(
+            [(StandardControlPaint.Inset(bounds, 2), preset.Text), (StandardControlPaint.Inset(bounds, 4), preset.FocusRing)],
+            RenderFocusedSelectedRow(preset, bounds, twoLine).Select(stroke => (stroke.Rect, stroke.Color)));
+
+        // Elsewhere the ring is where it always was, and there is no outline.
+        StandardThemeTokens light = StandardThemeTokens.Light;
+        Assert.Equal(
+            [(StandardControlPaint.Inset(bounds, 2), light.FocusRing)],
+            RenderFocusedSelectedRow(light, bounds, twoLine).Select(stroke => (stroke.Rect, stroke.Color)));
+    }
+
     [Fact]
     public void A_Context_For_Another_Item_Keeps_Every_Member()
     {
@@ -225,6 +255,31 @@ public sealed class SelectionTextRoleTests
             OnAccent = HighlightText,
             SelectionText = HighlightText,
         };
+
+    private static List<BRenderCommand.StrokeRect> RenderFocusedSelectedRow(StandardThemeTokens theme, BRect bounds, bool twoLine)
+    {
+        var renderList = new BRenderList();
+        bool distinct = theme.SelectionText != theme.Text;
+        var context = new UiListItemRenderContext
+        {
+            RenderList = renderList,
+            Bounds = bounds,
+            Item = new UiListItem("a", "Alpha", "Agenda", "09:00"),
+            State = new UiListItemState(true, true, true, 0),
+            Font = theme.FontBody,
+            Foreground = theme.Text,
+            SecondaryForeground = theme.TextMuted,
+            Background = theme.Surface,
+            SelectedBackground = theme.AccentSoft,
+            SelectedForeground = distinct ? theme.SelectionText : theme.Text,
+            FocusRing = theme.FocusRing,
+            Accent = theme.Accent,
+            IsHighContrast = theme.IsHighContrast,
+        };
+        IUiListItemPresenter presenter = twoLine ? StandardTwoLineListItemPresenter.Instance : DefaultListItemPresenter.Instance;
+        presenter.Render(context);
+        return renderList.Commands.OfType<BRenderCommand.StrokeRect>().ToList();
+    }
 
     private static List<BRenderCommand.StrokeRect> SelectionOutlines(StandardThemeTokens theme)
     {

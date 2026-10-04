@@ -136,7 +136,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
 
         if (context.State.IsFocused && context.State.IsSelected)
         {
-            list.StrokeRect(StandardControlPaint.Inset(bounds, 2), context.FocusRing, 1);
+            DefaultListItemPresenter.StrokeFocusRing(context);
         }
     }
 

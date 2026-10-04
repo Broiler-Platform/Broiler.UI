@@ -64,8 +64,28 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
 
         if (context.State.IsFocused && context.State.IsSelected)
         {
-            list.StrokeRect(StandardControlPaint.Inset(bounds, 2), context.FocusRing, 1);
+            StrokeFocusRing(context);
         }
+    }
+
+    /// <summary>
+    /// The focus ring of a focused, selected row, 2 DIP inside the row. In high contrast it is drawn 2 DIP
+    /// inside the selection outline instead of over it, so both cues stay visible, and in the selected text
+    /// color when the focus ring color does not stand out against the selection fill, as when a palette built
+    /// from a system highlight pair uses the highlight for both.
+    /// </summary>
+    internal static void StrokeFocusRing(UiListItemRenderContext context)
+    {
+        if (!context.IsHighContrast)
+        {
+            context.RenderList.StrokeRect(StandardControlPaint.Inset(context.Bounds, 2), context.FocusRing, 1);
+            return;
+        }
+
+        BColor ring = StandardContrast.Ratio(context.FocusRing, context.SelectedBackground) >= StandardContrast.AaLargeOrUi
+            ? context.FocusRing
+            : context.SelectedForeground;
+        context.RenderList.StrokeRect(StandardControlPaint.Inset(context.Bounds, 4), ring, 1);
     }
 
     public UiSemanticNode CreateSemanticNode(UiListItemSemanticContext context)
