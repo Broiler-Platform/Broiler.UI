@@ -58,10 +58,18 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         Foreground = theme.Text;
         BorderColor = theme.Border;
         ArrowColor = theme.TextMuted;
-        ArrowHoverBackground = theme.AccentSoft;
+        ArrowHoverBackground = theme.StateFill;
         ArrowPressedBackground = theme.SurfaceDisabled;
         DisabledForeground = theme.TextDisabled;
         FocusRing = theme.FocusRing;
+
+        BColor? arrowHoverColor = ArrowHoverLabel(theme);
+        if (_arrowHoverColor != arrowHoverColor)
+        {
+            _arrowHoverColor = arrowHoverColor;
+            Invalidate(UiInvalidationKind.Render);
+        }
+
         _edit.ApplyTheme(theme);
         ApplyEditChrome();
     }
@@ -70,7 +78,8 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
     private BColor _foreground = StandardControlPaint.Text;
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _arrowColor = StandardControlPaint.TextMuted;
-    private BColor _arrowHoverBackground = StandardControlPaint.AccentSoft;
+    private BColor _arrowHoverBackground = StandardControlPaint.StateFill;
+    private BColor? _arrowHoverColor = ArrowHoverLabel(StandardControlPaint.Theme);
     private BColor _arrowPressedBackground = StandardControlPaint.SurfaceDisabled;
     private BColor _disabledForeground = StandardControlPaint.TextDisabled;
     private BColor _focusRing = StandardControlPaint.Focus;
@@ -131,6 +140,33 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
             Invalidate(UiInvalidationKind.Render);
         }
     }
+
+    /// <summary>
+    /// The color of a hovered arrow, drawn on <see cref="ArrowHoverBackground"/>. Until it is set it is
+    /// <see cref="ArrowColor"/>. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.StateText"/> when that differs from the theme's text color, or when the
+    /// theme's muted text, the color <see cref="ArrowColor"/> takes, is the state fill itself; otherwise it lets it
+    /// follow <see cref="ArrowColor"/> again. A spin box that is never themed takes it from the shared palette in
+    /// the same way, as it takes its hover fill.
+    /// </summary>
+    public BColor ArrowHoverColor
+    {
+        get => _arrowHoverColor ?? _arrowColor;
+        set
+        {
+            if (_arrowHoverColor == value) return;
+            _arrowHoverColor = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    /// <summary>
+    /// The hovered arrow color a theme gives: its state text, or null to follow <see cref="ArrowColor"/>, the
+    /// theme's muted text, while the state text is the theme's text color. The muted text is replaced all the
+    /// same when it is the state fill's own color: the arrow would not show at all.
+    /// </summary>
+    private static BColor? ArrowHoverLabel(StandardThemeTokens theme) =>
+        theme.StateText != theme.Text || theme.TextMuted == theme.StateFill ? theme.StateText : null;
 
     public BColor ArrowPressedBackground
     {
@@ -408,16 +444,21 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         if (bounds.IsEmpty)
             return;
 
+        BColor color = IsEnabled ? ArrowColor : DisabledForeground;
         if (IsEnabled && _pressed == arrow)
+        {
             context.RenderList.FillRect(bounds, ArrowPressedBackground);
+        }
         else if (IsEnabled && _hovered == arrow)
+        {
             context.RenderList.FillRect(bounds, ArrowHoverBackground);
+            color = ArrowHoverColor;
+        }
 
         double width = Math.Min(7, Math.Max(4, bounds.Width - 8));
         double height = Math.Min(4, Math.Max(3, bounds.Height / 3));
         double centerX = bounds.Left + (bounds.Width / 2);
         double centerY = bounds.Top + (bounds.Height / 2);
-        BColor color = IsEnabled ? ArrowColor : DisabledForeground;
 
         if (arrow == SpinArrow.Up)
         {
