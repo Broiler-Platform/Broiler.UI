@@ -208,7 +208,7 @@ public sealed class ListViewPresenterAndVirtualizationTests
     }
 
     [Fact]
-    public void Scroll_Anchoring_Keeps_The_Next_Row_In_Place_When_The_Anchor_Row_Is_Removed()
+    public void Scroll_Anchoring_Keeps_The_Nearest_Surviving_Row_In_Place_When_The_Anchor_Row_Is_Removed()
     {
         var listView = new StandardListView { ItemHeight = 25, EnableScrollAnchoring = true };
         List<UiListItem> items = Enumerable.Range(0, 50).Select(i => new UiListItem($"item-{i}", $"Item {i}")).ToList();
@@ -229,11 +229,18 @@ public sealed class ListViewPresenterAndVirtualizationTests
         Assert.Equal(item11Top, (IndexOf(listView, "item-11") * 25) - listView.VerticalOffset);
         Assert.Equal("item-9", listView.Items[listView.FirstVisibleIndex].Id);
 
-        // When the rows after it are gone too, the row before it keeps its place.
-        double item9Top = (IndexOf(listView, "item-9") * 25) - listView.VerticalOffset;
-        listView.SetItems(listView.Items.Where(item => item.Id is not ("item-11" or "item-12" or "item-13")).ToList());
+        // Now item-9 is the anchor. When it and every row after it that was on screen go, and rows above go
+        // too, the nearest survivor is the row before it, item-8, and that row keeps its place.
+        Assert.Equal(-35, (IndexOf(listView, "item-8") * 25) - listView.VerticalOffset);
+        var removed = new HashSet<string>(StringComparer.Ordinal) { "item-0", "item-1", "item-2", "item-9" };
+        for (int i = 11; i <= 20; i++)
+            removed.Add($"item-{i}");
+        listView.SetItems(listView.Items.Where(item => !removed.Contains(item.Id)).ToList());
         listView.Arrange(new BRect(0, 0, 200, 250));
-        Assert.Equal(item9Top, (IndexOf(listView, "item-9") * 25) - listView.VerticalOffset);
+
+        Assert.Equal(5, IndexOf(listView, "item-8"));
+        Assert.Equal(160, listView.VerticalOffset);
+        Assert.Equal(-35, (IndexOf(listView, "item-8") * 25) - listView.VerticalOffset);
     }
 
     [Fact]
