@@ -249,4 +249,26 @@ public sealed class StandardFormatCodeViewInputTests
         Assert.True(scene.View.HorizontalScrollOffset < right);
         Assert.Equal(0, scene.View.VerticalScrollOffset);
     }
+
+    [Fact]
+    public void A_Tilt_Leaves_A_Wrapped_View_Where_It_Is()
+    {
+        // The default: lines wrap, so there is nothing to scroll sideways.
+        using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
+            new BSize(160, 70),
+            FormatCodeViewStandardHarness.Project(string.Join('\n', Enumerable.Repeat("line", 30))));
+        Assert.Equal(FormatCodeViewWrapping.Wrap, scene.View.Wrapping);
+        scene.Session.RenderFrame();
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -2)));
+        double top = scene.View.VerticalScrollOffset;
+        Assert.True(top > 0);
+
+        // Neither tilt moves the lines, and both are left for a scroller outside the view.
+        foreach (double notches in new[] { -1.0, 1.0 })
+        {
+            Assert.False(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, notches, MouseWheelAxis.Horizontal)));
+            Assert.Equal(top, scene.View.VerticalScrollOffset);
+            Assert.Equal(0, scene.View.HorizontalScrollOffset);
+        }
+    }
 }

@@ -285,6 +285,31 @@ public sealed class StandardRichEditReadOnlyAndScrollingTests
     }
 
     [Fact]
+    public void A_Tilt_Leaves_An_Editor_That_Does_Not_Scroll_Sideways_Where_It_Is()
+    {
+        // The default: no horizontal scrolling.
+        string text = string.Join("\n", Enumerable.Range(0, 60).Select(i => $"line {i}"));
+        RichEditScene scene = Focused(text, new BSize(150, 100));
+        Assert.Equal(RichEditScrollPolicy.Never, scene.Edit.HorizontalScrollPolicy);
+        scene.Session.RenderFrame();
+        Assert.True(scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Vertical, -3, InputEventSource.Synthetic)));
+        double top = scene.Edit.VerticalScrollOffset;
+        Assert.True(top > 0);
+
+        // Neither tilt moves the lines, and both are left for a scroller outside the editor.
+        foreach (double notches in new[] { -1.0, 1.0 })
+        {
+            Assert.False(scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+                MouseButtons.None, MouseWheelAxis.Horizontal, notches, InputEventSource.Synthetic)));
+            Assert.Equal(top, scene.Edit.VerticalScrollOffset);
+            Assert.Equal(0, scene.Edit.HorizontalScrollOffset);
+        }
+
+        scene.Session.Dispose();
+    }
+
+    [Fact]
     public void IUiScrollable_MakeVisible_Scrolls_Both_Axes()
     {
         string text = string.Join("\n", Enumerable.Range(0, 50).Select(i => $"row {i:D2} with sufficient text width to enable horizontal visibility testing"));

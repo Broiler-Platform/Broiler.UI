@@ -111,6 +111,12 @@ public sealed partial class StandardRichEdit
             return false;
         }
 
+        // A tilt asks for a sideways scroll this editor does not have. Scrolling the lines instead
+        // would move the text in a direction the user did not ask for, and a scroller outside the
+        // editor that can go sideways would never be asked.
+        if (tilted)
+            return false;
+
         if (VerticalScrollPolicy == RichEditScrollPolicy.Never)
             return false;
 

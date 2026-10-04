@@ -427,6 +427,10 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
             return true;
         }
 
+        // A tilt with no room to scroll sideways (wrapped or short lines) is left to a scroller
+        // outside the view rather than turned into a vertical scroll the user did not ask for.
+        if (tilted)
+            return false;
         if (VerticalScrollPolicy == FormatCodeViewScrollPolicy.Never || MaxVerticalScroll <= 0)
             return false;
         SetVerticalScroll(_scrollY - input.WheelDeltaNotches * _lineHeight * 3);
