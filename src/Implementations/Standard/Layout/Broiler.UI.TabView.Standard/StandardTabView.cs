@@ -26,9 +26,12 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
         Background = theme.Surface;
         SelectedHeaderBackground = theme.Surface;
         Foreground = theme.Text;
+        SelectedHeaderForeground = theme.AccentText;
         BorderColor = theme.Border;
         FocusRing = theme.FocusRing;
     }
+
+    private BColor? _selectedHeaderForeground;
 
     public BColor Background { get; set; } = StandardControlPaint.Surface;
 
@@ -37,6 +40,24 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
     public BColor SelectedHeaderBackground { get; set; } = StandardControlPaint.Surface;
 
     public BColor Foreground { get; set; } = StandardControlPaint.Text;
+
+    /// <summary>
+    /// The selected tab's label. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.AccentText"/>; until then, or until the application sets it, it is the shared
+    /// palette's, read when the view is drawn.
+    /// </summary>
+    public BColor SelectedHeaderForeground
+    {
+        get => _selectedHeaderForeground ?? StandardControlPaint.AccentText;
+        set
+        {
+            if (_selectedHeaderForeground == value)
+                return;
+
+            _selectedHeaderForeground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
 
     public BColor BorderColor { get; set; } = StandardControlPaint.Border;
 
@@ -193,7 +214,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
             if (!headerBackground.IsEmpty && headerBackground.A > 0)
                 StandardControlPaint.FillRounded(context.RenderList, header, headerBackground, CornerRadius);
 
-            BColor headerForeground = selected ? StandardControlPaint.Accent : Foreground;
+            BColor headerForeground = selected ? SelectedHeaderForeground : Foreground;
             context.RenderList.DrawText(new BTextRun(Tabs[index].Header, Font, headerForeground), new BPoint(header.Left + HeaderPaddingX, header.Top + Math.Max(0, (EffectiveHeaderHeight - BTextMeasurer.GetLineHeight(Font)) / 2)));
         }
 

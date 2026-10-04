@@ -12,10 +12,11 @@ namespace Broiler.UI.Standard;
 /// <see cref="StandardControlPaint"/> rather than hardcoding colors, so an entire
 /// theme (light, dark, high-contrast) can be swapped by changing the active token
 /// set. Every role is <c>required</c>, so a preset that omits a token fails to
-/// compile rather than silently rendering a transparent value. The selection text
-/// roles (<see cref="SelectionText"/>, <see cref="SelectionTextMuted"/>) and the
-/// state roles (<see cref="StateFill"/>, <see cref="StateText"/>) are the
-/// exception: they derive from other roles until a theme sets them.
+/// compile rather than silently rendering a transparent value. The accent text role
+/// (<see cref="AccentText"/>), the selection text roles (<see cref="SelectionText"/>,
+/// <see cref="SelectionTextMuted"/>) and the state roles (<see cref="StateFill"/>,
+/// <see cref="StateText"/>) are the exception: they derive from other roles until a
+/// theme sets them.
 /// </summary>
 public sealed record StandardThemeTokens
 {
@@ -41,6 +42,25 @@ public sealed record StandardThemeTokens
 
     /// <summary>Text/icon color drawn on top of an accent fill (e.g. a primary button label).</summary>
     public required BColor OnAccent { get; init; }
+
+    // Accent text. Not required, like the selection roles, and unset in every preset but Dark, so a copy that
+    // changes Accent carries the new accent onto its text.
+    private BColor? _accentText;
+
+    /// <summary>
+    /// Text and marks drawn in the accent on a surface: the selected tab's label and the bar under it, an accent
+    /// label, a toggle button's label, inline code. <see cref="Accent"/> is chosen as a fill, for
+    /// <see cref="OnAccent"/> text on it, which does not make it readable as text on <see cref="Surface"/>. Unless a
+    /// theme sets it, it is <see cref="Accent"/>. <see cref="Dark"/> sets a lighter tint of its accent, which as text
+    /// reads at only 3.4:1 on its surface; every preset reaches 4.5:1 on <see cref="Surface"/> and
+    /// <see cref="SurfaceAlt"/>. A set value is kept by every copy, so a copy of <see cref="Dark"/> that changes the
+    /// accent sets this too.
+    /// </summary>
+    public BColor AccentText
+    {
+        get => _accentText ?? Accent;
+        init => _accentText = value;
+    }
 
     // Selection. Not required, so existing initializers keep compiling, and unset in the presets, so a
     // copy that changes Text (`preset with { Text = ... }`) carries the new text color onto the selection.
@@ -212,6 +232,7 @@ public sealed record StandardThemeTokens
     public double TextContrast => StandardContrast.Ratio(Text, Surface);
     public double TextMutedContrast => StandardContrast.Ratio(TextMuted, Surface);
     public double AccentContrast => StandardContrast.Ratio(OnAccent, Accent);
+    public double AccentTextContrast => StandardContrast.Ratio(AccentText, Surface);
     public double FocusRingContrast => StandardContrast.Ratio(FocusRing, Surface);
     public double SelectionTextContrast => StandardContrast.Ratio(SelectionText, AccentSoft);
     public double StateTextContrast => StandardContrast.Ratio(StateText, StateFill);
@@ -313,6 +334,8 @@ public sealed record StandardThemeTokens
         AccentPressed = BColor.FromArgb(0xFF, 0x1B, 0x5E, 0xAF),
         AccentSoft = BColor.FromArgb(0xFF, 0x17, 0x32, 0x4E),
         OnAccent = BColor.White,
+        // The accent's hue, light enough to read as text on the surfaces: 7.8:1 on Surface, 6.8:1 on SurfaceAlt.
+        AccentText = BColor.FromArgb(0xFF, 0x7A, 0xB7, 0xFF),
         FocusRing = BColor.FromArgb(0xFF, 0x7A, 0xB7, 0xFF),
         Success = BColor.FromArgb(0xFF, 0x5B, 0xC8, 0x73),
         Warning = BColor.FromArgb(0xFF, 0xE0, 0xA7, 0x2E),

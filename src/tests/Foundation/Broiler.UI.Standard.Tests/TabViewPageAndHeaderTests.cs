@@ -2,6 +2,7 @@ using Broiler.Graphics;
 using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
 using Broiler.UI.TabView.Standard;
 
 namespace Broiler.UI.Standard.Tests;
@@ -42,6 +43,58 @@ public sealed class TabViewPageAndHeaderTests
         Assert.Same(page, session.HitTest(new BPoint(1.5, pageRect.Top + 40)));
         Assert.Same(page, session.HitTest(new BPoint(150, pageRect.Bottom - 1.5)));
     }
+
+    public static TheoryData<StandardThemeTokens> Presets() => SelectionTextRoleTests.Presets();
+
+    [Theory]
+    [MemberData(nameof(Presets))]
+    public void TheSelectedLabelIsAccentTextThatReadsOnItsHeader(StandardThemeTokens theme)
+    {
+        StandardTabView tabs = ThreeTabs();
+        tabs.ApplyTheme(theme);
+        using UiSession session = Attach(tabs, 400, 200);
+
+        BRenderList frame = session.RenderFrame();
+
+        Assert.Equal(theme.AccentText, Label(frame, "Inbox").Color);
+        Assert.Equal(theme.Text, Label(frame, "Sent").Color);
+        double ratio = StandardContrast.Ratio(theme.AccentText, tabs.SelectedHeaderBackground);
+        Assert.True(ratio >= StandardContrast.AaNormalText, $"{theme.Name}: the selected label reads at {ratio:0.00}:1.");
+    }
+
+    [Fact]
+    public void AnUnthemedTabViewTakesTheSelectedLabelFromTheSharedPaletteUntilTheApplicationSetsIt()
+    {
+        StandardThemeTokens original = StandardControlPaint.Theme;
+        try
+        {
+            StandardTabView tabs = ThreeTabs();
+            using UiSession session = Attach(tabs, 400, 200);
+
+            StandardControlPaint.ApplyTheme(StandardThemeTokens.Dark);
+            Assert.Equal(StandardThemeTokens.Dark.AccentText, Label(session.RenderFrame(), "Inbox").Color);
+
+            BColor custom = BColor.FromArgb(0xFF, 0xF0, 0xC0, 0x40);
+            tabs.SelectedHeaderForeground = custom;
+            Assert.Equal(custom, Label(session.RenderFrame(), "Inbox").Color);
+        }
+        finally
+        {
+            StandardControlPaint.ApplyTheme(original);
+        }
+    }
+
+    private static StandardTabView ThreeTabs()
+    {
+        var tabs = new StandardTabView();
+        tabs.AddTab("inbox", "Inbox", new Swatch(PageInk));
+        tabs.AddTab("sent", "Sent", new Swatch(PageInk));
+        tabs.AddTab("settings", "Settings", new Swatch(PageInk));
+        return tabs;
+    }
+
+    private static BTextRun Label(BRenderList list, string header) =>
+        Assert.Single(list.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == header).Text;
 
     /// <summary>
     /// The clip in force when the first command <paramref name="match"/> accepts was drawn: the

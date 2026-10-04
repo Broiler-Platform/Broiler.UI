@@ -174,22 +174,37 @@ public sealed class StateFillControlTests
     [MemberData(nameof(Presets))]
     public void A_Preset_Draws_A_Checked_Or_Pressed_Toggle_Button_As_Before(StandardThemeTokens theme)
     {
+        // The label is the accent text, which is the accent in every preset but Dark (ADR 0031).
         var toggle = new StandardToggleButton { Text = "Bold", IsThreeState = true };
         toggle.ApplyTheme(theme);
         using var harness = new Harness(toggle, new BRect(10, 10, 80, 30));
 
         harness.Press(Middle(toggle.Bounds));
-        Assert.Equal((theme.AccentSoft, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+        Assert.Equal((theme.AccentSoft, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
 
         harness.Release(Middle(toggle.Bounds));
-        Assert.Equal((theme.AccentSoft, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+        Assert.Equal((theme.AccentSoft, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
 
         toggle.ToggleState = UiToggleState.Indeterminate;
-        Assert.Equal((theme.AccentSoft, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+        Assert.Equal((theme.AccentSoft, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
 
         BColor custom = BColor.FromArgb(0xFF, 0x80, 0x10, 0x10);
         toggle.Foreground = custom;
         Assert.Equal((theme.AccentSoft, custom), Look(harness.Render(), toggle, "Bold"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Presets))]
+    public void A_Preset_Draws_An_Unchecked_Toggle_Label_That_Reads_On_The_Surface_And_The_Hover_Fill(StandardThemeTokens theme)
+    {
+        // Accent text, not the accent fill, which in Dark read at 3.4:1 on the surface and 3.0:1 hovered (ADR 0031).
+        var toggle = new StandardToggleButton { Text = "Bold" };
+        toggle.ApplyTheme(theme);
+        using var harness = new Harness(toggle, new BRect(10, 10, 80, 30));
+
+        AssertReadable((theme.Surface, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
+        harness.Move(Middle(toggle.Bounds));
+        AssertReadable((theme.SurfaceAlt, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
     }
 
     [Fact]

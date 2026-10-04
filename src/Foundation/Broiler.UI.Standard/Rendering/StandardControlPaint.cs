@@ -84,6 +84,7 @@ public static class StandardControlPaint
     public static BColor AccentPressed => _theme.AccentPressed;
     public static BColor AccentSoft => _theme.AccentSoft;
     public static BColor OnAccent => _theme.OnAccent;
+    public static BColor AccentText => _theme.AccentText;
 
     // Selection
     public static BColor SelectionText => _theme.SelectionText;
