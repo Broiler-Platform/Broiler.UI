@@ -31,11 +31,16 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
         BorderColor = theme.Border;
         FocusRing = theme.FocusRing;
         SelectionBackground = theme.AccentSoft;
+        // Selected text keeps following Foreground unless the theme gives the selection a text color of its
+        // own, and the highlighted menu row likewise follows ContextMenuForeground.
+        BColor? selectionText = theme.SelectionText == theme.Text ? null : theme.SelectionText;
+        _selectionForeground = selectionText;
         CaretColor = theme.Text;
         ContextMenuBackground = theme.Surface;
         ContextMenuForeground = theme.Text;
         ContextMenuDisabledForeground = theme.TextDisabled;
         ContextMenuHighlight = theme.AccentSoft;
+        _contextMenuHighlightForeground = selectionText;
         ContextMenuBorderColor = theme.Border;
     }
 
@@ -68,6 +73,20 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
     public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
 
     public BColor SelectionBackground { get; set; } = BColor.FromArgb(0xFF, 0xC7, 0xDD, 0xFA);
+
+    /// <summary>
+    /// The color of selected text, drawn on <see cref="SelectionBackground"/>. Until it is set it is
+    /// <see cref="Foreground"/>, and the text is drawn exactly as it is without a selection.
+    /// <see cref="ApplyTheme"/> sets it to the theme's <see cref="StandardThemeTokens.SelectionText"/> when
+    /// that differs from the theme's text color, and otherwise lets it follow <see cref="Foreground"/> again.
+    /// </summary>
+    public BColor SelectionForeground
+    {
+        get => _selectionForeground ?? Foreground;
+        set => _selectionForeground = value;
+    }
+
+    private BColor? _selectionForeground;
 
     public BColor CaretColor { get; set; } = BColor.Black;
 
@@ -485,15 +504,24 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
 
     private void DrawSelection(UiRenderContext context, BRect inner)
     {
+        if (TryGetSelectionBounds(inner, out BRect selection))
+            context.RenderList.FillRect(selection, SelectionBackground);
+    }
+
+    /// <summary>The rectangle the selection fill covers, measured on the displayed text.</summary>
+    private bool TryGetSelectionBounds(BRect inner, out BRect selection)
+    {
+        selection = BRect.Empty;
         if (!HasSelection)
-            return;
+            return false;
 
         string display = GetDisplayText();
         double start = BTextMeasurer.MeasureAdvance(display[..SelectionStart], Font);
         double end = BTextMeasurer.MeasureAdvance(display[..SelectionEnd], Font);
         double lineHeight = BTextMeasurer.GetLineHeight(Font);
         double origin = GetTextOriginX(inner, display);
-        context.RenderList.FillRect(new BRect(origin + start, inner.Top, Math.Max(0, end - start), lineHeight), SelectionBackground);
+        selection = new BRect(origin + start, inner.Top, Math.Max(0, end - start), lineHeight);
+        return true;
     }
 
     private void DrawText(UiRenderContext context, BRect inner)
@@ -505,8 +533,46 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
             return;
         }
 
-        if (display.Length > 0)
-            context.RenderList.DrawText(new BTextRun(display, Font, Foreground), new BPoint(GetTextOriginX(inner, display), inner.Top));
+        if (display.Length == 0)
+            return;
+
+        var origin = new BPoint(GetTextOriginX(inner, display), inner.Top);
+        BColor selected = SelectionForeground;
+        if (selected == Foreground || !TryGetSelectionBounds(inner, out BRect selection) || selection.Width <= 0)
+        {
+            context.RenderList.DrawText(new BTextRun(display, Font, Foreground), origin);
+            return;
+        }
+
+        // The whole text is drawn once per strip - before, on, and after the selection - each clipped to its
+        // strip, so shaping is not broken at the selection edges. Where the selection reaches the start or the
+        // end of the text, nothing is left on that side to draw in the foreground, so the selected strip runs on
+        // to the edge instead, and text selected from end to end is drawn once. Composition text is drawn among
+        // the text the selection indexes, so while it is there all three strips are drawn.
+        bool composing = !string.IsNullOrEmpty(_compositionText) && !IsPassword;
+        bool fromStart = !composing && SelectionStart <= 0;
+        bool toEnd = !composing && SelectionEnd >= display.Length;
+        if (fromStart && toEnd)
+        {
+            context.RenderList.DrawText(new BTextRun(display, Font, selected), origin);
+            return;
+        }
+
+        double selectedLeft = fromStart ? inner.Left : selection.Left;
+        double selectedRight = toEnd ? inner.Right : selection.Right;
+        DrawClippedText(context, display, origin, Foreground, new BRect(inner.Left, inner.Top, selectedLeft - inner.Left, inner.Height));
+        DrawClippedText(context, display, origin, selected, new BRect(selectedLeft, inner.Top, selectedRight - selectedLeft, inner.Height));
+        DrawClippedText(context, display, origin, Foreground, new BRect(selectedRight, inner.Top, inner.Right - selectedRight, inner.Height));
+    }
+
+    private void DrawClippedText(UiRenderContext context, string display, BPoint origin, BColor color, BRect clip)
+    {
+        if (clip.Width <= 0)
+            return;
+
+        context.RenderList.PushClip(clip);
+        context.RenderList.DrawText(new BTextRun(display, Font, color), origin);
+        context.RenderList.PopClip();
     }
 
     private void DrawCaret(UiRenderContext context, BRect inner)

@@ -61,6 +61,17 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
 
     public BColor SelectionBackground { get; set; } = StandardControlPaint.AccentSoft;
 
+    /// <summary>
+    /// The color of selected text, drawn on <see cref="SelectionBackground"/>, or <c>null</c> (the default) to
+    /// draw each token in its own color on the selection too, exactly as it is drawn without one. When set, it
+    /// replaces every token's color on the selection, since the code colors are chosen for
+    /// <see cref="Background"/> rather than for the selection fill; codes keep their weight, so they still
+    /// stand apart from the text. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.SelectionText"/> when that differs from the theme's text color, and
+    /// otherwise to <c>null</c>.
+    /// </summary>
+    public BColor? SelectionForeground { get; set; }
+
     public BColor CaretColor { get; set; } = StandardControlPaint.Text;
 
     public BColor BorderColor { get; set; } = StandardControlPaint.Border;
@@ -139,6 +150,7 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
         PendingForeground = theme.Success;
         DiagnosticForeground = theme.Danger;
         SelectionBackground = theme.AccentSoft;
+        SelectionForeground = theme.SelectionText == theme.Text ? null : theme.SelectionText;
         CaretColor = theme.Text;
         BorderColor = theme.Border;
         FocusRing = theme.FocusRing;
@@ -223,18 +235,44 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
                 int segmentStart = Math.Max(start, token.ProjectedStart);
                 int segmentEnd = Math.Min(end, token.ProjectedStart + token.ProjectedLength);
                 if (segmentEnd > segmentStart)
-                {
-                    string segment = Text.Substring(segmentStart, segmentEnd - segmentStart);
-                    double x = ContentLeft + ((segmentStart - line.Start) * _characterAdvance) - _scrollX;
-                    double y = ContentTop + line.Top - _scrollY;
-                    list.DrawText(
-                        new BTextRun(segment, TokenFont(token), TokenColor(token)),
-                        new BPoint(x, y));
-                }
+                    DrawTokenSegment(list, line, token, segmentStart, segmentEnd);
 
                 tokenIndex++;
             }
         }
+    }
+
+    /// <summary>
+    /// Draws the part of a token between two offsets. With a <see cref="SelectionForeground"/>, the part on
+    /// the selection is drawn in it: every character sits in its own cell of the grid, so the token is split
+    /// at the selection's edges just as the text is already split at token edges, and the pieces line up with
+    /// the selection fill exactly.
+    /// </summary>
+    private void DrawTokenSegment(BRenderList list, VisualLine line, FormatCodeToken token, int start, int end)
+    {
+        BColor color = TokenColor(token);
+        if (SelectionForeground is BColor selected && HasSelection && SelectionStart < end && SelectionEnd > start)
+        {
+            int selectedStart = Math.Max(start, SelectionStart);
+            int selectedEnd = Math.Min(end, SelectionEnd);
+            DrawTextCells(list, line, token, start, selectedStart, color);
+            DrawTextCells(list, line, token, selectedStart, selectedEnd, selected);
+            DrawTextCells(list, line, token, selectedEnd, end, color);
+            return;
+        }
+
+        DrawTextCells(list, line, token, start, end, color);
+    }
+
+    private void DrawTextCells(BRenderList list, VisualLine line, FormatCodeToken token, int start, int end, BColor color)
+    {
+        if (end <= start)
+            return;
+
+        string segment = Text.Substring(start, end - start);
+        double x = ContentLeft + ((start - line.Start) * _characterAdvance) - _scrollX;
+        double y = ContentTop + line.Top - _scrollY;
+        list.DrawText(new BTextRun(segment, TokenFont(token), color), new BPoint(x, y));
     }
 
     private void DrawSelection(BRenderList list)

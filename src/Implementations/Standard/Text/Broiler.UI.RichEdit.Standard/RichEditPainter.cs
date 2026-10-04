@@ -12,6 +12,9 @@ using Broiler.UI.Standard;
 namespace Broiler.UI.RichEdit.Standard;
 
 /// <summary>The colours a rich edit paints its document with, read from the control once per frame.</summary>
+/// <param name="SelectionForeground">
+/// The colour of text on the selection, or <c>null</c> to draw it in its own colours as before.
+/// </param>
 internal readonly record struct RichEditPalette(
     BColor Background,
     BColor Foreground,
@@ -20,7 +23,8 @@ internal readonly record struct RichEditPalette(
     BColor SelectionBackground,
     BColor SecondarySelectionBackground,
     BColor CaretColor,
-    BColor PageSurround);
+    BColor PageSurround,
+    BColor? SelectionForeground = null);
 
 /// <summary>
 /// Everything one frame of a rich edit's document depends on besides its layout:
@@ -558,6 +562,11 @@ internal sealed class RichEditPainter
     {
         RichEditViewport view = frame.View;
         BColor fallback = frame.IsEnabled ? frame.Palette.Foreground : frame.Palette.PlaceholderForeground;
+        // Only an editor whose theme gives the selection a text colour of its own
+        // recolours selected text; otherwise every run keeps its colour, as before. A
+        // disabled editor still draws its selection fill, so it recolours too: its
+        // dimmed text is no more readable on the fill than the ordinary text is.
+        BColor? selected = frame.Palette.SelectionForeground;
         (int start, int count) = VisibleLines(view, inner);
         for (int i = start; i < start + count; i++)
         {
@@ -566,22 +575,68 @@ internal sealed class RichEditPainter
                 continue;
 
             double y = view.ToControlY(line.Top);
-            foreach (LineSegment segment in _layout.LineSegments(line, view.ContentLeft))
+            if (selected is not BColor selectionColor
+                || frame.Selection.IsEmpty
+                || !_layout.TrySelectionSpan(line, frame.Selection, view.ContentLeft, out double left, out double width))
             {
-                BColor color = frame.IsEnabled && !segment.Style.Foreground.IsEmpty ? segment.Style.Foreground : fallback;
-                if (segment.Image is InlineImage image)
-                {
-                    DrawInlineImage(renderList, frame, image, segment, y, line.Height, color);
-                    continue;
-                }
-
-                // A tab has width but no glyphs; its underline and strike still run
-                // across the gap, the way a word processor rules a tabbed line.
-                if (segment.Text.Length > 0)
-                    renderList.DrawText(new BTextRun(segment.Text, segment.Font, color), new BPoint(segment.X, y));
-
-                DrawDecorations(renderList, segment, y, line.Height, color);
+                DrawLine(renderList, frame, line, y, fallback, null);
+                continue;
             }
+
+            // The line is drawn once per strip - before, on, and after the selection -
+            // each clipped to its strip, so a run's shaping is not broken where the
+            // selection starts or ends. Where the selection reaches the start or the end
+            // of the line, no text is left on that side to draw in its own colours, so
+            // the selected strip runs on to the edge instead; a line selected from end
+            // to end is drawn once, as it would be without a selection.
+            bool fromLineStart = frame.Selection.Start <= new RichTextPosition(line.ParagraphIndex, line.Start);
+            bool toLineEnd = frame.Selection.End >= new RichTextPosition(line.ParagraphIndex, line.End);
+            if (fromLineStart && toLineEnd)
+            {
+                DrawLine(renderList, frame, line, y, fallback, selectionColor);
+                continue;
+            }
+
+            double selectedLeft = fromLineStart ? inner.Left : left;
+            double selectedRight = toLineEnd ? inner.Right : left + width;
+            DrawLineClipped(renderList, frame, line, y, fallback, null, new BRect(inner.Left, inner.Top, selectedLeft - inner.Left, inner.Height));
+            DrawLineClipped(renderList, frame, line, y, fallback, selectionColor, new BRect(selectedLeft, inner.Top, selectedRight - selectedLeft, inner.Height));
+            DrawLineClipped(renderList, frame, line, y, fallback, null, new BRect(selectedRight, inner.Top, inner.Right - selectedRight, inner.Height));
+        }
+    }
+
+    private void DrawLineClipped(BRenderList renderList, in RichEditPaintFrame frame, VisualLine line, double y, BColor fallback, BColor? color, BRect clip)
+    {
+        if (clip.Width <= 0)
+            return;
+
+        renderList.PushClip(clip);
+        DrawLine(renderList, frame, line, y, fallback, color);
+        renderList.PopClip();
+    }
+
+    /// <summary>
+    /// Draws one visual line's runs and inline pictures, each in its own colour or,
+    /// when <paramref name="color"/> is given, all text in that colour.
+    /// </summary>
+    private void DrawLine(BRenderList renderList, in RichEditPaintFrame frame, VisualLine line, double y, BColor fallback, BColor? color)
+    {
+        RichEditViewport view = frame.View;
+        foreach (LineSegment segment in _layout.LineSegments(line, view.ContentLeft))
+        {
+            BColor segmentColor = color ?? (frame.IsEnabled && !segment.Style.Foreground.IsEmpty ? segment.Style.Foreground : fallback);
+            if (segment.Image is InlineImage image)
+            {
+                DrawInlineImage(renderList, frame, image, segment, y, line.Height, segmentColor);
+                continue;
+            }
+
+            // A tab has width but no glyphs; its underline and strike still run
+            // across the gap, the way a word processor rules a tabbed line.
+            if (segment.Text.Length > 0)
+                renderList.DrawText(new BTextRun(segment.Text, segment.Font, segmentColor), new BPoint(segment.X, y));
+
+            DrawDecorations(renderList, segment, y, line.Height, segmentColor);
         }
     }
 

@@ -64,12 +64,17 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         BorderColor = theme.Border;
         FocusRing = theme.FocusRing;
         SelectionBackground = theme.AccentSoft;
+        // Selected text keeps its own colours unless the theme gives the selection a text color of its own,
+        // and the highlighted menu row likewise follows ContextMenuForeground.
+        BColor? selectionText = theme.SelectionText == theme.Text ? null : theme.SelectionText;
+        SelectionForeground = selectionText;
         SecondarySelectionBackground = theme.Warning;
         CaretColor = theme.Text;
         ContextMenuBackground = theme.Surface;
         ContextMenuForeground = theme.Text;
         ContextMenuDisabledForeground = theme.TextDisabled;
         ContextMenuHighlight = theme.AccentSoft;
+        _contextMenuHighlightForeground = selectionText;
         ContextMenuBorderColor = theme.Border;
     }
 
@@ -98,6 +103,16 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     public double FocusRingThickness { get; set; } = 2;
 
     public BColor SelectionBackground { get; set; } = BColor.FromArgb(0xFF, 0xC7, 0xDD, 0xFA);
+
+    /// <summary>
+    /// The color of selected text, drawn on <see cref="SelectionBackground"/>, or <c>null</c> (the default)
+    /// to draw selected text in its own colors - the run's color, or <see cref="Foreground"/> - exactly as it
+    /// is drawn without a selection. When set, it replaces every run's color on the selection, since a
+    /// document color is not chosen to be read on the selection fill. <see cref="ApplyTheme"/> sets it to the
+    /// theme's <see cref="StandardThemeTokens.SelectionText"/> when that differs from the theme's text color,
+    /// and otherwise to <c>null</c>.
+    /// </summary>
+    public BColor? SelectionForeground { get; set; }
 
     public BColor SecondarySelectionBackground { get; set; } = BColor.FromArgb(0xFF, 0xFF, 0xF0, 0xB3);
 
@@ -315,7 +330,8 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
                 SelectionBackground,
                 SecondarySelectionBackground,
                 CaretColor,
-                PageSurround),
+                PageSurround,
+                SelectionForeground),
             IsEnabled,
             focused,
             Selection,
