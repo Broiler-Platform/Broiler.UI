@@ -33,6 +33,15 @@ found these problems in Broiler.UI 0.1.0-preview.17:
   take focus (a status label), all of which Tab passes over.
 - A `FormSurface` whose fields' viewport shrinks (feedback shown below the actions) could push the
   control being typed in out of view.
+- `StandardTabView` acted on Left, Right, Home, and End wherever they came from. A key that a control
+  inside a tab left unhandled (Right on a button) bubbled up to it, switched tabs, and moved focus to
+  the strip. An inner tab view's End at its last tab switched the outer tab view. With nothing
+  focused, a key that reached the strip only because of where it was dispatched switched tabs too.
+- `UiTreeView` describes only the rows in view as its semantic children, but a change of
+  `FirstVisibleRow` (the wheel, the scroll bar, a row brought into view) invalidated only Render, and a
+  change of `VisibleRowCapacity` (the tree resized) invalidated nothing. Broiler.Hosting.Windows learned
+  of the new rows only at the tree's next state change. When the focus moved, it heard the selection
+  change before the scroll, while the old rows were still in view.
 
 ## Decision
 
@@ -74,7 +83,19 @@ found these problems in Broiler.UI 0.1.0-preview.17:
   takes focus and holds nothing that does (text). A child that never takes focus but holds controls
   (a group) lands on the first of them that can. When nothing on the bar can take focus, the bar
   still consumes its navigation keys, as it did before, so they do not reach a container around it
-  that reads the same keys (a `StandardTabView` would switch tabs).
+  that reads the same keys.
+- **A tab view reads its strip's keys only while it has focus.** `StandardTabView` acts on Left,
+  Right, Home, and End only when it is the focused element, which a click on a header, Tab, and
+  `UiSession.SetFocus` all make it. A key that bubbles up from its content, or reaches it while
+  nothing has focus, is left unhandled and goes on to its ancestors. The tab view has no Ctrl+Tab or
+  Ctrl+PageUp/PageDown handling, and none is added. Applications that offer those shortcuts handle
+  them themselves, as Broiler.Mail does before it dispatches a key.
+- **Scrolling a tree is a semantic change.** `UiTreeView.FirstVisibleRow` and `VisibleRowCapacity`
+  invalidate Semantic when they change, and only then. Hosts therefore hear after every scroll and
+  every change in how many rows fit that the tree's children changed. When the focus moves, the last
+  thing they hear is the scroll. The change is reported as the tree's state change, as every semantic
+  invalidation is. A tree's rows are virtual nodes, and Broiler.Hosting.Windows already compares a
+  tree's rows in view whenever the tree's state changes.
 - **A shrinking form keeps focus in view.** When a `FormViewport`'s viewport becomes smaller, the part
   of the focused control that was on screen is shown again, scrolling no further than needed and
   never past its top. Focus does not move, and nothing scrolls when nothing inside has focus or the
@@ -101,3 +122,14 @@ found these problems in Broiler.UI 0.1.0-preview.17:
   assert the direction.
 - An arrange invalidation now costs a walk to the root instead of stopping early, the same cost a
   measure invalidation already had.
+- Behavior change: Left, Right, Home, and End no longer switch tabs unless the `StandardTabView` has
+  focus. They reach its ancestors unhandled instead. Code that dispatched them to a tab view without
+  focusing it must focus it first. `StandardToolbar` still keeps its own keys when nothing on it can
+  take focus. A tab view no longer needs that, but other containers that read the same keys still do.
+- Behavior change: a tree raises a semantic invalidation (`SemanticChanged` with `StateChanged`) each
+  time a scroll moves its first row and each time the number of rows that fit changes, which usually
+  includes its first layout. A handler that reacts to every event sees more of them. A capacity change made
+  during arrange stays pending after that frame, so a host that renders while invalidations are
+  pending draws one more frame.
+- No change is required in Broiler.Hosting.Windows. A wheel scroll or a resize that does not move the
+  focus now reaches its tree-rows comparison without waiting for the tree's next state change.
