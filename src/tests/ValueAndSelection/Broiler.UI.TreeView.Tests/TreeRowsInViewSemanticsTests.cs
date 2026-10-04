@@ -1,4 +1,7 @@
 using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.UI.Standard;
+using Broiler.UI.TreeView.Standard;
 
 namespace Broiler.UI.TreeView.Tests;
 
@@ -68,6 +71,36 @@ public sealed class TreeRowsInViewSemanticsTests
             ReferenceEquals(invalidation.Element, scene.Tree) && invalidation.Kind.HasFlag(UiInvalidationKind.Semantic));
     }
 
+    [Fact]
+    public void Resizing_The_Tree_Tells_Hosts_The_Rows_In_View_Changed()
+    {
+        var host = new ResizableHost(new BSize(300, 200));
+        using UiSession session = new StandardUiSessionBuilder()
+            .WithDispatcher(new ImmediateUiDispatcher())
+            .Build(host);
+        var tree = new StandardTreeView { DataSource = Many() };
+        session.AddRoot(tree);
+        session.RenderFrame();
+        int before = tree.VisibleRowCapacity;
+        var rowsHeard = new List<int>();
+        session.SemanticChanged += (_, e) =>
+        {
+            if (ReferenceEquals(e.Element, tree) && e.Change == UiSemanticChangeKind.StateChanged)
+                rowsHeard.Add(tree.GetSemanticNode().Children.Count);
+        };
+
+        host.ViewportSize = new BSize(300, 400);
+        session.RenderFrame();
+
+        Assert.True(tree.VisibleRowCapacity > before);
+        Assert.Equal(tree.VisibleRowCapacity, Assert.Single(rowsHeard));
+
+        // A frame at the same size changes nothing and says nothing.
+        tree.InvalidateArrange();
+        session.RenderFrame();
+        Assert.Single(rowsHeard);
+    }
+
     private static CountingTreeSource Many()
     {
         var source = new CountingTreeSource();
@@ -107,5 +140,22 @@ public sealed class TreeRowsInViewSemanticsTests
         }
 
         private static string Label(TreeNodeId node) => node.Value[(node.Value.LastIndexOf('/') + 1)..];
+    }
+
+    private sealed class ResizableHost(BSize size) : IUiHost
+    {
+        public BSize ViewportSize { get; set; } = size;
+
+        public double Scale => 1;
+
+        public BRenderList CreateRenderList(int capacity = 0) => new(capacity);
+
+        public void Invalidate(UiInvalidation invalidation)
+        {
+        }
+
+        public void Present(BRenderList renderList)
+        {
+        }
     }
 }

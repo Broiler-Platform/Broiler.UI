@@ -56,6 +56,7 @@ public abstract class UiTreeView : UiElement
     private BSize _preferredSize = new(280, 400);
     private TreeNodeId _focused = TreeNodeId.None;
     private int _firstVisibleRow;
+    private int _visibleRowCapacity = 20;
     private TreeSecondaryLabelPlacement _secondaryLabelPlacement;
     private bool _rowsValid;
 
@@ -188,7 +189,20 @@ public abstract class UiTreeView : UiElement
     }
 
     /// <summary>How many rows the current bounds can show.</summary>
-    public int VisibleRowCapacity { get; set; } = 20;
+    public int VisibleRowCapacity
+    {
+        get => _visibleRowCapacity;
+        set
+        {
+            if (_visibleRowCapacity == value)
+                return;
+            _visibleRowCapacity = value;
+
+            // The rows in view are the semantic children, so a resize that shows more or fewer of
+            // them changes the children as a scroll does.
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
 
     /// <summary>
     /// Where a row draws its secondary label. See
