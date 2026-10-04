@@ -45,7 +45,8 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
     private BColor _focusRing = StandardControlPaint.Focus;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
-    private double _itemHeight = 28;
+    private double _itemHeight = DefaultItemHeight;
+    private bool _itemHeightExplicit;
     private double _cornerRadius = StandardControlPaint.ControlRadius;
 
     public BColor Background
@@ -144,13 +145,22 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         }
     }
 
+    /// <summary>The drop-down row height at the default font.</summary>
+    private const double DefaultItemHeight = 28;
+
+    /// <summary>
+    /// The height of a drop-down row. Until it is set it follows <see cref="Font"/>: 28 at the default font,
+    /// and at a larger font tall enough for the text with the same margin around it. A value the application
+    /// sets is kept whatever the font.
+    /// </summary>
     public double ItemHeight
     {
-        get => _itemHeight;
+        get => _itemHeightExplicit ? _itemHeight : HeightForFont(DefaultItemHeight);
         set
         {
-            if (_itemHeight == value) return;
+            if (_itemHeight == value && _itemHeightExplicit) return;
             _itemHeight = value;
+            _itemHeightExplicit = true;
             Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render);
         }
     }
@@ -173,8 +183,26 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
     /// <summary>The list, while it is down. It is drawn outside the control and worked outside it too.</summary>
     public override BRect OverlayBounds => IsDropDownOpen ? PopupBounds : BRect.Empty;
 
-    protected override BSize MeasureCore(BSize availableSize) =>
-        new(ClampDesired(PreferredSize.Width, availableSize.Width), ClampDesired(PreferredSize.Height, availableSize.Height));
+    /// <summary>
+    /// <see cref="UiComboBox.PreferredSize"/>, except that until the application sets it the box is as tall
+    /// as its font needs: the default height at the default font, and the same margin around a larger font,
+    /// such as a text-scaled theme's.
+    /// </summary>
+    protected override BSize MeasureCore(BSize availableSize)
+    {
+        double height = IsPreferredSizeSet ? PreferredSize.Height : HeightForFont(PreferredSize.Height);
+        return new(ClampDesired(PreferredSize.Width, availableSize.Width), ClampDesired(height, availableSize.Height));
+    }
+
+    /// <summary>
+    /// <paramref name="defaultHeight"/>, or more when <see cref="Font"/> is taller than the default font:
+    /// enough for a line of it with the margin <paramref name="defaultHeight"/> leaves around a default line.
+    /// </summary>
+    private double HeightForFont(double defaultHeight)
+    {
+        double defaultLine = BTextMeasurer.GetLineHeight(BFontStyle.Default);
+        return Math.Max(defaultHeight, Math.Ceiling(BTextMeasurer.GetLineHeight(Font) + Math.Max(0, defaultHeight - defaultLine)));
+    }
 
     protected override void ArrangeCore(BRect finalRect)
     {
