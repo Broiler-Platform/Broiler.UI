@@ -247,7 +247,11 @@ public abstract class UiElement : IDisposable, IUiFocusable
 
         if (DesiredSize != oldDesiredSize)
         {
-            _isArrangeValid = false;
+            // The parent placed this element by its old size, so it has to arrange again too, and so
+            // does every ancestor: the root skips an arrange-valid child with an unchanged rectangle,
+            // and an ancestor whose own size did not change would otherwise never reach this one.
+            for (UiElement? current = this; current is not null; current = current.Parent)
+                current._isArrangeValid = false;
         }
 
         return DesiredSize;
@@ -320,11 +324,12 @@ public abstract class UiElement : IDisposable, IUiFocusable
         }
         else if (kind.HasFlag(UiInvalidationKind.Arrange))
         {
-            _isArrangeValid = false;
-            for (UiElement? current = Parent; current is not null && current._isArrangeValid; current = current.Parent)
-            {
+            // Every ancestor, for the same reason as Measure: an ancestor can be arrange-invalid under
+            // a valid parent (invalidated while that parent was arranging it, or re-measured to a new
+            // size), and stopping there left the root valid, so a scroll offset changed and the
+            // content never moved.
+            for (UiElement? current = this; current is not null; current = current.Parent)
                 current._isArrangeValid = false;
-            }
         }
 
         Session?.Invalidate(this, kind);
