@@ -366,13 +366,13 @@ public abstract class UiListView : UiElement, IUiScrollable
         return SelectItem(Items[index].Id);
     }
 
-    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
-    // Broiler-Falsified-If: an id that differs from an item id only in letter case is reported as found
-    // Broiler-Human:        PENDING
     /// <summary>
     /// The index of the item with <paramref name="itemId"/> (compared ordinally), or -1. A host that
     /// keeps item peers by id resolves their current index with this after the items change.
     /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: an id that differs from an item id only in letter case is reported as found
+    // Broiler-Human:        PENDING
     public int IndexOf(string itemId)
     {
         for (int index = 0; index < Items.Count; index++)
