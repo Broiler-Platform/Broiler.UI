@@ -35,10 +35,7 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
         PressedBackground = theme.StateFill;
         FocusRing = theme.FocusRing;
 
-        // The label on the state fills keeps following Foreground unless the theme gives state text a color of
-        // its own. The accent label can be the fill's own color, as in a system palette that maps both to its
-        // highlight.
-        BColor? checkedForeground = theme.StateText == theme.Text ? null : theme.StateText;
+        BColor? checkedForeground = CheckedLabel(theme);
         if (_checkedForeground != checkedForeground)
         {
             _checkedForeground = checkedForeground;
@@ -114,7 +111,8 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     /// The color of the label and icon on the checked fill, and on the two fills drawn in its place: the
     /// indeterminate fill and the pressed fill. Until it is set it is <see cref="Foreground"/>.
     /// <see cref="ApplyTheme"/> sets it to the theme's <see cref="StandardThemeTokens.StateText"/> when that
-    /// differs from the theme's text color, and otherwise lets it follow <see cref="Foreground"/> again.
+    /// differs from the theme's text color, or when the theme's accent, the color <see cref="Foreground"/> takes,
+    /// is the state fill itself; otherwise it lets it follow <see cref="Foreground"/> again.
     /// </summary>
     public BColor CheckedForeground
     {
@@ -126,6 +124,15 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
             Invalidate(UiInvalidationKind.Render);
         }
     }
+
+    /// <summary>
+    /// The label a theme gives the state fills: its state text, or null to follow <see cref="Foreground"/>, the
+    /// theme's accent, while the state text is the theme's text color. The accent is replaced all the same when
+    /// it is the state fill's own color, as in a system palette that maps both to its highlight: the label
+    /// would not show at all.
+    /// </summary>
+    private static BColor? CheckedLabel(StandardThemeTokens theme) =>
+        theme.StateText != theme.Text || theme.Accent == theme.StateFill ? theme.StateText : null;
 
     public BColor BorderColor
     {

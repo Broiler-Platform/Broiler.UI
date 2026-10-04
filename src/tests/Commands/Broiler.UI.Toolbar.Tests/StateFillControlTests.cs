@@ -29,25 +29,6 @@ public sealed class StateFillControlTests
         StateText = BColor.FromArgb(0xFF, 0xFF, 0xF0, 0xA0),
     };
 
-    private static readonly BColor Highlight = BColor.FromArgb(0xFF, 0x1A, 0xEB, 0xFF);
-    private static readonly BColor HighlightText = BColor.FromArgb(0xFF, 0x00, 0x00, 0x00);
-
-    /// <summary>
-    /// The shape of a palette a host builds from a system contrast theme: the accent and the selection fill are
-    /// the same highlight, and only the selection text is set to the text that reads on it.
-    /// </summary>
-    private static readonly StandardThemeTokens SystemHighlight = StandardThemeTokens.HighContrastDark with
-    {
-        Name = "HighContrastSystem",
-        Surface = BColor.FromArgb(0xFF, 0x20, 0x20, 0x20),
-        Text = BColor.White,
-        TextMuted = BColor.White,
-        Accent = Highlight,
-        AccentSoft = Highlight,
-        OnAccent = HighlightText,
-        SelectionText = HighlightText,
-    };
-
     public static TheoryData<StandardThemeTokens> Presets() => new()
     {
         StandardThemeTokens.Light,
@@ -55,6 +36,47 @@ public sealed class StateFillControlTests
         StandardThemeTokens.HighContrastLight,
         StandardThemeTokens.HighContrastDark,
     };
+
+    /// <summary>
+    /// Palettes built as a host builds one from a system contrast theme: the four Windows 11 contrast themes, and
+    /// a custom one whose selected text is its window text, a pairing Windows lets a user choose.
+    /// </summary>
+    public static TheoryData<StandardThemeTokens> SystemPalettes() => new()
+    {
+        SystemPalette("Aquatic", 0x202020, 0xFFFFFF, 0x8EE3F0, 0x263B50),
+        SystemPalette("Desert", 0xFFFAEF, 0x3D3D3D, 0x903909, 0xFFF5E3),
+        SystemPalette("Dusk", 0x2D3236, 0xFFFFFF, 0xA1BFDE, 0x212D3B),
+        SystemPalette("NightSky", 0x000000, 0xFFFFFF, 0xD6B4FD, 0x2B2B2B),
+        SystemPalette("SameSelectedText", 0x000000, 0xFFFFFF, 0x0000A0, 0xFFFFFF),
+    };
+
+    /// <summary>
+    /// The mapping a host makes from the system colors: the window pair on the surfaces and every text role, and
+    /// the highlight pair on the accent, the selection fill and the selection text.
+    /// </summary>
+    internal static StandardThemeTokens SystemPalette(string name, uint window, uint windowText, uint highlight, uint highlightText)
+    {
+        BColor surface = Rgb(window), text = Rgb(windowText), fill = Rgb(highlight), onFill = Rgb(highlightText);
+        bool dark = StandardContrast.RelativeLuminance(surface) < StandardContrast.RelativeLuminance(text);
+        return (dark ? StandardThemeTokens.HighContrastDark : StandardThemeTokens.HighContrastLight) with
+        {
+            Name = name,
+            Surface = surface,
+            SurfaceAlt = surface,
+            SurfaceDisabled = surface,
+            Text = text,
+            TextMuted = text,
+            Accent = fill,
+            AccentHover = fill,
+            AccentPressed = fill,
+            AccentSoft = fill,
+            OnAccent = onFill,
+            SelectionText = onFill,
+            SelectionTextMuted = onFill,
+        };
+
+        static BColor Rgb(uint rgb) => BColor.FromArgb(0xFF, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
+    }
 
     // --- Secondary button --------------------------------------------------
 
@@ -170,6 +192,34 @@ public sealed class StateFillControlTests
         Assert.Equal((theme.AccentSoft, custom), Look(harness.Render(), toggle, "Bold"));
     }
 
+    [Fact]
+    public void A_Toggle_Button_Whose_Accent_Is_The_State_Fill_Draws_Its_Label_In_The_State_Text()
+    {
+        // A system palette maps the accent and the state fill to one highlight. Here the selected text is the
+        // window text, so the state text is the theme's text color, and the accent label would be the fill itself.
+        StandardThemeTokens theme = SystemPalette("SameSelectedText", 0x000000, 0xFFFFFF, 0x0000A0, 0xFFFFFF);
+        Assert.Equal(theme.Text, theme.StateText);
+        Assert.Equal(theme.Accent, theme.StateFill);
+
+        var toggle = new StandardToggleButton { Text = "Bold", IsThreeState = true };
+        toggle.ApplyTheme(theme);
+        using var harness = new Harness(toggle, new BRect(10, 10, 80, 30));
+        (BColor, BColor) readable = (theme.StateFill, theme.StateText);
+
+        harness.Press(Middle(toggle.Bounds));
+        Assert.Equal(readable, Look(harness.Render(), toggle, "Bold"));
+        harness.Release(Middle(toggle.Bounds));
+        Assert.Equal(readable, Look(harness.Render(), toggle, "Bold"));
+        toggle.ToggleState = UiToggleState.Indeterminate;
+        Assert.Equal(readable, Look(harness.Render(), toggle, "Bold"));
+        Assert.Equal(theme.StateText, toggle.CheckedForeground);
+
+        // Off, the accent is drawn on the window color, not on itself, and is kept.
+        toggle.ToggleState = UiToggleState.Off;
+        harness.Move(new BPoint(150, 70));
+        Assert.Equal((theme.Surface, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+    }
+
     // --- Toolbar overflow --------------------------------------------------
 
     [Fact]
@@ -205,28 +255,33 @@ public sealed class StateFillControlTests
 
     // --- A system highlight palette ----------------------------------------
 
-    [Fact]
-    public void Every_Command_State_Reads_On_A_System_Highlight()
+    [Theory]
+    [MemberData(nameof(SystemPalettes))]
+    public void Every_Command_State_Reads_In_A_System_Contrast_Theme(StandardThemeTokens theme)
     {
-        StandardThemeTokens theme = SystemHighlight;
-        (BColor, BColor) readable = (Highlight, HighlightText);
+        // Every state is drawn in the highlight pair, which the system chose to be read together.
+        (BColor Fill, BColor Text) highlight = (theme.AccentSoft, theme.SelectionText);
 
         var button = new StandardButton { Text = "Hover" };
         button.ApplyTheme(theme);
         using (var harness = new Harness(button, new BRect(10, 10, 80, 30)))
         {
             harness.Move(Middle(button.Bounds));
-            Assert.Equal(readable, Look(harness.Render(), button, "Hover"));
+            AssertReadable(highlight, Look(harness.Render(), button, "Hover"));
         }
 
-        var toggle = new StandardToggleButton { Text = "Bold" };
+        var toggle = new StandardToggleButton { Text = "Bold", IsThreeState = true };
         toggle.ApplyTheme(theme);
         using (var harness = new Harness(toggle, new BRect(10, 10, 80, 30)))
         {
             // Off, the accent label is on the window color, where it reads.
-            Assert.Equal((theme.Surface, Highlight), Look(harness.Render(), toggle, "Bold"));
-            toggle.ToggleState = UiToggleState.On;
-            Assert.Equal(readable, Look(harness.Render(), toggle, "Bold"));
+            Assert.Equal((theme.Surface, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+            harness.Press(Middle(toggle.Bounds));
+            AssertReadable(highlight, Look(harness.Render(), toggle, "Bold"));
+            harness.Release(Middle(toggle.Bounds));
+            AssertReadable(highlight, Look(harness.Render(), toggle, "Bold"));
+            toggle.ToggleState = UiToggleState.Indeterminate;
+            AssertReadable(highlight, Look(harness.Render(), toggle, "Bold"));
         }
 
         (Harness bar, StandardToolbar toolbar) = OverflowingBar(theme);
@@ -234,8 +289,16 @@ public sealed class StateFillControlTests
         {
             bar.Render();
             Assert.True(toolbar.OpenOverflow());
-            Assert.Equal(readable, ChevronLook(bar.Render(), toolbar));
+            AssertReadable(highlight, ChevronLook(bar.Render(), toolbar));
         }
+    }
+
+    /// <summary>The drawn fill and label are the expected pair, and the label reads on the fill (WCAG AA).</summary>
+    internal static void AssertReadable((BColor Fill, BColor Text) expected, (BColor Fill, BColor Text) drawn)
+    {
+        Assert.Equal(expected, drawn);
+        double ratio = StandardContrast.Ratio(drawn.Text, drawn.Fill);
+        Assert.True(ratio >= StandardContrast.AaNormalText, $"{drawn.Text} on {drawn.Fill} is {ratio:0.00}:1.");
     }
 
     // --- Harness -----------------------------------------------------------

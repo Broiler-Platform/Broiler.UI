@@ -30,6 +30,47 @@ public sealed class StateFillRoleTests
 
     public static TheoryData<StandardThemeTokens> Presets() => SelectionTextRoleTests.Presets();
 
+    /// <summary>
+    /// Palettes built as a host builds one from a system contrast theme: the four Windows 11 contrast themes, and
+    /// a custom one whose selected text is its window text, a pairing Windows lets a user choose.
+    /// </summary>
+    public static TheoryData<StandardThemeTokens> SystemPalettes() => new()
+    {
+        SystemPalette("Aquatic", 0x202020, 0xFFFFFF, 0x8EE3F0, 0x263B50),
+        SystemPalette("Desert", 0xFFFAEF, 0x3D3D3D, 0x903909, 0xFFF5E3),
+        SystemPalette("Dusk", 0x2D3236, 0xFFFFFF, 0xA1BFDE, 0x212D3B),
+        SystemPalette("NightSky", 0x000000, 0xFFFFFF, 0xD6B4FD, 0x2B2B2B),
+        SystemPalette("SameSelectedText", 0x000000, 0xFFFFFF, 0x0000A0, 0xFFFFFF),
+    };
+
+    /// <summary>
+    /// The mapping a host makes from the system colors: the window pair on the surfaces and every text role, and
+    /// the highlight pair on the accent, the selection fill and the selection text.
+    /// </summary>
+    internal static StandardThemeTokens SystemPalette(string name, uint window, uint windowText, uint highlight, uint highlightText)
+    {
+        BColor surface = Rgb(window), text = Rgb(windowText), fill = Rgb(highlight), onFill = Rgb(highlightText);
+        bool dark = StandardContrast.RelativeLuminance(surface) < StandardContrast.RelativeLuminance(text);
+        return (dark ? StandardThemeTokens.HighContrastDark : StandardThemeTokens.HighContrastLight) with
+        {
+            Name = name,
+            Surface = surface,
+            SurfaceAlt = surface,
+            SurfaceDisabled = surface,
+            Text = text,
+            TextMuted = text,
+            Accent = fill,
+            AccentHover = fill,
+            AccentPressed = fill,
+            AccentSoft = fill,
+            OnAccent = onFill,
+            SelectionText = onFill,
+            SelectionTextMuted = onFill,
+        };
+
+        static BColor Rgb(uint rgb) => BColor.FromArgb(0xFF, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
+    }
+
     [Theory]
     [MemberData(nameof(Presets))]
     public void Presets_Draw_States_On_The_Selection_Fill_In_Their_Text_Color(StandardThemeTokens theme)
@@ -133,11 +174,50 @@ public sealed class StateFillRoleTests
     }
 
     [Fact]
+    public void A_Hovered_Spin_Arrow_Whose_Muted_Color_Is_The_State_Fill_Is_Drawn_In_The_State_Text()
+    {
+        // The state text is the theme's text color, so the arrow would keep its muted color: the fill itself.
+        BColor fill = BColor.FromArgb(0xFF, 0x60, 0x60, 0x60);
+        StandardThemeTokens theme = StandardThemeTokens.HighContrastDark with { AccentSoft = fill, TextMuted = fill };
+        Assert.Equal(theme.Text, theme.StateText);
+        using SpinFixture fixture = SpinFixture.Create(theme);
+
+        (BRenderList list, BRect up) = fixture.HoverUpArrow();
+
+        Assert.Equal(theme.StateText, fixture.Spin.ArrowHoverColor);
+        Assert.Contains(list.Commands.OfType<BRenderCommand.FillRect>(), command => command.Rect == up && command.Color == fill);
+        Assert.Equal([theme.StateText, fill], ArrowColors(list));
+    }
+
+    [Theory]
+    [MemberData(nameof(SystemPalettes))]
+    public void A_Hovered_Spin_Arrow_Reads_In_A_System_Contrast_Theme(StandardThemeTokens theme)
+    {
+        using SpinFixture fixture = SpinFixture.Create(theme);
+
+        (BRenderList list, BRect up) = fixture.HoverUpArrow();
+
+        AssertHoveredArrowReads(list, up, (theme.AccentSoft, theme.SelectionText));
+    }
+
+    [Fact]
     public void A_Matching_Bracket_Is_Marked_With_The_State_Fill()
     {
         Assert.Equal(DistinctStates().StateFill, StandardCodeEditorPalette.FromTokens(DistinctStates()).BracketMatch);
         foreach (StandardThemeTokens preset in new[] { StandardThemeTokens.Light, StandardThemeTokens.Dark, StandardThemeTokens.HighContrastLight, StandardThemeTokens.HighContrastDark })
             Assert.Equal(preset.AccentSoft, StandardCodeEditorPalette.FromTokens(preset).BracketMatch);
+    }
+
+    /// <summary>
+    /// The hovered up arrow is drawn in the expected pair, and the arrow reads on its fill (WCAG AA).
+    /// </summary>
+    internal static void AssertHoveredArrowReads(BRenderList list, BRect up, (BColor Fill, BColor Arrow) expected)
+    {
+        Assert.Contains(list.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Rect == up && fill.Color == expected.Fill);
+        BColor arrow = ArrowColors(list)[0];
+        Assert.Equal(expected.Arrow, arrow);
+        double ratio = StandardContrast.Ratio(arrow, expected.Fill);
+        Assert.True(ratio >= StandardContrast.AaNormalText, $"{arrow} on {expected.Fill} is {ratio:0.00}:1.");
     }
 
     /// <summary>The up arrow's color, then the down arrow's: the order the box draws them in.</summary>

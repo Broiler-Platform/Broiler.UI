@@ -63,8 +63,7 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         DisabledForeground = theme.TextDisabled;
         FocusRing = theme.FocusRing;
 
-        // The hovered arrow keeps following ArrowColor unless the theme gives state text a color of its own.
-        BColor? arrowHoverColor = theme.StateText == theme.Text ? null : theme.StateText;
+        BColor? arrowHoverColor = ArrowHoverLabel(theme);
         if (_arrowHoverColor != arrowHoverColor)
         {
             _arrowHoverColor = arrowHoverColor;
@@ -145,8 +144,9 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
     /// <summary>
     /// The color of a hovered arrow, drawn on <see cref="ArrowHoverBackground"/>. Until it is set it is
     /// <see cref="ArrowColor"/>. <see cref="ApplyTheme"/> sets it to the theme's
-    /// <see cref="StandardThemeTokens.StateText"/> when that differs from the theme's text color, and otherwise
-    /// lets it follow <see cref="ArrowColor"/> again.
+    /// <see cref="StandardThemeTokens.StateText"/> when that differs from the theme's text color, or when the
+    /// theme's muted text, the color <see cref="ArrowColor"/> takes, is the state fill itself; otherwise it lets it
+    /// follow <see cref="ArrowColor"/> again.
     /// </summary>
     public BColor ArrowHoverColor
     {
@@ -158,6 +158,14 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
             Invalidate(UiInvalidationKind.Render);
         }
     }
+
+    /// <summary>
+    /// The hovered arrow color a theme gives: its state text, or null to follow <see cref="ArrowColor"/>, the
+    /// theme's muted text, while the state text is the theme's text color. The muted text is replaced all the
+    /// same when it is the state fill's own color: the arrow would not show at all.
+    /// </summary>
+    private static BColor? ArrowHoverLabel(StandardThemeTokens theme) =>
+        theme.StateText != theme.Text || theme.TextMuted == theme.StateFill ? theme.StateText : null;
 
     public BColor ArrowPressedBackground
     {

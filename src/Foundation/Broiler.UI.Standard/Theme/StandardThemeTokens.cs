@@ -95,8 +95,8 @@ public sealed record StandardThemeTokens
     /// that is the text the theme reads on that color, and <see cref="Text"/> once the theme gives the states a
     /// fill of their own. In the presets both are <see cref="Text"/>. While it is <see cref="Text"/>, each
     /// control keeps the color it has always drawn on its state fill (a toggle button's label in
-    /// <see cref="Accent"/>, a spin box's arrows in <see cref="TextMuted"/>); once it differs, every label and
-    /// glyph on a state fill takes it.
+    /// <see cref="Accent"/>, a spin box's arrows in <see cref="TextMuted"/>) unless that color is the state fill
+    /// itself; once it differs, every label and glyph on a state fill takes it.
     /// </summary>
     public BColor StateText
     {
