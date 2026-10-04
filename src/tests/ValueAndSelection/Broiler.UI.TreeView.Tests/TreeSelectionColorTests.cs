@@ -67,6 +67,67 @@ public sealed class TreeSelectionColorTests
         Assert.Contains(Texts(scene.Render()), text => text == "!");
     }
 
+    [Theory]
+    [InlineData(TreeNodeDecoration.Dirty, "*")]
+    [InlineData(TreeNodeDecoration.Error, "!")]
+    [InlineData(TreeNodeDecoration.Warning, "?")]
+    [InlineData(TreeNodeDecoration.Information, "i")]
+    public void The_Decoration_Glyph_On_A_Focused_Selection_Is_Drawn_In_The_Selection_Text_Color(TreeNodeDecoration decoration, string glyph)
+    {
+        using TreeScene scene = TreeStandardHarness.Create(Source(decoration));
+        scene.Tree.ApplyTheme(SystemPalette);
+        scene.Click(scene.RowPoint(0));
+
+        // Top to bottom: the selected row's glyph, then the unselected row's in its own color.
+        BColor own = decoration switch
+        {
+            TreeNodeDecoration.Error => SystemPalette.Danger,
+            TreeNodeDecoration.Warning => SystemPalette.Warning,
+            TreeNodeDecoration.Information => SystemPalette.Info,
+            _ => SystemPalette.Text,
+        };
+        Assert.Equal([HighlightText, own], GlyphColors(scene.Render(), glyph));
+
+        // Without focus the selection is the inactive surface, where the glyph keeps its own color.
+        scene.Session.SetFocus(null);
+        Assert.Equal([own, own], GlyphColors(scene.Render(), glyph));
+    }
+
+    [Fact]
+    public void The_Decoration_Shape_On_A_Focused_Selection_Is_Drawn_In_The_Selection_Text_Color()
+    {
+        // Not high contrast, so the decoration is a shape: a dirty row's square.
+        BColor selectionText = BColor.White;
+        StandardThemeTokens theme = StandardThemeTokens.Light with
+        {
+            AccentSoft = BColor.FromArgb(0xFF, 0x00, 0x3E, 0x92),
+            SelectionText = selectionText,
+        };
+        using TreeScene scene = TreeStandardHarness.Create(Source(TreeNodeDecoration.Dirty));
+        scene.Tree.ApplyTheme(theme);
+        scene.Click(scene.RowPoint(0));
+
+        List<BRenderCommand.FillRect> squares = scene.Render().Commands.OfType<BRenderCommand.FillRect>()
+            .Where(fill => fill.Rect.Width == fill.Rect.Height && fill.Rect.Width < 20)
+            .OrderBy(fill => fill.Rect.Top)
+            .ToList();
+        Assert.Equal([selectionText, theme.Text], squares.Select(fill => fill.Color));
+
+        // A preset keeps the square in the text color on the selection, as before.
+        scene.Tree.ApplyTheme(StandardThemeTokens.Light);
+        squares = scene.Render().Commands.OfType<BRenderCommand.FillRect>()
+            .Where(fill => fill.Rect.Width == fill.Rect.Height && fill.Rect.Width < 20)
+            .ToList();
+        Assert.All(squares, fill => Assert.Equal(StandardThemeTokens.Light.Text, fill.Color));
+    }
+
+    private static List<BColor> GlyphColors(BRenderList list, string glyph) =>
+        list.Commands.OfType<BRenderCommand.DrawText>()
+            .Where(command => command.Text.Text == glyph)
+            .OrderBy(command => command.Origin.Y)
+            .Select(command => command.Text.Color)
+            .ToList();
+
     private static BColor ColorOf(BRenderList list, string text) =>
         Assert.Single(list.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == text).Text.Color;
 

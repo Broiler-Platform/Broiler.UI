@@ -233,6 +233,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         bool onSelection = Selection.Contains(row.Id);
         BColor foreground = _foreground;
         BColor mutedForeground = _mutedForeground;
+        BColor? decorationColor = null;
         if (onSelection)
         {
             list.FillRect(
@@ -242,6 +243,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             {
                 foreground = _selectionForeground ?? _foreground;
                 mutedForeground = _selectionMutedForeground ?? _mutedForeground;
+                decorationColor = _selectionForeground;
             }
         }
 
@@ -302,7 +304,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             }
         }
 
-        RenderDecoration(list, presentation.Decoration, textLeft + advance + 8, top, firstLine);
+        RenderDecoration(list, presentation.Decoration, textLeft + advance + 8, top, firstLine, decorationColor);
 
         // What this row would need to be read in full, learnt while it is being
         // measured to draw anyway. See _widestRow for why it is a running
@@ -324,13 +326,19 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             ? BTextMeasurer.GetLineHeight(_font) + 2
             : _rowHeight;
 
+    /// <summary>
+    /// Draws a row's decoration. On a focused selection whose theme gives selected text a color of its own,
+    /// <paramref name="selectionColor"/> is that color and every decoration is drawn in it: the status colors
+    /// are chosen for the surface, not for the selection fill, and the glyph or shape still tells the
+    /// decorations apart.
+    /// </summary>
     private void RenderDecoration(
-        BRenderList list, TreeNodeDecoration decoration, double x, double top, double lineHeight)
+        BRenderList list, TreeNodeDecoration decoration, double x, double top, double lineHeight, BColor? selectionColor)
     {
         if (decoration == TreeNodeDecoration.None)
             return;
 
-        BColor color = decoration switch
+        BColor color = selectionColor ?? decoration switch
         {
             TreeNodeDecoration.Error => _errorColor,
             TreeNodeDecoration.Warning => _warningColor,
@@ -362,7 +370,9 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
                 break;
             case TreeNodeDecoration.Error:
                 list.FillRect(new BRect(x, y, size, size), color);
-                list.FillRect(new BRect(x + (size / 3), y + (size / 4), size / 3, size / 2), _background);
+                // The hole shows the fill behind the mark: the selection's when the mark is in the selection
+                // color, so the hole still stands out against it.
+                list.FillRect(new BRect(x + (size / 3), y + (size / 4), size / 3, size / 2), selectionColor is null ? _background : _selection);
                 break;
             case TreeNodeDecoration.Warning:
                 for (double step = 0; step < size; step++)
