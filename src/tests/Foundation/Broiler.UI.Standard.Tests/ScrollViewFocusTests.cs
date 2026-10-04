@@ -22,7 +22,7 @@ public sealed class ScrollViewFocusTests
     [Fact]
     public void AFocusedScrollViewDrawsTheThemeRingOverItsScrollbars()
     {
-        var scroll = new StandardScrollView { ScrollbarThickness = 10 };
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, FocusWhenScrollable = true };
         scroll.AddChild(new Fixed(new BSize(140, 180)));
         using UiSession session = Attach(scroll, 100, 100);
 
@@ -41,24 +41,55 @@ public sealed class ScrollViewFocusTests
     }
 
     [Fact]
-    public void PointerFocusDrawsNoRingUntilTheKeyboardIsUsed()
+    public void AScrollViewThatIsNoKeyboardStopNeverDrawsARing()
     {
+        // The default: a click on blank space focuses the scroll view behind it.
         var scroll = new StandardScrollView { ScrollbarThickness = 10 };
         scroll.AddChild(new Fixed(new BSize(80, 300)));
         using UiSession session = Attach(scroll, 100, 100);
+        Assert.False(scroll.Focusable);
+        Assert.False(scroll.CanFocus);
 
         session.DispatchInput(MouseDown(40, 40));
         Assert.Same(scroll, session.FocusedElement);
         Assert.Empty(Rings(session.RenderFrame(), scroll));
 
+        // A key the view does not handle, such as Alt for the menu mnemonics, and one it does.
+        Assert.False(session.DispatchInput(Key(18))); // VK_MENU
+        Assert.True(session.IsFocusVisible);
+        Assert.Empty(Rings(session.RenderFrame(), scroll));
         Assert.True(session.DispatchInput(Key(BVirtualKey.Down)));
+        Assert.Empty(Rings(session.RenderFrame(), scroll));
+    }
+
+    [Fact]
+    public void AKeyboardStopKeepsItsRingWhateverTheLastInput()
+    {
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, FocusWhenScrollable = true };
+        scroll.AddChild(new Fixed(new BSize(80, 300)));
+        using UiSession session = Attach(scroll, 100, 100);
+        Assert.True(scroll.CanFocus);
+
+        // Focused by a click, as an editor is.
+        session.DispatchInput(MouseDown(40, 40));
+        Assert.Same(scroll, session.FocusedElement);
+        Assert.False(session.IsFocusVisible);
+        Assert.Single(Rings(session.RenderFrame(), scroll));
+
+        // Reached by Tab, then the mouse moves: the ring stays where the keys go.
+        session.SetFocus(null);
+        Assert.Empty(Rings(session.RenderFrame(), scroll));
+        Assert.True(new StandardFocusScope(session).MoveFocus(1));
+        Assert.Same(scroll, session.FocusedElement);
+        session.DispatchInput(MouseMove(60, 60));
+        Assert.False(session.IsFocusVisible);
         Assert.Single(Rings(session.RenderFrame(), scroll));
     }
 
     [Fact]
     public void ApplyThemeFollowsTheRingButKeepsScrollbarColors()
     {
-        var scroll = new StandardScrollView();
+        var scroll = new StandardScrollView { FocusWhenScrollable = true };
         BColor track = scroll.ScrollbarTrack;
         BColor thumb = scroll.ScrollbarThumb;
         StandardThemeTokens contrast = StandardThemeTokens.HighContrastDark;
@@ -147,6 +178,17 @@ public sealed class ScrollViewFocusTests
     private static UiInputEvent Key(int virtualKey) =>
         new StandardLegacyGraphicsInputAdapter("scroll-focus").FromKey(new BKeyEventArgs(virtualKey, false, false, false), KeyboardKeyTransition.Down);
 #pragma warning restore CS0618
+
+    private static UiInputEvent MouseMove(double x, double y) =>
+        UiInputEvent.FromMouseMove(
+            new MouseMoveEvent(
+                new InputEventHeader(
+                    InputDeviceId.FromOpaqueValue("mouse"),
+                    new InputTimestamp(2, TimeSpan.TicksPerSecond, "scroll-focus-test"),
+                    2),
+                InputPoint.ClientDeviceIndependentPixels(x, y),
+                MouseButtons.None,
+                InputEventSource.Synthetic));
 
     private static UiInputEvent MouseDown(double x, double y) =>
         UiInputEvent.FromMouseButton(

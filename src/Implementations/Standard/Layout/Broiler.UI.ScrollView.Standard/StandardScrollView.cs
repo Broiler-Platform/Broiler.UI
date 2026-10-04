@@ -37,8 +37,10 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     public BColor ScrollbarThumb { get; set; } = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
 
     /// <summary>
-    /// The color of the ring drawn around the scroll view while it has keyboard focus. Follows the
-    /// theme's focus ring color; the ring's offset and thickness come from the theme as well.
+    /// The color of the ring drawn around the scroll view while it has focus and is a keyboard stop
+    /// (<see cref="CanFocus"/>, through <see cref="UiElement.Focusable"/> or
+    /// <see cref="FocusWhenScrollable"/>). Follows the theme's focus ring color; the ring's offset
+    /// and thickness come from the theme as well.
     /// </summary>
     public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
 
@@ -392,9 +394,11 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 
         RenderScrollbars(context);
 
-        // Over the scrollbars, so the ring is whole. Focus that arrived by pointer draws none, as for
-        // a button: a click on blank form space focuses the scroll view behind it.
-        if (Session is { } session && session.FocusedElement == this && session.IsFocusVisible)
+        // Over the scrollbars, so the ring is whole. Drawn whenever a keyboard stop has focus, as for an
+        // editor, since it shows where the arrow keys go; whatever the last input was. A view that is
+        // no stop draws none: a click on blank form space focuses the scroll view behind it, and a
+        // later shortcut key must not ring the whole form.
+        if (Session?.FocusedElement == this && CanFocus)
         {
             BRect ring = StandardControlPaint.Inset(Bounds, _theme.FocusRingOffset);
             if (!ring.IsEmpty && _theme.FocusRingThickness > 0)
