@@ -36,7 +36,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
     private StandardThemeTokens _theme = StandardControlPaint.Theme;
     private BColor? _selectedHeaderForeground;
     private BColor? _selectedIndicatorColor;
-    private double _selectedIndicatorThickness = 3;
+    private double _selectedIndicatorThickness = 2;
 
     public BColor Background { get; set; } = StandardControlPaint.Surface;
 
@@ -66,9 +66,10 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     /// <summary>
     /// The thickness of the bar drawn under the selected tab's label, along the bottom of its header: a mark
-    /// of the selected tab that does not rely on the label's color alone (WCAG 1.4.1). 3 DIP by default; 0
-    /// draws none. The bar lies inside the header, so <see cref="EffectiveHeaderHeight"/>, the header bounds
-    /// and hit testing are the same with or without it.
+    /// of the selected tab that does not rely on the label's color alone (WCAG 1.4.1). 2 DIP by default, which
+    /// leaves the focus ring room between the bar and the label's descenders; 0 draws none. The bar lies inside
+    /// the header, so <see cref="EffectiveHeaderHeight"/>, the header bounds and hit testing are the same with
+    /// or without it.
     /// </summary>
     public double SelectedIndicatorThickness
     {
@@ -103,6 +104,11 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     public BColor BorderColor { get; set; } = StandardControlPaint.Border;
 
+    /// <summary>
+    /// The color of the ring drawn around the selected tab's header while the view has focus. The ring's
+    /// offset and thickness come from the theme. On a selected header fill it has less than 3:1 against, the
+    /// ring takes <see cref="SelectedHeaderForeground"/> instead.
+    /// </summary>
     public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
 
     public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;

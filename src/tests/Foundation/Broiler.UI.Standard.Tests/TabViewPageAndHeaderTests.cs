@@ -103,7 +103,7 @@ public sealed class TabViewPageAndHeaderTests
             // One bar, under the selected label, along the bottom of its header.
             BRect header = tabs.GetTabHeaderBounds(selected);
             BRect bar = Assert.Single(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == tabs.SelectedIndicatorColor).Rect;
-            Assert.Equal(new BRect(header.Left + tabs.HeaderPaddingX, header.Bottom - 3, header.Width - (tabs.HeaderPaddingX * 2), 3), bar);
+            Assert.Equal(new BRect(header.Left + tabs.HeaderPaddingX, header.Bottom - 2, header.Width - (tabs.HeaderPaddingX * 2), 2), bar);
         }
 
         // A mark that is not text needs 3:1 against what lies around it: the selected header's fill, and the
@@ -133,7 +133,7 @@ public sealed class TabViewPageAndHeaderTests
 
         // A color of its own leaves the label alone.
         BColor custom = BColor.FromArgb(0xFF, 0xC0, 0x30, 0x90);
-        tabs.SelectedIndicatorThickness = 3;
+        tabs.SelectedIndicatorThickness = 2;
         tabs.SelectedIndicatorColor = custom;
         frame = session.RenderFrame();
         Assert.Single(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == custom);
@@ -173,8 +173,7 @@ public sealed class TabViewPageAndHeaderTests
             Assert.Equal(new BRect(header.Left + offset, header.Top + offset, header.Width - (offset * 2), header.Height - bar.Height - (offset * 2)), ring.Rect);
             Assert.Equal(tabs.FocusRing, ring.Color);
             Assert.Equal(theme.FocusRingThickness, ring.Thickness);
-            Assert.True(ring.Rect.Bottom + (ring.Thickness / 2) <= bar.Top, "The ring crosses the bar.");
-            Assert.True(ring.Rect.Bottom <= tabs.Bounds.Top + tabs.EffectiveHeaderHeight);
+            AssertRingClearsTheLabelAndTheBar(tabs, header, ring, bar);
 
             // A focus indicator needs 3:1 against what it is drawn on.
             double ratio = StandardContrast.Ratio(ring.Color, tabs.SelectedHeaderBackground);
@@ -183,6 +182,30 @@ public sealed class TabViewPageAndHeaderTests
 
         // The high-contrast presets draw it 2 DIP thick, thicker than their borders.
         Assert.Equal(theme.IsHighContrast ? 2 : 1, theme.FocusRingThickness);
+
+        // Larger text makes the header taller; the ring still runs between the label and the bar.
+        tabs.Font = tabs.Font with { Size = tabs.Font.Size * 1.5 };
+        BRenderList larger = session.RenderFrame();
+        Assert.True(tabs.EffectiveHeaderHeight > tabs.HeaderHeight);
+        AssertRingClearsTheLabelAndTheBar(
+            tabs,
+            tabs.GetTabHeaderBounds(tabs.SelectedIndex),
+            Assert.Single(Rings(larger, tabs)),
+            Assert.Single(larger.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == tabs.SelectedIndicatorColor).Rect);
+    }
+
+    /// <summary>
+    /// The ring's stroke lies inside the header, below the label's line and at least 1 DIP above the bar, so
+    /// it crosses neither the label's descenders nor the mark of the selected tab.
+    /// </summary>
+    private static void AssertRingClearsTheLabelAndTheBar(StandardTabView tabs, BRect header, BRenderCommand.StrokeRoundedRect ring, BRect bar)
+    {
+        double half = ring.Thickness / 2;
+        double lineHeight = BTextMeasurer.GetLineHeight(tabs.Font);
+        double lineBottom = header.Top + Math.Max(0, (tabs.EffectiveHeaderHeight - lineHeight) / 2) + lineHeight;
+        Assert.True(ring.Rect.Top - half >= header.Top && ring.Rect.Left - half >= header.Left && ring.Rect.Right + half <= header.Right, "The ring leaves the header.");
+        Assert.True(ring.Rect.Bottom - half >= lineBottom, $"The ring at {ring.Rect.Bottom - half} crosses the label's line, which ends at {lineBottom}.");
+        Assert.True(ring.Rect.Bottom + half + 1 <= bar.Top, $"The ring at {ring.Rect.Bottom + half} runs into the bar at {bar.Top}.");
     }
 
     [Fact]
