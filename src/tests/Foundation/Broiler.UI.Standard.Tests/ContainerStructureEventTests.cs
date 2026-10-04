@@ -1,5 +1,7 @@
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
+using Broiler.Input;
+using Broiler.Input.Mouse;
 using Broiler.UI;
 using Broiler.UI.Forms.Standard;
 using Broiler.UI.ListView;
@@ -65,6 +67,23 @@ public sealed class ContainerStructureEventTests
         Assert.True(RaisedFor(events, section.Content.Parent!));
     }
 
+    [Fact]
+    public void ATabSwitchByPointerReachesTheHostOnceAfterTheClick()
+    {
+        var tabs = new StandardTabView();
+        tabs.AddTab("inbox", "Inbox", new StandardPanel());
+        tabs.AddTab("sent", "Sent", new StandardPanel());
+        using UiSession session = Attach(tabs, out List<UiSemanticChangedEventArgs> events);
+
+        // Hiding one page, showing the other and changing the selected tab node: three changes to the
+        // tab view's children, one event once the click has been handled.
+        BRect sent = tabs.GetTabHeaderBounds(1);
+        Assert.True(session.DispatchInput(MouseDown(sent.Left + (sent.Width / 2), sent.Top + (sent.Height / 2))));
+
+        Assert.Equal(1, tabs.SelectedIndex);
+        Assert.Equal([tabs], events.Where(e => e.Change == UiSemanticChangeKind.StructureChanged).Select(e => e.Element));
+    }
+
     private static bool RaisedFor(List<UiSemanticChangedEventArgs> events, UiElement element) =>
         events.Any(e => e.Change == UiSemanticChangeKind.StructureChanged && ReferenceEquals(e.Element, element));
 
@@ -78,6 +97,19 @@ public sealed class ContainerStructureEventTests
         events = recorded;
         return session;
     }
+
+    private static UiInputEvent MouseDown(double x, double y) =>
+        UiInputEvent.FromMouseButton(
+            new MouseButtonEvent(
+                new InputEventHeader(
+                    InputDeviceId.FromOpaqueValue("mouse"),
+                    new InputTimestamp(1, TimeSpan.TicksPerSecond, "structure-event-test"),
+                    1),
+                InputPoint.ClientDeviceIndependentPixels(x, y),
+                MouseButtons.Left,
+                MouseButton.Left,
+                MouseButtonTransition.Down,
+                InputEventSource.Synthetic));
 
     private sealed class Host : IUiHost
     {

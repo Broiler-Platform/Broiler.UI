@@ -558,9 +558,10 @@ public abstract class UiElement : IDisposable, IUiFocusable
     /// <see cref="SetHiddenFromAccessibility"/> already raise it.
     /// </summary>
     /// <remarks>
-    /// Raises <see cref="UiSemanticChangeKind.StructureChanged"/> for this element on its session, once
-    /// per call. A host that rebuilds its view of the children on this should coalesce, since a batch
-    /// of changes raises one event per change.
+    /// Raises <see cref="UiSemanticChangeKind.StructureChanged"/> for this element on its session: once
+    /// per element when the input dispatch or frame under way returns, and at once, per call, outside
+    /// them. A host that rebuilds its view of the children should still coalesce per frame, since
+    /// changes an application makes between frames are reported one by one.
     /// </remarks>
     protected void NotifyStructureChanged() => RaiseStructureChanged();
 

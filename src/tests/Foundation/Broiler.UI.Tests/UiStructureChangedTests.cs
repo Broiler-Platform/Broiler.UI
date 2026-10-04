@@ -1,4 +1,6 @@
 using Broiler.Graphics.Geometry;
+using Broiler.Input;
+using Broiler.Input.Mouse;
 
 namespace Broiler.UI.Tests;
 
@@ -135,6 +137,71 @@ public sealed class UiStructureChangedTests
         detached.Children[0].Visibility = UiVisibility.Collapsed;
     }
 
+    [Fact]
+    public void Changes_Made_While_Input_Is_Dispatched_Arrive_Once_Per_Element_Afterwards()
+    {
+        using UiSession session = CreateSession(out List<UiSemanticChangedEventArgs> events, out AccessibilityHost host);
+        var panel = new TestElement("panel");
+        var other = new TestElement("other");
+        var gone = new TestElement("gone");
+        var root = new InputAction();
+        root.AddChild(panel);
+        root.AddChild(other);
+        root.AddChild(gone);
+        session.AddRoot(root);
+        session.RenderFrame();
+        events.Clear();
+        host.Notifications.Clear();
+
+        // A click that builds a form: fifty fields, the first collapsed again, a note elsewhere, and
+        // an element that is changed and then removed.
+        int raisedDuringTheHandler = -1;
+        root.Action = () =>
+        {
+            for (int index = 0; index < 50; index++)
+                panel.AddChild(new TestElement($"field {index}"));
+            panel.Children[0].Visibility = UiVisibility.Collapsed;
+            other.AddChild(new TestElement("note"));
+            gone.AddChild(new TestElement("child"));
+            Assert.True(root.RemoveChild(gone));
+            raisedDuringTheHandler = Structure(events).Length;
+        };
+        Assert.True(session.DispatchInput(MouseDown(10, 10)));
+
+        Assert.Equal(0, raisedDuringTheHandler);
+        // In the order they first changed; the removed element is reported by the parent it left.
+        Assert.Equal<UiElement>([panel, other, root], Structure(events));
+        Assert.Equal(3, host.Notifications.Count(notification => notification.Item2 == UiSemanticChangeKind.StructureChanged));
+
+        // Outside input and frames, a change is reported as it happens.
+        events.Clear();
+        panel.AddChild(new TestElement("later"));
+        Assert.Equal<UiElement>([panel], Structure(events));
+    }
+
+    [Fact]
+    public void Changes_Made_During_Layout_Are_Reported_After_The_Frame()
+    {
+        using UiSession session = CreateSession(out List<UiSemanticChangedEventArgs> events, out AccessibilityHost host);
+        var form = new LayoutToggle();
+        session.AddRoot(form);
+        session.RenderFrame();
+        var presentedWhenRaised = new List<int>();
+        session.SemanticChanged += (_, e) =>
+        {
+            if (e.Change == UiSemanticChangeKind.StructureChanged)
+                presentedWhenRaised.Add(host.Presented);
+        };
+        events.Clear();
+
+        form.ShowFeedback = true;
+        int presented = host.Presented;
+        session.RenderFrame();
+
+        Assert.Equal([presented + 1], presentedWhenRaised);
+        Assert.Equal<UiElement>([form], Structure(events));
+    }
+
     private static UiElement[] Structure(List<UiSemanticChangedEventArgs> events) =>
         [.. events.Where(e => e.Change == UiSemanticChangeKind.StructureChanged).Select(e => e.Element)];
 
@@ -155,14 +222,67 @@ public sealed class UiStructureChangedTests
         public void ReplaceVirtualChildren() => NotifyStructureChanged();
     }
 
+    private static UiInputEvent MouseDown(double x, double y) =>
+        UiInputEvent.FromMouseButton(new MouseButtonEvent(
+            new InputEventHeader(
+                InputDeviceId.FromOpaqueValue("mouse:structure"),
+                new InputTimestamp(1, TimeSpan.TicksPerSecond, "structure-test"),
+                1),
+            InputPoint.ClientDeviceIndependentPixels(x, y),
+            MouseButtons.Left,
+            MouseButton.Left,
+            MouseButtonTransition.Down,
+            InputEventSource.Synthetic));
+
+    /// <summary>Runs an action for any pointer button that reaches it.</summary>
+    private sealed class InputAction : UiElement
+    {
+        public Action? Action { get; set; }
+
+        protected override bool OnInput(UiInputEvent input)
+        {
+            if (input.Kind != UiInputEventKind.PointerButton || Action is null)
+                return false;
+
+            Action();
+            return true;
+        }
+    }
+
+    /// <summary>Decides while measuring whether its feedback shows, as a form surface does.</summary>
+    private sealed class LayoutToggle : UiElement
+    {
+        private readonly TestElement _feedback = new("feedback") { Visibility = UiVisibility.Collapsed };
+        private bool _showFeedback;
+
+        public LayoutToggle() => AddChild(_feedback);
+
+        public bool ShowFeedback
+        {
+            get => _showFeedback;
+            set
+            {
+                _showFeedback = value;
+                InvalidateMeasure();
+            }
+        }
+
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            _feedback.Visibility = _showFeedback ? UiVisibility.Visible : UiVisibility.Collapsed;
+            return base.MeasureCore(availableSize);
+        }
+    }
+
     private sealed class AccessibilityHost : IUiHost, IUiAccessibilityHost
     {
         public BSize ViewportSize => new(100, 50);
         public double Scale => 1;
         public List<(UiElement, UiSemanticChangeKind)> Notifications { get; } = [];
+        public int Presented { get; private set; }
         public Broiler.Graphics.RenderList.BRenderList CreateRenderList(int capacity = 0) => new(capacity);
         public void Invalidate(UiInvalidation invalidation) { }
-        public void Present(Broiler.Graphics.RenderList.BRenderList renderList) { }
+        public void Present(Broiler.Graphics.RenderList.BRenderList renderList) => Presented++;
         public void PublishSemanticSnapshot(IReadOnlyList<UiSemanticNode> roots) { }
         public void NotifySemanticChanged(UiElement element, UiSemanticChangeKind change) => Notifications.Add((element, change));
     }
