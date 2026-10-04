@@ -91,9 +91,9 @@ internal static class FormatCodeViewStandardHarness
         new(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(x, y), MouseButtons.Left,
             InputEventSource.Synthetic);
 
-    public static MouseWheelEvent Wheel(double x, double y, double notches, MouseWheelAxis axis = MouseWheelAxis.Vertical) =>
+    public static MouseWheelEvent Wheel(double x, double y, double notches, MouseWheelAxis axis = MouseWheelAxis.Vertical, InputModifiers modifiers = InputModifiers.None) =>
         new(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(x, y), MouseButtons.None,
-            axis, notches, InputEventSource.Synthetic);
+            axis, notches, InputEventSource.Synthetic, modifiers);
 
     public static KeyboardKeyEvent Key(
         string name,

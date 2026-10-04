@@ -417,14 +417,17 @@ public sealed class StandardScrollView : UiScrollView
     private bool HandleWheel(UiInputEvent input)
     {
         double amount = input.WheelDeltaNotches * LineScrollAmount;
+        bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
 
         // A wheel tilted right (a positive horizontal notch, as Win32 reports it) scrolls right.
-        if (input.WheelAxis == MouseWheelAxis.Horizontal)
+        if (input.WheelAxis == MouseWheelAxis.Horizontal && !shift)
             return ScrollBy(amount, 0);
 
         // A wheel turned away from the user scrolls towards the start. Shift turns it sideways with
         // the same sign, so turning it towards the user scrolls right, as in other Windows applications.
-        return input.KeyModifiers.HasFlag(KeyboardModifierState.Shift)
+        // A host may already have turned it sideways (Broiler.Hosting.Windows reports it as a
+        // horizontal notch that keeps Shift and the vertical sign), and it means the same then.
+        return shift
             ? ScrollBy(-amount, 0)
             : ScrollBy(0, -amount);
     }

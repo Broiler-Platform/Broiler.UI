@@ -261,6 +261,30 @@ public sealed class StandardRichEditReadOnlyAndScrollingTests
     }
 
     [Fact]
+    public void Shift_With_The_Wheel_Scrolls_The_Same_Way_When_The_Host_Has_Already_Turned_It_Sideways()
+    {
+        string text = string.Join("\n", Enumerable.Range(0, 5).Select(i => $"long line {i} with lots and lots of text to induce horizontal scrolling"));
+        RichEditScene scene = Focused(text, new BSize(150, 100));
+        scene.Edit.Wrapping = RichEditWrapping.NoWrap;
+        scene.Edit.HorizontalScrollPolicy = RichEditScrollPolicy.Auto;
+        scene.Session.RenderFrame();
+
+        // Broiler.Hosting.Windows reports Shift with the wheel as a horizontal notch that keeps Shift
+        // and the vertical sign: turned towards the user, it arrives as Horizontal -1 with Shift.
+        Assert.True(scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Horizontal, -1, InputEventSource.Synthetic, InputModifiers.Shift)));
+        double right = scene.Edit.HorizontalScrollOffset;
+        Assert.True(right > 0);
+        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+
+        Assert.True(scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Horizontal, 1, InputEventSource.Synthetic, InputModifiers.Shift)));
+        Assert.True(scene.Edit.HorizontalScrollOffset < right);
+        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+        scene.Session.Dispose();
+    }
+
+    [Fact]
     public void IUiScrollable_MakeVisible_Scrolls_Both_Axes()
     {
         string text = string.Join("\n", Enumerable.Range(0, 50).Select(i => $"row {i:D2} with sufficient text width to enable horizontal visibility testing"));

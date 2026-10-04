@@ -525,10 +525,14 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     /// </summary>
     private bool OnWheel(UiInputEvent input)
     {
-        bool sideways = input.WheelAxis == MouseWheelAxis.Horizontal ||
-            input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+        // Shift turns the wheel sideways, whether it arrives as a vertical notch
+        // or as one a host has already turned (Broiler.Hosting.Windows keeps
+        // Shift and the vertical sign); only a horizontal notch without Shift is
+        // a wheel that tilts.
+        bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+        bool tilted = input.WheelAxis == MouseWheelAxis.Horizontal && !shift;
 
-        if (sideways)
+        if (shift || tilted)
         {
             if (!_scrollbars.Horizontal.IsVisible)
                 return false;
@@ -541,7 +545,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
 
             // A wheel tilted right scrolls right; a wheel turned up with shift
             // scrolls left, which is the same sign the vertical axis uses.
-            double next = input.WheelAxis == MouseWheelAxis.Horizontal
+            double next = tilted
                 ? _horizontalOffset + moved
                 : _horizontalOffset - moved;
 

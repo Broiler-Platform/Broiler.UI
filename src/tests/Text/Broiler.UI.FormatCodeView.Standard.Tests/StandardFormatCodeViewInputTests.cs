@@ -226,4 +226,27 @@ public sealed class StandardFormatCodeViewInputTests
         Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -1, MouseWheelAxis.Horizontal)));
         Assert.True(scene.View.HorizontalScrollOffset < right);
     }
+
+    [Theory]
+    [InlineData(MouseWheelAxis.Vertical)]
+    [InlineData(MouseWheelAxis.Horizontal)]
+    public void Shift_With_The_Wheel_Turned_Towards_The_User_Scrolls_Right_However_The_Host_Reports_It(MouseWheelAxis axis)
+    {
+        // Broiler.Input and Broiler.Graphics report Shift with the wheel as a vertical notch with Shift;
+        // Broiler.Hosting.Windows turns it into a horizontal one that keeps Shift and the vertical sign.
+        using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
+            new BSize(160, 70),
+            FormatCodeViewStandardHarness.Project(string.Join('\n', Enumerable.Repeat("a long line that is much wider than the view", 30))));
+        scene.View.Wrapping = FormatCodeViewWrapping.NoWrap;
+        scene.Session.RenderFrame();
+
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -1, axis, InputModifiers.Shift)));
+        double right = scene.View.HorizontalScrollOffset;
+        Assert.True(right > 0);
+        Assert.Equal(0, scene.View.VerticalScrollOffset);
+
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, 1, axis, InputModifiers.Shift)));
+        Assert.True(scene.View.HorizontalScrollOffset < right);
+        Assert.Equal(0, scene.View.VerticalScrollOffset);
+    }
 }

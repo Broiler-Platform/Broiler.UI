@@ -191,6 +191,24 @@ public sealed class ScrollViewControlTests
         Assert.Equal(0, scrollView.VerticalOffset);
     }
 
+    [Fact]
+    public void Standard_ScrollView_Shift_Wheel_Scrolls_The_Same_Way_When_The_Host_Has_Already_Turned_It_Sideways()
+    {
+        var scrollView = new StandardScrollView { ScrollbarThickness = 10 };
+        scrollView.AddChild(new FixedElement(new BSize(300, 300)));
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out _);
+
+        // Broiler.Hosting.Windows reports Shift with the wheel as a horizontal notch that keeps Shift
+        // and the vertical sign: turned towards the user, it arrives as Horizontal -1 with Shift.
+        Assert.True(scrollView.DispatchInput(Wheel(-1, InputModifiers.Shift, 1, MouseWheelAxis.Horizontal)));
+        Assert.Equal(scrollView.LineScrollAmount, scrollView.HorizontalOffset);
+        Assert.Equal(0, scrollView.VerticalOffset);
+
+        Assert.True(scrollView.DispatchInput(Wheel(1, InputModifiers.Shift, 2, MouseWheelAxis.Horizontal)));
+        Assert.Equal(0, scrollView.HorizontalOffset);
+        Assert.Equal(0, scrollView.VerticalOffset);
+    }
+
     private static UiInputEvent Wheel(double notches, InputModifiers modifiers, long sequence, MouseWheelAxis axis = MouseWheelAxis.Vertical) =>
         UiInputEvent.FromMouseWheel(
             new MouseWheelEvent(

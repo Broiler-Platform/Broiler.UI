@@ -92,13 +92,17 @@ public sealed partial class StandardRichEdit
 
     private bool HandleWheel(UiInputEvent input)
     {
+        // Shift turns the wheel sideways, whether it arrives as a vertical notch or as one a host has
+        // already turned (Broiler.Hosting.Windows keeps Shift and the vertical sign); only a horizontal
+        // notch without Shift is a wheel that tilts.
         bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
-        if ((shift || input.WheelAxis == MouseWheelAxis.Horizontal) && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
+        bool tilted = input.WheelAxis == MouseWheelAxis.Horizontal && !shift;
+        if ((shift || tilted) && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
         {
             // A wheel tilted right scrolls right; a wheel turned up with Shift scrolls left, which is
             // the sign the vertical axis uses.
             double delta = input.WheelDeltaNotches * DefaultLineHeight * 3;
-            double next = input.WheelAxis == MouseWheelAxis.Horizontal ? _scroller.OffsetX + delta : _scroller.OffsetX - delta;
+            double next = tilted ? _scroller.OffsetX + delta : _scroller.OffsetX - delta;
             if (_scroller.ScrollToX(next, HorizontalScrollMetrics))
             {
                 Invalidate(UiInvalidationKind.Render);
