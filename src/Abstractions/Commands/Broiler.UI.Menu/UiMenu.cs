@@ -209,7 +209,8 @@ public abstract class UiMenu : UiElement, IUiExpandable
 
     bool IUiExpandable.IsExpanded => IsOpen;
 
-    bool IUiExpandable.Expand() => Open();
+    // Open reports success on a menu that is already open; the interface reports a change.
+    bool IUiExpandable.Expand() => !IsOpen && Open();
 
     bool IUiExpandable.Collapse() => Close();
 }
