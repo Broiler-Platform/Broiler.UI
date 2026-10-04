@@ -117,8 +117,10 @@ clears the value so it follows again. The presets therefore draw exactly what th
   - A copy that changes `AccentSoft`, `SelectionText` or `Text` carries the change onto the states. A set
     value is kept by every copy.
 - `StandardThemeTokens.StateTextContrast` reports the ratio of `StateText` on `StateFill`, and
-  `StandardControlPaint.StateFill` / `StateText` read the shared palette. Every preset meets 4.5:1 for the
-  pair. The tests check this.
+  `StandardControlPaint.StateFill` / `StateText` read the shared palette. Every preset meets 4.5:1 for this
+  token pair, and the tests check it. A control draws the pair only where it draws `StateText`: in the
+  presets a toggle button keeps its accent label on the fill (see Not covered). The tests therefore also
+  check the fill and label each control draws, in palettes shaped like a host's system palette.
 - One pair covers hover, checked and pressed. The Windows contrast themes, the palettes that need the
   role, draw a hovered button and a checked one in the same Highlight / HighlightText pair, and every
   state in the inventory below sits on one fill today. A palette that wants hover and checked to differ
@@ -130,18 +132,34 @@ clears the value so it follows again. The presets therefore draw exactly what th
   color the application sets after the theme still reaches the state. A theme that wants a control's
   state label in its ordinary text color, while that control draws it in another, sets the control's
   property.
+- The toggle button and the spin box also write `StateText` when the color they would keep is the state
+  fill itself: the theme's `Accent` for a toggle button's label, its `TextMuted` for a spin box's arrows.
+  A host that maps the accent and the selection fill to one system highlight, and whose highlight text
+  is its window text (a pairing Windows lets a user choose), has `StateText` equal to `Text`, and a
+  checked toggle button would otherwise draw its label in the fill's own color. The button and the
+  toolbar keep `Text` there, which `StateText` already replaces whenever the two differ. No preset has
+  `Accent` or `TextMuted` equal to `AccentSoft`, so no preset changes.
+- A control that is never themed takes its state label from the shared palette by the same rule, as it
+  takes its state fill. A button, toggle button or spin box does so when it is built; the toolbar, which
+  reads its open fill from the shared palette while it is unthemed, reads the label with it. A control
+  built after `StandardThemeController.Apply` and never re-themed, such as a button in content built
+  later, therefore draws the shared pair. An unthemed toggle button's pressed and indeterminate fills
+  are fixed colors chosen for the default palette; they take the shared `StateFill` when the shared
+  palette gives the states a label of their own, because that label is chosen for the state fill. Under
+  a preset they keep the fixed colors.
 
 | Control | State on the state fill | Fill property | New label property (follows) |
 |---|---|---|---|
 | `StandardButton` | secondary, hovered (not pressed) | `SecondaryHoverBackground` | `SecondaryHoverForeground` (`Foreground`); also colors the icon |
-| `StandardToggleButton` | checked, indeterminate, pressed | `CheckedBackground`, `IndeterminateBackground`, `PressedBackground` | `CheckedForeground` (`Foreground`, the accent); also colors the icon |
-| `StandardSpinBox` | arrow hovered (not pressed) | `ArrowHoverBackground` | `ArrowHoverColor` (`ArrowColor`) |
+| `StandardToggleButton` | checked, indeterminate, pressed | `CheckedBackground`, `IndeterminateBackground`, `PressedBackground` | `CheckedForeground` (`Foreground`, the accent, unless that is the state fill); also colors the icon |
+| `StandardSpinBox` | arrow hovered (not pressed) | `ArrowHoverBackground` | `ArrowHoverColor` (`ArrowColor`, unless the muted text is the state fill) |
 | `StandardToolbar` | overflow drop-down open | `OverflowOpenBackground` (new) | `OverflowOpenForeground` (`Foreground`) |
 | `StandardCodeEditorPalette.FromTokens` | matching bracket | `BracketMatch` | none: the editor draws the fill over the bracket |
 
 `StandardToolbar` drew the open chevron's fill from the shared palette at draw time. It now keeps it in
 `OverflowOpenBackground`, which `ApplyTheme` sets from the theme it is given; until then it still reads
-the shared palette. Themed through `StandardThemeController`, which sets both, it draws the same color.
+the shared palette, and the chevron takes the shared `StateText` with it. Themed through
+`StandardThemeController`, which sets both, it draws the same color.
 A toolbar themed with a palette other than the shared one, as with a session theme, now draws its own
 theme's fill.
 
@@ -174,6 +192,14 @@ spin box arrow (`SurfaceDisabled`, with the label or arrow in its ordinary color
 toggle button (`SurfaceAlt` with the accent), a primary button (`AccentHover` / `AccentPressed` with
 `OnAccent`), and the selected tab header (`Accent` on `Surface`). The samples' navigation highlight
 (`NavSelected`) is a selection.
+
+The open overflow chevron is a state, while the open top-level menu item is a selection, although both
+mark an item whose drop-down is open. The chevron is a toolbar button held down while its drop-down is
+open, and is drawn as the bar's other buttons are: like a pressed or checked toggle button in the same
+bar. The menu's open item is the current item of the menu's keyboard navigation; `StandardMenu` draws
+it with the fill and label of its highlighted popup row, as a list draws its current row. In a system
+palette the two pairs are both `Highlight` and `HighlightText`; they differ only in a theme that gives
+the states a pair of their own, and then the chevron matches the bar's toggle buttons.
 
 ### An explicit high-contrast flag
 
@@ -213,10 +239,19 @@ without the flag.
   already true. Until Hosting does this, behavior there is unchanged except that the high-contrast cues
   are now drawn.
 - With that mapping, the system palette also draws every state in `HighlightText` on `Highlight`, with
-  no further change in Hosting: `StateFill` follows `AccentSoft` and `StateText` follows `SelectionText`.
-  Hosting should add the `StateText` / `StateFill` pair to its readability test, and may set the pair
-  explicitly to make the mapping visible. A host that gives states a fill other than the selection
-  highlight must set `StateText` as well.
+  no further change in Hosting: `StateFill` follows `AccentSoft`, `StateText` follows `SelectionText`,
+  and a toggle button whose accent is the highlight takes `StateText` even where the highlight text is
+  the window text. Hosting's readability test should check the fill and label each state is drawn in
+  (a hovered button, a checked toggle button, a hovered spin box arrow, the open overflow chevron), not
+  only `StateTextContrast`, which reports the token pair. Hosting may set the pair explicitly to make the
+  mapping visible. A host that gives states a fill other than the selection highlight must set
+  `StateText` as well.
+- A control built after the shared palette changes, and never themed, draws its states in the shared
+  pair. It does not draw its selection in the shared selection roles: a list, combo box, menu, tree or
+  editor built later draws selected text in its ordinary color until it is themed. An application that
+  builds controls after applying a theme should therefore still theme them with
+  `StandardThemeController.ApplyToSubtree`, which is also the only way a session theme other than the
+  shared palette reaches them.
 - Mail's `MailMessageItemPresenter` rebuilds the render context field by field. It must copy
   `SelectedForeground` and `SelectedSecondaryForeground`, or use `WithItem`, or selected message rows
   lose the selection colors. Mail can drop its combo box sizing workaround in `AppearanceController`.
