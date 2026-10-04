@@ -114,8 +114,9 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     /// indeterminate fill and the pressed fill. Until it is set it is <see cref="Foreground"/>.
     /// <see cref="ApplyTheme"/> sets it to the theme's <see cref="StandardThemeTokens.StateText"/> when that
     /// differs from the theme's text color, or when the theme's accent text, the color <see cref="Foreground"/>
-    /// takes, is the state fill itself; otherwise it lets it follow <see cref="Foreground"/> again. A toggle button that
-    /// is never themed takes it from the shared palette in the same way, as it takes its checked fill.
+    /// takes, or its accent is the state fill itself; otherwise it lets it follow <see cref="Foreground"/> again. A
+    /// toggle button that is never themed takes it from the shared palette in the same way, as it takes its checked
+    /// fill.
     /// </summary>
     public BColor CheckedForeground
     {
@@ -133,10 +134,11 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     /// <paramref name="label"/> the button draws off (the theme's accent text, or the accent while unthemed),
     /// while the state text is the theme's text color. The label is replaced all the same when it is the state
     /// fill's own color, as in a system palette that maps the accent and the selection fill to its highlight: it
-    /// would not show at all.
+    /// would not show at all. So it is when the accent is the state fill and the accent text is not: the accent
+    /// text was chosen for the surfaces, and the state text is the color chosen for that fill.
     /// </summary>
     private static BColor? CheckedLabel(StandardThemeTokens theme, BColor label) =>
-        theme.StateText != theme.Text || label == theme.StateFill ? theme.StateText : null;
+        theme.StateText != theme.Text || label == theme.StateFill || theme.Accent == theme.StateFill ? theme.StateText : null;
 
     /// <summary>
     /// The pressed or indeterminate fill of a toggle button that is never themed: a fixed color chosen for the

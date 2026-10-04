@@ -252,6 +252,40 @@ public sealed class StateFillControlTests
         Assert.Equal((theme.Surface, theme.Accent), Look(harness.Render(), toggle, "Bold"));
     }
 
+    public static TheoryData<string, StandardThemeTokens> DarkCopiesWhoseAccentIsTheStateFill()
+    {
+        // A copy of Dark that maps its accent and its selection fill to a highlight, as a host's palette does,
+        // and one that also keeps Dark's accent text, chosen for Dark's surfaces, not for the highlight.
+        BColor highlight = BColor.FromArgb(0xFF, 0x00, 0x5A, 0x9E);
+        StandardThemeTokens copy = StandardThemeTokens.Dark with { Accent = highlight, AccentSoft = highlight };
+        return new()
+        {
+            { "accent text follows the accent", copy },
+            { "accent text set", copy with { AccentText = StandardThemeTokens.Dark.AccentText } },
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(DarkCopiesWhoseAccentIsTheStateFill))]
+    public void A_Toggle_Button_Whose_Accent_Is_The_State_Fill_Draws_Its_Label_In_The_State_Text_Whatever_Its_Accent_Text(string name, StandardThemeTokens theme)
+    {
+        Assert.Equal(theme.Text, theme.StateText);
+        Assert.Equal(theme.Accent, theme.StateFill);
+
+        var toggle = new StandardToggleButton { Text = "Bold", IsThreeState = true };
+        toggle.ApplyTheme(theme);
+        using var harness = new Harness(toggle, new BRect(10, 10, 80, 30));
+        (BColor, BColor) readable = (theme.StateFill, theme.StateText);
+
+        harness.Press(Middle(toggle.Bounds));
+        AssertReadable(readable, Look(harness.Render(), toggle, "Bold"));
+        harness.Release(Middle(toggle.Bounds));
+        AssertReadable(readable, Look(harness.Render(), toggle, "Bold"));
+        toggle.ToggleState = UiToggleState.Indeterminate;
+        AssertReadable(readable, Look(harness.Render(), toggle, "Bold"));
+        Assert.True(theme.StateText == toggle.CheckedForeground, name);
+    }
+
     // --- Toolbar overflow --------------------------------------------------
 
     [Fact]
