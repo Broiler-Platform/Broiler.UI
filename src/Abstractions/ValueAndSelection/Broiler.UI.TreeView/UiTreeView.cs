@@ -179,7 +179,11 @@ public abstract class UiTreeView : UiElement
             if (_firstVisibleRow == clamped)
                 return;
             _firstVisibleRow = clamped;
-            Invalidate(UiInvalidationKind.Render);
+
+            // Semantic as well: the rows in view are the tree's semantic children, so scrolling (the
+            // wheel, the bar, a row brought into view) changes them, and a host that only heard about
+            // a render kept exposing the rows that had scrolled away.
+            Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
     }
 
