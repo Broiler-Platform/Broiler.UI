@@ -6,6 +6,7 @@ using Broiler.Input;
 using Broiler.Input.Keyboard;
 using Broiler.UI.Button.Standard;
 using Broiler.UI.Standard;
+using Broiler.UI.TabView.Standard;
 using Broiler.UI.Toolbar.Standard;
 
 namespace Broiler.UI.Toolbar.Tests;
@@ -73,6 +74,127 @@ public sealed class ToolbarControlTests
     }
 
     [Fact]
+    public void Toolbar_Keyboard_Navigation_Skips_Disabled_And_Collapsed_Items_Like_Tab()
+    {
+        var host = new TestHost(new BSize(480, 64));
+        using UiSession session = CreateSession(host);
+        var toolbar = new StandardToolbar { Title = "Zoom" };
+        var reset = new StandardButton { Text = "Reset", IsEnabled = false, PreferredSize = new BSize(56, 30) };
+        var smaller = new StandardButton { Text = "Smaller", PreferredSize = new BSize(64, 30) };
+        var hidden = new StandardButton { Text = "Hidden", Visibility = UiVisibility.Collapsed, PreferredSize = new BSize(64, 30) };
+        var larger = new StandardButton { Text = "Larger", IsEnabled = false, PreferredSize = new BSize(64, 30) };
+        var images = new StandardButton { Text = "Images", PreferredSize = new BSize(64, 30) };
+        var status = new StandardButton { Text = "Loaded", IsEnabled = false, PreferredSize = new BSize(64, 30) };
+        foreach (StandardButton button in new[] { reset, smaller, hidden, larger, images, status })
+            toolbar.AddChild(button);
+        session.AddRoot(toolbar);
+        session.RenderFrame();
+        session.SetFocus(toolbar);
+        var route = new StandardInputRoute(session);
+
+        Assert.True(route.Dispatch(Key("Home", BVirtualKey.Home)));
+        Assert.Same(smaller, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Right", BVirtualKey.Right)));
+        Assert.Same(images, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Right", BVirtualKey.Right)));
+        Assert.Same(smaller, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Left", BVirtualKey.Left)));
+        Assert.Same(images, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("End", BVirtualKey.End)));
+        Assert.Same(images, session.FocusedElement);
+
+        // A button disabled while it has focus (zoom at its limit) is left for the next one along.
+        session.SetFocus(smaller);
+        smaller.IsEnabled = false;
+        larger.IsEnabled = true;
+        Assert.True(route.Dispatch(Key("Right", BVirtualKey.Right)));
+        Assert.Same(larger, session.FocusedElement);
+
+        // Tab agrees about what can take focus.
+        session.SetFocus(null);
+        var reachedByTab = new List<UiElement>();
+        for (int press = 0; press < 3; press++)
+        {
+            Assert.True(new StandardFocusScope(session).MoveFocus(1));
+            reachedByTab.Add(session.FocusedElement!);
+        }
+        Assert.Equal(new UiElement[] { larger, images, larger }, reachedByTab);
+    }
+
+    [Fact]
+    public void Toolbar_Keyboard_Navigation_Passes_Over_Text_And_Lands_Inside_A_Group_Like_Tab()
+    {
+        var host = new TestHost(new BSize(480, 64));
+        using UiSession session = CreateSession(host);
+        var toolbar = new StandardToolbar { Title = "Reader" };
+        var back = new StandardButton { Text = "Back", PreferredSize = new BSize(56, 30) };
+        var status = new FixedSize(new BSize(80, 30));
+        var zoomIn = new StandardButton { Text = "Zoom in", PreferredSize = new BSize(72, 30) };
+        var group = new FixedSize(new BSize(72, 30));
+        group.AddChild(zoomIn);
+        var trailing = new FixedSize(new BSize(80, 30));
+        foreach (UiElement item in new UiElement[] { back, status, group, trailing })
+            toolbar.AddChild(item);
+        session.AddRoot(toolbar);
+        session.RenderFrame();
+        session.SetFocus(toolbar);
+        var route = new StandardInputRoute(session);
+
+        // Text that never takes focus is passed over; a group that holds a control lands on it.
+        Assert.True(route.Dispatch(Key("Home", BVirtualKey.Home)));
+        Assert.Same(back, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Right", BVirtualKey.Right)));
+        Assert.Same(zoomIn, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Right", BVirtualKey.Right)));
+        Assert.Same(back, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Left", BVirtualKey.Left)));
+        Assert.Same(zoomIn, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("End", BVirtualKey.End)));
+        Assert.Same(zoomIn, session.FocusedElement);
+
+        // Tab agrees about what can take focus.
+        session.SetFocus(null);
+        var reachedByTab = new List<UiElement>();
+        for (int press = 0; press < 3; press++)
+        {
+            Assert.True(new StandardFocusScope(session).MoveFocus(1));
+            reachedByTab.Add(session.FocusedElement!);
+        }
+        Assert.Equal(new UiElement[] { back, zoomIn, back }, reachedByTab);
+    }
+
+    [Fact]
+    public void Toolbar_Keeps_Its_Keys_When_Nothing_On_It_Can_Take_Focus()
+    {
+        // Every command on the bar disabled while it works, the focused one included. The bar keeps
+        // its arrows, Home and End, as it always has, and nothing around it acts on them.
+        var host = new TestHost(new BSize(480, 200));
+        using UiSession session = CreateSession(host);
+        var toolbar = new StandardToolbar { Title = "Message" };
+        var reply = new StandardButton { Text = "Reply", PreferredSize = new BSize(64, 30) };
+        var delete = new StandardButton { Text = "Delete", PreferredSize = new BSize(64, 30) };
+        toolbar.AddChild(reply);
+        toolbar.AddChild(delete);
+        var tabs = new StandardTabView();
+        tabs.AddTab("inbox", "Inbox", toolbar);
+        tabs.AddTab("accounts", "Accounts", new StandardButton { Text = "Add account" });
+        session.AddRoot(tabs);
+        session.RenderFrame();
+        session.SetFocus(reply);
+        reply.IsEnabled = false;
+        delete.IsEnabled = false;
+        session.RenderFrame();
+        var route = new StandardInputRoute(session);
+
+        foreach ((string name, int code) in new[] { ("Right", BVirtualKey.Right), ("Left", BVirtualKey.Left), ("Home", BVirtualKey.Home), ("End", BVirtualKey.End) })
+        {
+            Assert.True(route.Dispatch(Key(name, code)), name);
+            Assert.Equal(0, tabs.SelectedIndex);
+            Assert.Same(reply, session.FocusedElement);
+        }
+    }
+
+    [Fact]
     public void Toolbar_Vertical_Orientation_Stacks_Items_And_Uses_Vertical_Keys()
     {
         var host = new TestHost(new BSize(96, 180));
@@ -114,6 +236,17 @@ public sealed class ToolbarControlTests
             false,
             false,
             Source: InputEventSource.Synthetic);
+
+    /// <summary>An element that never takes focus itself: text, or a group around what it holds.</summary>
+    private sealed class FixedSize(BSize size) : UiElement
+    {
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            foreach (UiElement child in Children)
+                child.Measure(size);
+            return size;
+        }
+    }
 
     private sealed class TestHost : IUiHost
     {

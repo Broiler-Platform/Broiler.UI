@@ -1,6 +1,7 @@
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
+using Broiler.Input.Mouse;
 using Broiler.UI.TreeView.Standard;
 
 namespace Broiler.UI.TreeView.Tests;
@@ -157,6 +158,33 @@ public sealed class TreeSecondaryLabelTests
         BRenderList list = scene.Render();
         double scrolled = Assert.Single(TextAt(list, new string('w', 200))).X;
         Assert.True(scrolled < scene.Tree.Bounds.Left, "the row moved left, off its own start");
+    }
+
+    /// <summary>
+    /// Broiler.Hosting.Windows reports Shift with the wheel as a horizontal
+    /// notch that keeps Shift and the vertical sign. It scrolls the way Shift
+    /// with a vertical notch does, not the way a wheel tilted that way would.
+    /// </summary>
+    [Theory]
+    [InlineData(MouseWheelAxis.Vertical)]
+    [InlineData(MouseWheelAxis.Horizontal)]
+    public void Shift_With_The_Wheel_Turned_Down_Scrolls_Right_However_The_Host_Reports_It(MouseWheelAxis axis)
+    {
+        var wide = new LabelledTreeSource();
+        wide.Add("/", "/" + new string('w', 200));
+
+        using TreeScene scene = TreeStandardHarness.Create(wide);
+        scene.Render();
+        BRenderList before = scene.Render();
+        double start = Assert.Single(TextAt(before, new string('w', 200))).X;
+
+        BPoint over = scene.RowPoint(0);
+        Assert.True(scene.Route.Dispatch(TreeStandardHarness.MouseWheel(over.X, over.Y, -2, shift: true, axis)));
+        double right = Assert.Single(TextAt(scene.Render(), new string('w', 200))).X;
+        Assert.True(right < start, "the row moved left: the view scrolled right");
+
+        Assert.True(scene.Route.Dispatch(TreeStandardHarness.MouseWheel(over.X, over.Y, 2, shift: true, axis)));
+        Assert.Equal(start, Assert.Single(TextAt(scene.Render(), new string('w', 200))).X, 3);
     }
 
     /// <summary>Without Shift the same wheel scrolls rows, not columns.</summary>

@@ -450,11 +450,25 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
     private bool HandleWheel(UiInputEvent input)
     {
         EnsureLayout();
-        if (input.WheelAxis == MouseWheelAxis.Horizontal && MaxHorizontalScroll > 0)
+
+        // Shift turns the wheel sideways, whether it arrives as a vertical notch or as one a host has
+        // already turned (Broiler.Hosting.Windows keeps Shift and the vertical sign); only a horizontal
+        // notch without Shift is a wheel that tilts.
+        bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+        bool tilted = input.WheelAxis == MouseWheelAxis.Horizontal && !shift;
+        if ((shift || tilted) && MaxHorizontalScroll > 0)
         {
-            SetHorizontalScroll(_scrollX - input.WheelDeltaNotches * _characterAdvance * 6);
+            // A wheel tilted right (a positive horizontal notch) scrolls right; a wheel turned up with
+            // Shift scrolls left, which is the sign the vertical axis uses.
+            double moved = input.WheelDeltaNotches * _characterAdvance * 6;
+            SetHorizontalScroll(tilted ? _scrollX + moved : _scrollX - moved);
             return true;
         }
+
+        // A tilt with no room to scroll sideways (wrapped or short lines) is left to a scroller
+        // outside the view rather than turned into a vertical scroll the user did not ask for.
+        if (tilted)
+            return false;
         if (VerticalScrollPolicy == FormatCodeViewScrollPolicy.Never || MaxVerticalScroll <= 0)
             return false;
         SetVerticalScroll(_scrollY - input.WheelDeltaNotches * _lineHeight * 3);

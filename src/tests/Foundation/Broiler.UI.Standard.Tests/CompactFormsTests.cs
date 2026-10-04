@@ -132,6 +132,76 @@ public sealed class CompactFormsTests
         Assert.Same(last.Control, session.FocusedElement);
     }
 
+    [Fact]
+    public void FeedbackThatShrinksTheFormKeepsTheFocusedControlInView()
+    {
+        using var form = new FeedbackForm();
+        BRect viewport = form.Surface.Content.Scroll.ContentBounds;
+        // The lowest control fully on screen, near the bottom of the form: where the user is typing.
+        UiElement edit = form.Fields.Select(field => field.Control).Last(control => control.Bounds.Bottom <= viewport.Bottom);
+        Assert.True(edit.Bounds.Bottom > viewport.Bottom - 96, "The test needs a control near the bottom of the form.");
+        form.Session.SetFocus(edit);
+
+        form.Feedback.Set(string.Join(" ", Enumerable.Repeat("The connection check found a problem with the server.", 6)), FeedbackKind.Error);
+        form.Session.RenderFrame();
+
+        BRect shrunk = form.Surface.Content.Scroll.ContentBounds;
+        Assert.True(shrunk.Height < viewport.Height - 40, $"The feedback did not shrink the form ({viewport.Height} to {shrunk.Height}).");
+        Assert.True(edit.Bounds.Top >= shrunk.Top - 0.5 && edit.Bounds.Bottom <= shrunk.Bottom + 0.5,
+            $"The focused control is at {edit.Bounds}, outside the form's {shrunk}.");
+        Assert.Same(edit, form.Session.FocusedElement);
+    }
+
+    [Fact]
+    public void FeedbackThatShrinksTheFormLeavesTheScrollAloneWithoutFocusOnScreenInside()
+    {
+        using var form = new FeedbackForm();
+        BRect viewport = form.Surface.Content.Scroll.ContentBounds;
+
+        // Nothing focused, focus on the actions, and focus on a control the user scrolled away from.
+        UiElement save = form.Surface.Actions.Children[0];
+        UiElement offscreen = form.Fields.Select(field => field.Control).First(control => control.Bounds.Top > viewport.Bottom);
+        foreach (UiElement? focus in new[] { null, save, offscreen })
+        {
+            form.Session.SetFocus(focus);
+            form.Feedback.Set(string.Join(" ", Enumerable.Repeat("Checking the connection to the server.", 6)), FeedbackKind.Progress);
+            form.Session.RenderFrame();
+            Assert.True(form.Surface.Content.Scroll.ContentBounds.Height < viewport.Height - 40);
+            Assert.Equal(0, form.Surface.Content.Scroll.VerticalOffset);
+            Assert.Same(focus, form.Session.FocusedElement);
+
+            form.Feedback.Set("");
+            form.Session.RenderFrame();
+        }
+    }
+
+    /// <summary>Twelve fields, more than fit at 640x480, with no feedback yet.</summary>
+    private sealed class FeedbackForm : IDisposable
+    {
+        public FeedbackForm()
+        {
+            var panel = new StandardPanel { Spacing = 8 };
+            Fields = Enumerable.Range(1, 12).Select(index => new FormField($"Field {index}", new StandardEdit())).ToArray();
+            foreach (var field in Fields)
+                panel.AddChild(field);
+            Surface = new FormSurface(panel, FormSurface.ActionBar(new StandardButton { Text = "Save" }), Feedback);
+            Session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+            Session.AddRoot(Surface);
+            Session.RenderFrame();
+        }
+
+        public FormSurface Surface { get; }
+        public InlineFeedback Feedback { get; } = new();
+        public FormField[] Fields { get; }
+        public UiSession Session { get; }
+
+        public void Dispose()
+        {
+            Session.Dispose();
+            Surface.Dispose();
+        }
+    }
+
     private static IEnumerable<UiElement> Descendants(UiElement element)
     {
         yield return element;

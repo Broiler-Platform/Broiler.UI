@@ -211,7 +211,9 @@ function attachInput() {
         const point = localPoint(event);
         const unit = event.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? 100 : event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 3 : 1;
         const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
-        const delta = horizontal ? -event.deltaX / unit : -event.deltaY / unit;
+        // Notches follow Win32: positive is a wheel turned away from the user (the DOM's negative
+        // deltaY) or tilted right (the DOM's positive deltaX).
+        const delta = horizontal ? event.deltaX / unit : -event.deltaY / unit;
         galleryExports.UiPointerWheel(point.x, point.y, event.buttons || 0, horizontal, delta, event.timeStamp);
     }, { passive: false });
     addListener(canvas, 'keydown', event => dispatchKey(event, true));

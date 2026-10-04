@@ -35,6 +35,7 @@
     <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.TreeView\Broiler.UI.TreeView.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.RichEdit\Broiler.UI.RichEdit.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.CodeEditor\Broiler.UI.CodeEditor.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.CodeEditor.Standard\Broiler.UI.CodeEditor.Standard.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.FormatCodeView\Broiler.UI.FormatCodeView.csproj" />
   </ItemGroup>
 
