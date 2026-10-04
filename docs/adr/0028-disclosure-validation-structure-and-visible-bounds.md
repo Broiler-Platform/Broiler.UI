@@ -38,20 +38,27 @@ that start in Broiler.UI, not in the host bridge (ADR 0008):
   hides. `GetSemanticNode()` then reports the target's state as the element's own, so the state sits
   where the focus is. A disposed target is ignored. The target does not know who discloses it and
   must invalidate the discloser's semantics when its state changes.
-- **`FormSection`** implements `IUiExpandable`, and its toggle discloses it. The group reports
-  neither state (the ARIA disclosure pattern puts the state on the button only). The toggle keeps its
-  "Show …" / "Hide …" text. `Collapse()` moves focus out of the content to the toggle, as setting
-  `IsExpanded` already did.
+- **`UiElement.Controls`** names the element whose content this one shows, hides, or changes
+  (ARIA's `aria-controls`), which a host exposes as the element this one controls. It is separate
+  from `Discloses` because the object that acts is not always where a reader should go: a
+  `FormSection` expands as a whole, but the section contains its own toggle, so sending a reader to
+  it moves them nowhere. An element cannot control itself.
+- **`FormSection`** implements `IUiExpandable`. Its toggle discloses the section and controls the
+  section's `Content`. The group reports neither state (the ARIA disclosure pattern puts the state
+  on the button only). The toggle keeps its "Show …" / "Hide …" text. `Collapse()` moves focus out
+  of the content to the toggle, as setting `IsExpanded` already did.
 - **`UiComboBox`** and **`UiMenu`** implement `IUiExpandable` explicitly (drop-down and open state)
-  and report `Collapsed` while closed. Tree rows that can expand report `Collapsed`.
+  and report `Collapsed` while closed. `Expand()` and `Collapse()` return false when nothing
+  changed. Tree rows that can expand report `Collapsed` (they already reported `Expanded`).
 
 ### Validation relations
 
 - **`UiElement.DescribedBy`** is the element whose text describes this one, such as a hint.
 - **`UiElement.ErrorMessage`** is the element that says what is wrong with the value. While it is
-  shown (visible, not hidden from accessibility, not disposed, non-blank), the element reports
-  `Invalid`. ARIA's `aria-errormessage` is the model. It is separate from `DescribedBy` so that a
-  field keeps its hint while it is invalid, and so `Invalid` cannot be left on with no message.
+  shown (it and every ancestor visible, none hidden from accessibility, not disposed, non-blank), the
+  element reports `Invalid`. ARIA's `aria-errormessage` is the model. It is separate from
+  `DescribedBy` so that a field keeps its hint while it is invalid, and so `Invalid` cannot be left
+  on with no message.
 - **`UiElement.IsRequired`** reports `Required`. It is virtual so a composite can forward it to the
   control that carries it; the composite then reports nothing itself.
 - **`UiSemanticNode.Description`** is an `init` property, so the record's constructor and
@@ -59,26 +66,39 @@ that start in Broiler.UI, not in the host bridge (ADR 0008):
   then the described-by text, then any description the control gives itself, joined as sentences.
   This is the channel for clients that never follow relations: while a field is invalid, its error
   is in the control's description.
-- Relation text is read from the related element's core node, as for `LabeledBy` (ADR 0027), so
-  elements that describe each other cannot recurse.
+- Relation text is read from the related element's core node, as for `LabeledBy` (ADR 0027). That
+  node can contain the asking element again, through an ancestor or a container whose control is
+  related back, so while it is built the nodes inside it resolve no relations, and every cycle,
+  including one through `LabeledBy`, ends after one step. An ancestor is never a description or an
+  error message of what it contains and is ignored for those two relations; it can still label an
+  element by its own name.
 - **`FormField`** points its control's `DescribedBy` at the description (unless the application set
   one) and its `ErrorMessage` at the error label while `SetError` shows a message. It invalidates the
   control's semantics on every error change, and `FormField.IsRequired` sets the control's state.
-  The field group keeps its existing name and `Invalid` state. A field error is not announced: the
-  form's status announces the failure, and a second announcement would repeat it.
+  The field group keeps its existing name, which includes the error text, and its `Invalid` state,
+  for compatibility. A field error is not announced: the form's status announces the failure, and a
+  second announcement would repeat it.
 
 ### Structure events
 
 - `UiElement` raises `StructureChanged` for the parent when a child is inserted, removed, or moved,
-  when a child's `Visibility` changes, and from `SetHiddenFromAccessibility`. For a root, the element
-  itself is the subject. A disposing element does not raise it for each of its own children; its
-  parent is told once.
+  when a child's `Visibility` changes, and from `SetHiddenFromAccessibility`. A root has no parent, so
+  when a root itself is shown, collapsed, or hidden from assistive technology, the root is the
+  subject: everything it exposes changed. A disposing element does not raise it for each of its own
+  children; its parent is told once.
 - The protected **`NotifyStructureChanged()`** is for containers whose children assistive
   technology sees as virtual nodes. `UiListView.SetItems` and `UiTabView`'s add, remove, and move
   call it.
-- Events are raised synchronously, once per change. State-only changes raise none, and neither do
-  session root changes (`AddRoot`, `RemoveRoot`, `MoveRoot`), which hosts track themselves.
-  Coalescing (for example, per frame) is the host's job.
+- Changes made while `UiSession.DispatchInput` or `UiSession.RenderFrame` runs are held and raised
+  once per element, in the order they first changed, when the call returns. An element that has left
+  the session by then is not named; the parent it left is. A tab switch by click, which hides one
+  page, shows another, and changes the tab nodes, is one event for the tab view, and feedback a form
+  surface shows or hides while it is measured is reported after the frame rather than during
+  layout. Changes made outside those calls, such as an application updating views from a dispatcher
+  callback, are raised as they happen, one per change. The dispatcher is not used, so the
+  application's queue and its drain counts are unchanged.
+- State-only changes raise none, and neither do the session's root changes (`AddRoot`,
+  `RemoveRoot`, `MoveRoot`), which hosts track themselves. A host should still coalesce per frame.
 
 ### Visible geometry
 
@@ -102,41 +122,70 @@ that start in Broiler.UI, not in the host bridge (ADR 0008):
 - **Tabs.** `UiTabView.GetTabHeaderBounds(index)` (virtual; empty by default) gives a header's
   rectangle. `StandardTabView` implements it from the measured header widths and
   `EffectiveHeaderHeight`, the same geometry it paints and hit-tests. Tab semantic nodes use the
-  header clipped to the view's visible bounds, or the full header and `Offscreen` when none of it
-  shows. Without a header they keep the view's bounds.
+  header clipped to the view's visible bounds, or the full header and `Offscreen` (still `Visible`)
+  when none of it shows. Without a header they keep the view's bounds.
+- `Offscreen` therefore keeps `Visible` for elements and tabs but not for list items, whose earlier
+  contract already cleared `Visible` for rows out of view. The `UiSemanticState.Offscreen`
+  documentation says so; hosts read `Offscreen`, not a missing `Visible`, to tell what is on screen.
 
 ### Scroll view focus
 
 - `StandardScrollView` implements `IStandardThemedControl`. `ApplyTheme` sets its new `FocusRing`
-  color and captures the theme's ring offset and thickness. The scrollbar colors are deliberately
-  unchanged, so themed sessions draw scrollbars as before.
-- While it is focused and focus is visible (`UiSession.IsFocusVisible`), it strokes the ring after
-  the scrollbars, inset by the theme offset. A click focuses the scroll view behind blank form space
-  or a label, so pointer focus draws no ring until the keyboard is used, as for buttons.
+  color and captures the theme's ring offset and thickness. The scrollbar track and thumb colors are
+  deliberately unchanged, so themed sessions draw scrollbars as before. That includes the
+  high-contrast themes, where the semi-transparent default thumb has not been checked for contrast.
+  The theme tokens have no scrollbar roles yet; mapping them, at least under a high-contrast theme
+  (ADR 0029 adds the flag), is left to the high-contrast pass.
+- While it has focus and is a keyboard stop (`CanFocus`, through `Focusable` or
+  `FocusWhenScrollable`), it strokes the ring after the scrollbars, inset by the theme offset,
+  whatever the last input was, as an editor does: the ring shows where the arrow keys go. A view
+  that is no stop never draws one. A click on blank form space or a label focuses the scroll view
+  behind it, and a later key, such as Alt, must not ring the whole form. The stroke is drawn here
+  rather than by `StandardControlPaint.DrawFocusRing`, which takes the theme's color and would
+  ignore the control's `FocusRing`.
 - **`FocusWhenScrollable`** (off by default) makes `CanFocus` true while the extent exceeds the
   viewport (with a half-DIP tolerance) and no visible, unhidden descendant can take focus. Tab
-  traversal and hosts then agree on the stop. The existing arrow, Page, Home, and End handling
-  scrolls the view once it is focused.
+  traversal and `CanFocus` then agree on the stop. `Focusable` stays false, so a host must judge
+  keyboard focusability, and whether an unnamed scroll view is layout only, by `CanFocus`. The
+  existing arrow, Page, Home, and End handling scrolls the view once it is focused. An application
+  that makes such a stop by its own policy and calls `SetFocus` on a view that is not `CanFocus` gets
+  no ring until it opts into `FocusWhenScrollable`.
 
 ## Consequences
 
 - Host bridges should map:
   - Expand/collapse: offer the pattern when a node reports `Expanded` or `Collapsed`. Act through
-    the element if it is an `IUiExpandable`, otherwise through its `Discloses` target, and expose
-    that target (when it is a `UiElement`) as `ControllerFor`. Raise the state's property change.
+    the element if it is an `IUiExpandable`, otherwise through its `Discloses` target. Tree rows are
+    virtual nodes with neither: the row at semantic child `i` is `Rows[FirstVisibleRow + i]`, and
+    the host acts through `UiTreeView.Expand(row.Id)` and `Collapse(row.Id)`. Raise the state's
+    property change.
+  - `ControllerFor` is `[Controls]` while that element is exposed: not disposed, it and its
+    ancestors visible, not hidden from accessibility, and not an ancestor of the element. It is not
+    derived from `Discloses`.
   - Validation: `IsDataValidForForm` is `!Invalid` and `IsRequiredForForm` is `Required`.
-    `DescribedBy` lists the shown `ErrorMessage` first, then the shown `DescribedBy`.
-    `FullDescription` is `Description`. Whether the error should also replace the placeholder in
-    `HelpText` is left to the host and the screen-reader pass (H-01), since reading it through
-    several properties can repeat it.
+    `DescribedBy` lists the shown `ErrorMessage` first, then the shown `DescribedBy`; the error is
+    reached through `ErrorMessage`, since a field's own `DescribedBy` is its hint. `FullDescription`
+    is `Description`. Whether the error should also replace the placeholder in `HelpText` is left to
+    the host and the screen-reader pass (H-01), since reading it through several properties can
+    repeat it.
   - Structure: `StructureChanged` should become a children-invalidated event on the element's peer,
     coalesced per frame, and the trigger for releasing peers of removed elements.
   - Geometry: the bounding rectangle is `GetVisibleBounds()` clipped to the window, and `IsOffscreen`
     is `Offscreen`, hidden content, or empty visible bounds. List items take their bounds and
     visibility from `GetItemSemanticNode` and tabs from `GetTabHeaderBounds`, which also serve hit
-    testing. `IsKeyboardFocusable` is `CanFocus`.
+    testing. `IsKeyboardFocusable` is `CanFocus`, and so is the "not layout only" test for an unnamed
+    scroll view, since a `FocusWhenScrollable` stop keeps `Focusable` false. Such a stop should also
+    get an `AccessibleName`, or a reader has nothing to say when it takes focus.
+- Release order: no released Broiler.UI raised `StructureChanged` before this, so the host code
+  for it has never run. Broiler.Hosting as consumers ship it today (0.1.0-preview.5 in Mail, and
+  main at 380e0e8) handles every such event by cleaning its peer tables and raising a
+  children-invalidated event on the window root. Batching per input and
+  per frame keeps ordinary clicks, tab switches, and layout to one event per container, but changes
+  an application makes from dispatcher callbacks still arrive one by one. Consumers should take this
+  release together with, or after, the Hosting release that coalesces per frame and targets the
+  parent's peer, and pin that pair.
 - Behavior changes:
-  - The `FormSection` group no longer reports `Expanded`; its toggle does.
+  - The `FormSection` group no longer reports `Expanded`; its toggle does, and controls the content.
   - Closed combo boxes and menus, and collapsed tree rows that can expand, now report `Collapsed`.
   - Elements scrolled entirely out of a scroll view now report `Offscreen` (still `Visible`).
   - A presenter's list-item node is no longer `Visible` when the row is out of view, and a partly
@@ -144,8 +193,14 @@ that start in Broiler.UI, not in the host bridge (ADR 0008):
   - Tab nodes now carry header bounds instead of the whole view's.
   - `SemanticChanged` now also carries `StructureChanged`. A handler that reacts to every event
     should filter by kind.
+  - A focused scroll view that is a keyboard stop draws a focus ring.
 - Applications opt read-only scroll areas into `FocusWhenScrollable` and can drop their own
   "scroll stop" policy. A subclass that declares a member named like one of the new `UiElement`
   members gets a hiding warning when it recompiles.
+- Left for the H-01 screen-reader pass: the field group still names the error and reports
+  `Invalid`, and tree row names still end in ", expanded" or ", collapsed". Once hosts map the
+  control's state and the row flags, a reader may say the error or the state twice; drop them there
+  if it does.
 - Not covered: per-line text-range geometry, clipping for other cropping containers (the toolbar's
-  overflow strip, for example), and real screen-reader speech, which needs the H-01 pass.
+  overflow strip, for example), scrollbar colors under high contrast (see Scroll view focus), and
+  real screen-reader speech.
