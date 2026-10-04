@@ -201,11 +201,139 @@ public sealed class TabViewPageAndHeaderTests
     private static void AssertRingClearsTheLabelAndTheBar(StandardTabView tabs, BRect header, BRenderCommand.StrokeRoundedRect ring, BRect bar)
     {
         double half = ring.Thickness / 2;
-        double lineHeight = BTextMeasurer.GetLineHeight(tabs.Font);
-        double lineBottom = header.Top + Math.Max(0, (tabs.EffectiveHeaderHeight - lineHeight) / 2) + lineHeight;
+        double lineBottom = LabelLine(tabs, header).Bottom;
         Assert.True(ring.Rect.Top - half >= header.Top && ring.Rect.Left - half >= header.Left && ring.Rect.Right + half <= header.Right, "The ring leaves the header.");
         Assert.True(ring.Rect.Bottom - half >= lineBottom, $"The ring at {ring.Rect.Bottom - half} crosses the label's line, which ends at {lineBottom}.");
         Assert.True(ring.Rect.Bottom + half + 1 <= bar.Top, $"The ring at {ring.Rect.Bottom + half} runs into the bar at {bar.Top}.");
+    }
+
+    [Theory]
+    [InlineData(24)]
+    [InlineData(28)]
+    [InlineData(32)]
+    [InlineData(40)]
+    public void AtAnyHeaderHeightTheRingAndTheBarKeepOutOfTheLabel(double headerHeight)
+    {
+        // A 1 DIP ring and a high-contrast 2 DIP one.
+        foreach (StandardThemeTokens theme in new[] { StandardThemeTokens.Light, StandardThemeTokens.HighContrastDark })
+        {
+            StandardTabView tabs = ThreeTabs();
+            tabs.HeaderHeight = headerHeight;
+            tabs.ApplyTheme(theme);
+            using UiSession session = Attach(tabs, 400, 200);
+            session.SetFocus(tabs);
+
+            BRenderList frame = session.RenderFrame();
+            BRect header = tabs.GetTabHeaderBounds(tabs.SelectedIndex);
+            BRect bar = Assert.Single(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == tabs.SelectedIndicatorColor).Rect;
+            BRenderCommand.StrokeRoundedRect ring = Assert.Single(Rings(frame, tabs));
+            (double lineTop, double lineBottom) = LabelLine(tabs, header);
+            double half = ring.Thickness / 2;
+            string at = $"{theme.Name} at a {headerHeight} DIP header";
+
+            // Neither the bar nor the ring's strokes cross the label's line, and the ring stays in the header.
+            Assert.True(bar.Top >= lineBottom, $"{at}: the bar at {bar.Top} covers the label's line, which ends at {lineBottom}.");
+            Assert.True(ring.Rect.Top + half <= lineTop, $"{at}: the ring at {ring.Rect.Top + half} crosses the label's line, which starts at {lineTop}.");
+            Assert.True(ring.Rect.Bottom - half >= lineBottom, $"{at}: the ring at {ring.Rect.Bottom - half} crosses the label's line, which ends at {lineBottom}.");
+            Assert.True(ring.Rect.Top - half >= header.Top && ring.Rect.Bottom + half <= header.Bottom, $"{at}: the ring leaves the header.");
+
+            // Where the header has the room, at the default height and above, the ring runs clear of the bar too.
+            if (headerHeight >= 32)
+                AssertRingClearsTheLabelAndTheBar(tabs, header, ring, bar);
+        }
+    }
+
+    [Theory]
+    [InlineData(30)]
+    [InlineData(double.PositiveInfinity)]
+    public void ABarThickerThanTheRoomUnderTheLabelStopsThereAndLeavesTheRingDrawn(double thickness)
+    {
+        StandardTabView tabs = ThreeTabs();
+        tabs.ApplyTheme(StandardThemeTokens.Light);
+        tabs.SelectedIndicatorThickness = thickness;
+        using UiSession session = Attach(tabs, 400, 200);
+        session.SetFocus(tabs);
+
+        BRenderList frame = session.RenderFrame();
+        BRect header = tabs.GetTabHeaderBounds(0);
+        (double lineTop, double lineBottom) = LabelLine(tabs, header);
+
+        // The bar fills the room under the label, not the label.
+        BRect bar = Assert.Single(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == tabs.SelectedIndicatorColor).Rect;
+        Assert.Equal(lineBottom, bar.Top, 6);
+        Assert.Equal(header.Bottom, bar.Bottom, 6);
+
+        // The ring is still drawn, out of the label's line.
+        BRenderCommand.StrokeRoundedRect ring = Assert.Single(Rings(frame, tabs));
+        Assert.True(ring.Rect.Top + (ring.Thickness / 2) <= lineTop);
+        Assert.True(ring.Rect.Bottom - (ring.Thickness / 2) >= lineBottom);
+        Assert.Equal(thickness, tabs.SelectedIndicatorThickness);
+    }
+
+    [Fact]
+    public void InAStripWiderThanTheViewTheRingAndTheBarStayInsideTheView()
+    {
+        int cutHeaders = 0, strips = 0;
+        double offset = StandardThemeTokens.Light.FocusRingOffset;
+        foreach (double width in new[] { 300.0, 200.0 })
+        {
+            // A document strip without pages, as an editor's: its headers are laid out past the view's edge.
+            var tabs = new StandardTabView();
+            for (int index = 0; index < 8; index++)
+                tabs.AddTab($"document{index}", $"Document number {index}");
+            tabs.ApplyTheme(StandardThemeTokens.Light);
+            using UiSession session = Attach(tabs, width, 120);
+            session.SetFocus(tabs);
+            Assert.True(tabs.GetTabHeaderBounds(tabs.Tabs.Count - 1).Left > tabs.Bounds.Right);
+
+            for (int selected = 0; selected < tabs.Tabs.Count; selected++)
+            {
+                tabs.SelectedIndex = selected;
+                BRenderList frame = session.RenderFrame();
+                BRect header = tabs.GetTabHeaderBounds(selected);
+                BRect visible = header.Intersect(tabs.Bounds);
+                string at = $"Tab {selected} in a {width} DIP view";
+
+                // The ring is drawn whole inside the view, so a focused strip always shows it.
+                BRenderCommand.StrokeRoundedRect ring = Assert.Single(Rings(frame, tabs));
+                double half = ring.Thickness / 2;
+                Assert.True(
+                    ring.Rect.Left - half >= tabs.Bounds.Left && ring.Rect.Right + half <= tabs.Bounds.Right &&
+                    ring.Rect.Top - half >= tabs.Bounds.Top && ring.Rect.Bottom + half <= tabs.Bounds.Bottom,
+                    $"{at}: the ring {ring.Rect} leaves the view {tabs.Bounds}.");
+
+                if (!visible.IsEmpty && visible.Width >= 48)
+                {
+                    // Around the part of the selected header that shows, ...
+                    Assert.Equal(visible.Left + offset, ring.Rect.Left, 6);
+                    Assert.Equal(visible.Right - offset, ring.Rect.Right, 6);
+                    if (visible.Width < header.Width)
+                        cutHeaders++;
+                }
+                else
+                {
+                    // ... or around the visible strip, when too little of it shows to read as a tab.
+                    Assert.Equal(tabs.Bounds.Left + offset, ring.Rect.Left, 6);
+                    Assert.Equal(tabs.Bounds.Right - offset, ring.Rect.Right, 6);
+                    strips++;
+                }
+
+                // The bar is drawn only where it lies inside the view.
+                foreach (BRenderCommand.FillRoundedRect bar in frame.Commands.OfType<BRenderCommand.FillRoundedRect>().Where(fill => fill.Color == tabs.SelectedIndicatorColor))
+                    Assert.True(bar.Rect.Left >= tabs.Bounds.Left && bar.Rect.Right <= tabs.Bounds.Right, $"{at}: the bar {bar.Rect} leaves the view {tabs.Bounds}.");
+            }
+        }
+
+        Assert.True(cutHeaders > 0, "No selected header was cut by the view's edge.");
+        Assert.True(strips > 0, "No selected header lay past the view's edge.");
+    }
+
+    /// <summary>The label's line in a header: centered in the header's height.</summary>
+    private static (double Top, double Bottom) LabelLine(StandardTabView tabs, BRect header)
+    {
+        double lineHeight = BTextMeasurer.GetLineHeight(tabs.Font);
+        double top = header.Top + Math.Max(0, (tabs.EffectiveHeaderHeight - lineHeight) / 2);
+        return (top, top + lineHeight);
     }
 
     [Fact]
