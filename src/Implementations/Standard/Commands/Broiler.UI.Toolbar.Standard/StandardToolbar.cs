@@ -764,26 +764,33 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
 
     private bool FocusIndexedChild(bool first)
     {
-        List<UiElement> focusable = GetVisibleChildren();
-        if (focusable.Count == 0 || Session is null)
+        List<UiElement> items = GetVisibleChildren();
+        if (Session is null)
             return false;
 
-        return FocusChild(first ? focusable[0] : focusable[^1]);
+        for (int step = 0; step < items.Count; step++)
+        {
+            UiElement candidate = items[first ? step : items.Count - 1 - step];
+            if (CanNavigateTo(candidate))
+                return FocusChild(candidate);
+        }
+
+        return false;
     }
 
     private bool MoveFocus(int delta)
     {
-        List<UiElement> focusable = GetVisibleChildren();
-        if (focusable.Count == 0 || Session is null)
+        List<UiElement> items = GetVisibleChildren();
+        if (items.Count == 0 || Session is null)
             return false;
 
         UiElement? focused = Session.FocusedElement;
         int index = -1;
         if (focused is not null)
         {
-            for (int candidate = 0; candidate < focusable.Count; candidate++)
+            for (int candidate = 0; candidate < items.Count; candidate++)
             {
-                UiElement child = focusable[candidate];
+                UiElement child = items[candidate];
                 if (ReferenceEquals(focused, child) || focused.IsDescendantOf(child))
                 {
                     index = candidate;
@@ -792,11 +799,27 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
             }
         }
 
-        int next = index < 0
-            ? (delta >= 0 ? 0 : focusable.Count - 1)
-            : (index + delta + focusable.Count) % focusable.Count;
-        return FocusChild(focusable[next]);
+        // From outside the bar the first step lands on an end. From an item, even one that has
+        // just been disabled under the focus, it goes on to the next item that can take focus.
+        if (index < 0)
+            index = delta >= 0 ? -1 : items.Count;
+
+        for (int step = 1; step <= items.Count; step++)
+        {
+            int next = ((index + (delta * step)) % items.Count + items.Count) % items.Count;
+            if (CanNavigateTo(items[next]))
+                return FocusChild(items[next]);
+        }
+
+        return false;
     }
+
+    /// <summary>
+    /// Whether arrowing along the bar may stop on a child. A control that takes focus but cannot
+    /// right now, such as a disabled button, is passed over, as Tab passes over it; a child that
+    /// never takes focus itself is reached as before.
+    /// </summary>
+    private static bool CanNavigateTo(UiElement child) => !child.Focusable || child.CanFocus;
 
     /// <summary>
     /// Moves focus to a child, showing the drop-down when the child is inside it

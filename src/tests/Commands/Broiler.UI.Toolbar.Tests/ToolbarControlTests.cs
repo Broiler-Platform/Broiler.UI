@@ -73,6 +73,54 @@ public sealed class ToolbarControlTests
     }
 
     [Fact]
+    public void Toolbar_Keyboard_Navigation_Skips_Disabled_And_Collapsed_Items_Like_Tab()
+    {
+        var host = new TestHost(new BSize(480, 64));
+        using UiSession session = CreateSession(host);
+        var toolbar = new StandardToolbar { Title = "Zoom" };
+        var reset = new StandardButton { Text = "Reset", IsEnabled = false, PreferredSize = new BSize(56, 30) };
+        var smaller = new StandardButton { Text = "Smaller", PreferredSize = new BSize(64, 30) };
+        var hidden = new StandardButton { Text = "Hidden", Visibility = UiVisibility.Collapsed, PreferredSize = new BSize(64, 30) };
+        var larger = new StandardButton { Text = "Larger", IsEnabled = false, PreferredSize = new BSize(64, 30) };
+        var images = new StandardButton { Text = "Images", PreferredSize = new BSize(64, 30) };
+        var status = new StandardButton { Text = "Loaded", IsEnabled = false, PreferredSize = new BSize(64, 30) };
+        foreach (StandardButton button in new[] { reset, smaller, hidden, larger, images, status })
+            toolbar.AddChild(button);
+        session.AddRoot(toolbar);
+        session.RenderFrame();
+        session.SetFocus(toolbar);
+        var route = new StandardInputRoute(session);
+
+        Assert.True(route.Dispatch(Key("Home", BVirtualKey.Home)));
+        Assert.Same(smaller, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Right", BVirtualKey.Right)));
+        Assert.Same(images, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Right", BVirtualKey.Right)));
+        Assert.Same(smaller, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("Left", BVirtualKey.Left)));
+        Assert.Same(images, session.FocusedElement);
+        Assert.True(route.Dispatch(Key("End", BVirtualKey.End)));
+        Assert.Same(images, session.FocusedElement);
+
+        // A button disabled while it has focus (zoom at its limit) is left for the next one along.
+        session.SetFocus(smaller);
+        smaller.IsEnabled = false;
+        larger.IsEnabled = true;
+        Assert.True(route.Dispatch(Key("Right", BVirtualKey.Right)));
+        Assert.Same(larger, session.FocusedElement);
+
+        // Tab agrees about what can take focus.
+        session.SetFocus(null);
+        var reachedByTab = new List<UiElement>();
+        for (int press = 0; press < 3; press++)
+        {
+            Assert.True(new StandardFocusScope(session).MoveFocus(1));
+            reachedByTab.Add(session.FocusedElement!);
+        }
+        Assert.Equal(new UiElement[] { larger, images, larger }, reachedByTab);
+    }
+
+    [Fact]
     public void Toolbar_Vertical_Orientation_Stacks_Items_And_Uses_Vertical_Keys()
     {
         var host = new TestHost(new BSize(96, 180));
