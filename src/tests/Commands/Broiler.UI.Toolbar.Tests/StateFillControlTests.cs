@@ -303,29 +303,31 @@ public sealed class StateFillControlTests
 
     // --- Harness -----------------------------------------------------------
 
-    private static (Harness Harness, StandardToolbar Toolbar) OverflowingBar(StandardThemeTokens theme)
+    /// <summary>An overflowing bar, themed with <paramref name="theme"/>, or left as built when that is null.</summary>
+    internal static (Harness Harness, StandardToolbar Toolbar) OverflowingBar(StandardThemeTokens? theme)
     {
         // Four 80-wide items in a bar with room for two of them.
         var toolbar = new StandardToolbar { Padding = 10, Spacing = 4 };
         for (int index = 0; index < 4; index++)
             toolbar.AddChild(new StandardButton { Text = "Item" + index.ToString(System.Globalization.CultureInfo.InvariantCulture), PreferredSize = new BSize(80, 30) });
-        toolbar.ApplyTheme(theme);
+        if (theme is not null)
+            toolbar.ApplyTheme(theme);
         return (new Harness(toolbar, new BRect(0, 0, 220, 44)), toolbar);
     }
 
-    private static (BColor Fill, BColor Text) Look(BRenderList list, UiElement element, string text) =>
+    internal static (BColor Fill, BColor Text) Look(BRenderList list, UiElement element, string text) =>
         (Assert.Single(list.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Rect == element.Bounds).Color, TextColor(list, text));
 
-    private static (BColor Fill, BColor Text) ChevronLook(BRenderList list, StandardToolbar toolbar) =>
+    internal static (BColor Fill, BColor Text) ChevronLook(BRenderList list, StandardToolbar toolbar) =>
         (Assert.Single(list.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Rect == toolbar.OverflowButtonBounds).Color, TextColor(list, Chevron));
 
-    private static BColor TextColor(BRenderList list, string text) =>
+    internal static BColor TextColor(BRenderList list, string text) =>
         Assert.Single(list.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == text).Text.Color;
 
-    private static BPoint Middle(BRect rect) => new(rect.Left + (rect.Width / 2), rect.Top + (rect.Height / 2));
+    internal static BPoint Middle(BRect rect) => new(rect.Left + (rect.Width / 2), rect.Top + (rect.Height / 2));
 
     /// <summary>A session showing one element in a fixed box, and the pointer to work it with.</summary>
-    private sealed class Harness : System.IDisposable
+    internal sealed class Harness : System.IDisposable
     {
         private readonly UiSession _session;
         private readonly StandardInputRoute _route;

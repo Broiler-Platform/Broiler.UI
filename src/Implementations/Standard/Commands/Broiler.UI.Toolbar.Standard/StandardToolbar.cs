@@ -31,9 +31,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
         Foreground = theme.Text;
         PopupBackground = theme.Surface;
         _overflowOpenBackground = theme.StateFill;
-
-        // The chevron keeps following Foreground unless the theme gives state text a color of its own.
-        _overflowOpenForeground = theme.StateText == theme.Text ? null : theme.StateText;
+        _overflowOpenForeground = OpenLabel(theme);
     }
 
     /// <summary>The items that did not fit, in bar order, and the boxes they are reached through.</summary>
@@ -74,13 +72,28 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
     /// The chevron's color while the drop-down is open, drawn on <see cref="OverflowOpenBackground"/>. Until it
     /// is set it is <see cref="Foreground"/>. <see cref="ApplyTheme"/> sets it to the theme's
     /// <see cref="StandardThemeTokens.StateText"/> when that differs from the theme's text color, and otherwise
-    /// lets it follow <see cref="Foreground"/> again.
+    /// lets it follow <see cref="Foreground"/> again. While neither it nor <see cref="OverflowOpenBackground"/>
+    /// has been set or themed, the fill is the shared palette's, and the chevron takes the shared palette's
+    /// <see cref="StandardControlPaint.StateText"/> by the same rule.
     /// </summary>
     public BColor OverflowOpenForeground
     {
-        get => _overflowOpenForeground ?? Foreground;
+        get
+        {
+            if (_overflowOpenForeground is { } color)
+                return color;
+            if (_overflowOpenBackground is null && OpenLabel(StandardControlPaint.Theme) is { } shared)
+                return shared;
+            return Foreground;
+        }
         set => _overflowOpenForeground = value;
     }
+
+    /// <summary>
+    /// The open chevron's color a theme gives: its state text, or null to follow <see cref="Foreground"/>, the
+    /// theme's text color, while the state text is that color.
+    /// </summary>
+    private static BColor? OpenLabel(StandardThemeTokens theme) => theme.StateText == theme.Text ? null : theme.StateText;
 
     /// <summary>The font the overflow chevron is drawn in.</summary>
     public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;

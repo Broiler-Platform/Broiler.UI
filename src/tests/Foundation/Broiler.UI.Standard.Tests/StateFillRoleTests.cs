@@ -221,10 +221,10 @@ public sealed class StateFillRoleTests
     }
 
     /// <summary>The up arrow's color, then the down arrow's: the order the box draws them in.</summary>
-    private static List<BColor> ArrowColors(BRenderList list) =>
+    internal static List<BColor> ArrowColors(BRenderList list) =>
         list.Commands.OfType<BRenderCommand.FillTriangle>().Select(static triangle => triangle.Color).ToList();
 
-    private sealed class SpinFixture : System.IDisposable
+    internal sealed class SpinFixture : System.IDisposable
     {
         private SpinFixture(UiSession session, StandardSpinBox spin)
         {
@@ -236,11 +236,13 @@ public sealed class StateFillRoleTests
 
         public StandardSpinBox Spin { get; }
 
-        public static SpinFixture Create(StandardThemeTokens theme)
+        /// <summary>A spin box themed with <paramref name="theme"/>, or left as built when that is null.</summary>
+        public static SpinFixture Create(StandardThemeTokens? theme)
         {
             UiSession session = new StandardUiSessionBuilder().WithDispatcher(new ImmediateUiDispatcher()).Build(new TestHost());
             var spin = new StandardSpinBox { Minimum = 0, Maximum = 100, Value = 5 };
-            spin.ApplyTheme(theme);
+            if (theme is not null)
+                spin.ApplyTheme(theme);
             session.AddRoot(spin);
             return new SpinFixture(session, spin);
         }

@@ -79,7 +79,7 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _arrowColor = StandardControlPaint.TextMuted;
     private BColor _arrowHoverBackground = StandardControlPaint.StateFill;
-    private BColor? _arrowHoverColor;
+    private BColor? _arrowHoverColor = ArrowHoverLabel(StandardControlPaint.Theme);
     private BColor _arrowPressedBackground = StandardControlPaint.SurfaceDisabled;
     private BColor _disabledForeground = StandardControlPaint.TextDisabled;
     private BColor _focusRing = StandardControlPaint.Focus;
@@ -146,7 +146,8 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
     /// <see cref="ArrowColor"/>. <see cref="ApplyTheme"/> sets it to the theme's
     /// <see cref="StandardThemeTokens.StateText"/> when that differs from the theme's text color, or when the
     /// theme's muted text, the color <see cref="ArrowColor"/> takes, is the state fill itself; otherwise it lets it
-    /// follow <see cref="ArrowColor"/> again.
+    /// follow <see cref="ArrowColor"/> again. A spin box that is never themed takes it from the shared palette in
+    /// the same way, as it takes its hover fill.
     /// </summary>
     public BColor ArrowHoverColor
     {

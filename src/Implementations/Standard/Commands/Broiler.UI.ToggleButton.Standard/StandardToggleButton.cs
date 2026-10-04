@@ -47,12 +47,12 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     private bool _isHovering;
     private BColor _background = StandardControlPaint.Surface;
     private BColor _checkedBackground = StandardControlPaint.StateFill;
-    private BColor? _checkedForeground;
-    private BColor _indeterminateBackground = BColor.FromArgb(0xFF, 0xF0, 0xF5, 0xFF);
+    private BColor? _checkedForeground = CheckedLabel(StandardControlPaint.Theme);
+    private BColor _indeterminateBackground = UnthemedStateFill(BColor.FromArgb(0xFF, 0xF0, 0xF5, 0xFF));
     private BColor _foreground = StandardControlPaint.Accent;
     private BColor _borderColor = BColor.FromArgb(0xFF, 0x9B, 0xBA, 0xE0);
     private BColor _disabledForeground = StandardControlPaint.TextDisabled;
-    private BColor _pressedBackground = BColor.FromArgb(0xFF, 0xD8, 0xE8, 0xFC);
+    private BColor _pressedBackground = UnthemedStateFill(BColor.FromArgb(0xFF, 0xD8, 0xE8, 0xFC));
     private BColor _hoverBackground = BColor.FromArgb(0xFF, 0xF2, 0xF7, 0xFF);
     private BColor _focusRing = StandardControlPaint.Focus;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
@@ -112,7 +112,8 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     /// indeterminate fill and the pressed fill. Until it is set it is <see cref="Foreground"/>.
     /// <see cref="ApplyTheme"/> sets it to the theme's <see cref="StandardThemeTokens.StateText"/> when that
     /// differs from the theme's text color, or when the theme's accent, the color <see cref="Foreground"/> takes,
-    /// is the state fill itself; otherwise it lets it follow <see cref="Foreground"/> again.
+    /// is the state fill itself; otherwise it lets it follow <see cref="Foreground"/> again. A toggle button that
+    /// is never themed takes it from the shared palette in the same way, as it takes its checked fill.
     /// </summary>
     public BColor CheckedForeground
     {
@@ -133,6 +134,14 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     /// </summary>
     private static BColor? CheckedLabel(StandardThemeTokens theme) =>
         theme.StateText != theme.Text || theme.Accent == theme.StateFill ? theme.StateText : null;
+
+    /// <summary>
+    /// The pressed or indeterminate fill of a toggle button that is never themed: a fixed color chosen for the
+    /// default palette, unless the shared palette gives the state fills a label of their own. That label is
+    /// chosen to be read on the state fill, so the fill comes with it.
+    /// </summary>
+    private static BColor UnthemedStateFill(BColor fixedFill) =>
+        CheckedLabel(StandardControlPaint.Theme) is null ? fixedFill : StandardControlPaint.StateFill;
 
     public BColor BorderColor
     {
