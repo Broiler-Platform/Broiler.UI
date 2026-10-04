@@ -65,8 +65,8 @@ public sealed class ListViewPresenterAndVirtualizationTests
         };
         listView.SetItems(items);
 
-        // Render at a narrow width of 140 DIP
-        using UiSession session = AttachAndRender(listView, new BSize(140, 200), out BRenderList renderList);
+        // Render at a narrow width of 160 DIP: just enough for each date beside the start of its subject.
+        using UiSession session = AttachAndRender(listView, new BSize(160, 200), out BRenderList renderList);
 
         // Verify that DrawText commands were emitted for primary, preview, and tertiary
         var texts = renderList.Commands.OfType<BRenderCommand.DrawText>().Select(t => t.Text.Text).ToList();
@@ -74,58 +74,79 @@ public sealed class ListViewPresenterAndVirtualizationTests
         Assert.Contains(texts, t => t.Contains("10:30 AM", StringComparison.Ordinal));
         Assert.Contains(texts, t => t.Contains("Yesterday", StringComparison.Ordinal));
 
+        // Each subject keeps its first characters and ends at least 10 DIP before its date.
+        List<BRenderCommand.DrawText> draws = DrawnTexts(renderList);
+        foreach ((string subject, string date) in new[] { ("Subject 1", "10:30 AM"), ("Subject 2", "Yesterday") })
+        {
+            BRenderCommand.DrawText tertiary = Assert.Single(draws, t => t.Text.Text == date);
+            BRenderCommand.DrawText primary = Assert.Single(draws, t => t.Text.Text.StartsWith("Sub", StringComparison.Ordinal) && Math.Abs(t.Origin.Y - tertiary.Origin.Y) < 4);
+            Assert.StartsWith(primary.Text.Text.Replace("...", string.Empty, StringComparison.Ordinal), subject, StringComparison.Ordinal);
+            Assert.True(RightEdge(primary) <= tertiary.Origin.X - 10 + 0.001, $"'{primary.Text.Text}' runs into '{date}'.");
+        }
+
         // For unread item, unread accent indicator dot is drawn (6x6 fill)
         var fills = renderList.Commands.OfType<BRenderCommand.FillRect>().ToList();
         Assert.NotEmpty(fills);
         Assert.Contains(fills, f => f.Rect.Width == 6.0 && f.Rect.Height == 6.0);
     }
 
-    [Theory]
-    [InlineData(60)]
-    [InlineData(120)]
-    [InlineData(168)]
-    [InlineData(200)]
-    [InlineData(400)]
-    public void TwoLinePresenter_Keeps_The_Tertiary_Text_Inside_The_Row(double width)
+    [Fact]
+    public void TwoLinePresenter_Draws_The_Tertiary_Text_Whole_Only_Beside_The_Start_Of_The_Primary_Text()
     {
         const string date = "September 27, 2026";
-        var bounds = new BRect(0, 0, width, 52);
-        BRenderList renderList = RenderTwoLineRow(bounds, new UiListItem("m", "Ada Lovelace", "Re: analytical engines", date, isRead: false));
+        var item = new UiListItem("m", "Ada Lovelace", "Re: analytical engines", date, isRead: false);
+        BFontStyle senderFont = BFontStyle.Default with { Weight = BFontWeight.Bold };
+        BFontStyle dateFont = BFontStyle.Default with { Size = BFontStyle.Default.Size - 2 };
+        double dateWidth = BTextMeasurer.MeasureAdvance(date, dateFont);
 
-        List<BRenderCommand.DrawText> texts = renderList.Commands.OfType<BRenderCommand.DrawText>().ToList();
-        foreach (BRenderCommand.DrawText text in texts)
-        {
-            double right = text.Origin.X + BTextMeasurer.MeasureAdvance(text.Text.Text, text.Text.Font);
-            Assert.True(right <= bounds.Right + 0.5, $"'{text.Text.Text}' ends at {right}, past the row's right edge {bounds.Right}.");
-        }
+        // The narrowest row that holds the whole date beside the sender's first three characters and an
+        // ellipsis: the left margin and the unread dot, that much of the sender, the gap, the date, and the
+        // right margin. Derived from the measurer, so each half below takes its branch whatever the fonts.
+        double senderMinimum = BTextMeasurer.MeasureAdvance("Ada", senderFont) + BTextMeasurer.MeasureAdvance("...", senderFont);
+        double threshold = 10 + 12 + senderMinimum + 10 + dateWidth + 8;
 
-        // The date is the only text in the smaller tertiary font.
-        BFontStyle tertiaryFont = BFontStyle.Default with { Size = BFontStyle.Default.Size - 2 };
-        BRenderCommand.DrawText? tertiary = texts.SingleOrDefault(text => text.Text.Font == tertiaryFont);
-        double fullWidth = BTextMeasurer.MeasureAdvance(date, tertiaryFont);
-        double room = bounds.Right - 8 - (10 + 12 + 20);
-        if (fullWidth <= room)
+        // Wide enough: the date is drawn whole, right-aligned 8 DIP from the edge, and the sender keeps at least
+        // its first three characters before the gap.
+        var bounds = new BRect(0, 0, threshold + 0.5, 52);
+        List<BRenderCommand.DrawText> texts = DrawnTexts(RenderTwoLineRow(bounds, item));
+        BRenderCommand.DrawText tertiary = Assert.Single(texts, text => text.Text.Font == dateFont);
+        Assert.Equal(date, tertiary.Text.Text);
+        Assert.Equal(bounds.Right - 8 - dateWidth, tertiary.Origin.X, 6);
+        BRenderCommand.DrawText sender = Assert.Single(texts, text => text.Text.Font == senderFont);
+        Assert.StartsWith("Ada", sender.Text.Text, StringComparison.Ordinal);
+        Assert.True(RightEdge(sender) <= tertiary.Origin.X - 10 + 0.001, $"'{sender.Text.Text}' runs into the date.");
+        double senderWidthBesideDate = RightEdge(sender) - sender.Origin.X;
+
+        // Narrower: the date is left out rather than shortened, and the sender gets the line.
+        bounds = new BRect(0, 0, threshold - 0.5, 52);
+        texts = DrawnTexts(RenderTwoLineRow(bounds, item));
+        Assert.DoesNotContain(texts, text => text.Text.Font == dateFont);
+        sender = Assert.Single(texts, text => text.Text.Font == senderFont);
+        Assert.StartsWith("Ada", sender.Text.Text, StringComparison.Ordinal);
+        Assert.True(RightEdge(sender) - sender.Origin.X > senderWidthBesideDate, "The sender gains the date's room.");
+    }
+
+    [Fact]
+    public void TwoLinePresenter_Keeps_Every_Line_Inside_The_Row_At_Any_Width()
+    {
+        const string date = "September 27, 2026";
+        var item = new UiListItem("m", "Ada Lovelace", "Re: analytical engines", date, isRead: false);
+        BFontStyle dateFont = BFontStyle.Default with { Size = BFontStyle.Default.Size - 2 };
+
+        for (double width = 40; width <= 400; width += 4)
         {
-            // A date that fits is drawn whole, right-aligned 8 DIP from the edge, as it always was.
-            Assert.NotNull(tertiary);
-            Assert.Equal(date, tertiary.Text.Text);
-            Assert.Equal(bounds.Right - 8 - fullWidth, tertiary.Origin.X, 6);
-        }
-        else if (BTextMeasurer.MeasureAdvance("S...", tertiaryFont) <= room)
-        {
-            // Shortened, it still ends 8 DIP from the edge and starts no further left than before.
-            Assert.NotNull(tertiary);
-            Assert.EndsWith("...", tertiary.Text.Text, StringComparison.Ordinal);
-            Assert.StartsWith(tertiary.Text.Text[..^3], date, StringComparison.Ordinal);
-            Assert.True(tertiary.Text.Text.Length > 3, "At least one character is kept before the ellipsis.");
-            Assert.Equal(bounds.Right - 8, tertiary.Origin.X + BTextMeasurer.MeasureAdvance(tertiary.Text.Text, tertiaryFont), 6);
-            Assert.True(tertiary.Origin.X >= 10 + 12 + 20 - 0.5);
-        }
-        else
-        {
-            // Not one character fits before an ellipsis: the date is left out and the sender gets the line.
-            Assert.Null(tertiary);
-            Assert.Contains(texts, text => text.Text.Text.StartsWith("A", StringComparison.Ordinal) && text.Text.Font.Weight == BFontWeight.Bold);
+            var bounds = new BRect(0, 0, width, 52);
+            List<BRenderCommand.DrawText> texts = DrawnTexts(RenderTwoLineRow(bounds, item));
+            foreach (BRenderCommand.DrawText text in texts)
+                Assert.True(RightEdge(text) <= bounds.Right - 8 + 0.001, $"At {width}: '{text.Text.Text}' ends at {RightEdge(text)}, inside the row's 8 DIP margin.");
+
+            // The date is whole or absent, and when it is drawn the sender is still more than an ellipsis.
+            BRenderCommand.DrawText? tertiary = texts.SingleOrDefault(text => text.Text.Font == dateFont);
+            if (tertiary is not null)
+            {
+                Assert.Equal(date, tertiary.Text.Text);
+                Assert.Contains(texts, text => text.Text.Text.StartsWith("Ada", StringComparison.Ordinal));
+            }
         }
     }
 
@@ -518,26 +539,36 @@ public sealed class ListViewPresenterAndVirtualizationTests
     [Fact]
     public void HighContrast_And_200Percent_Scale_Rendering()
     {
-        var listView = new StandardListView
+        static StandardListView Create()
         {
-            ItemPresenter = StandardTwoLineListItemPresenter.Instance,
-            Font = new BFontStyle("sans-serif", 32, BFontWeight.Normal, BFontSlant.Normal), // 200% scale
-        };
+            var listView = new StandardListView
+            {
+                ItemPresenter = StandardTwoLineListItemPresenter.Instance,
+                Font = new BFontStyle("sans-serif", 32, BFontWeight.Normal, BFontSlant.Normal), // 200% scale
+            };
 
-        listView.SetItems(
-        [
-            new UiListItem("hc-1", "High Contrast Subject", "Preview description", "12:00 PM", isRead: false),
-        ]);
+            listView.SetItems(
+            [
+                new UiListItem("hc-1", "High Contrast Subject", "Preview description", "12:00 PM", isRead: false),
+            ]);
 
-        listView.ApplyTheme(StandardThemeTokens.HighContrastDark);
+            listView.ApplyTheme(StandardThemeTokens.HighContrastDark);
+            return listView;
+        }
 
-        using UiSession session = AttachAndRender(listView, new BSize(200, 200), out BRenderList renderList);
+        using UiSession session = AttachAndRender(Create(), new BSize(320, 200), out BRenderList renderList);
 
         // Renders without errors and emits DrawText commands
         var texts = renderList.Commands.OfType<BRenderCommand.DrawText>().ToList();
         Assert.NotEmpty(texts);
         Assert.Contains(texts, t => t.Text.Text.Contains("12:00 PM", StringComparison.Ordinal));
-        Assert.Contains(texts, t => t.Text.Text.Contains("...", StringComparison.Ordinal));
+        Assert.Contains(texts, t => t.Text.Text.StartsWith("Hig", StringComparison.Ordinal) && t.Text.Text.EndsWith("...", StringComparison.Ordinal));
+
+        // In a narrower list the subject keeps its first characters, whether or not the time still fits beside it.
+        using UiSession narrow = AttachAndRender(Create(), new BSize(200, 200), out renderList);
+        texts = renderList.Commands.OfType<BRenderCommand.DrawText>().ToList();
+        Assert.Contains(texts, t => t.Text.Text.StartsWith("Hig", StringComparison.Ordinal));
+        Assert.DoesNotContain(texts, t => t.Text.Text.StartsWith("12:", StringComparison.Ordinal) && t.Text.Text != "12:00 PM");
     }
 
     private static BRenderList RenderTwoLineRow(BRect bounds, UiListItem item)
@@ -559,6 +590,12 @@ public sealed class ListViewPresenterAndVirtualizationTests
         });
         return renderList;
     }
+
+    private static List<BRenderCommand.DrawText> DrawnTexts(BRenderList renderList) =>
+        renderList.Commands.OfType<BRenderCommand.DrawText>().ToList();
+
+    private static double RightEdge(BRenderCommand.DrawText text) =>
+        text.Origin.X + BTextMeasurer.MeasureAdvance(text.Text.Text, text.Text.Font);
 
     private static int IndexOf(UiListView listView, string id)
     {

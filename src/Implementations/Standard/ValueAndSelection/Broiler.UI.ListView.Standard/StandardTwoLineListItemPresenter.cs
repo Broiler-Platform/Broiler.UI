@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Broiler.Graphics;
 using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
@@ -16,8 +17,11 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
 {
     public static readonly StandardTwoLineListItemPresenter Instance = new();
 
-    /// <summary>What <see cref="DefaultListItemPresenter.TruncateWithEllipsis"/> appends to shortened text.</summary>
-    private const string Ellipsis = "...";
+    /// <summary>How many characters of the primary text, before its ellipsis, the tertiary text leaves room for.</summary>
+    private const int MinimumPrimaryCharacters = 3;
+
+    /// <summary>The gap between the primary text and the tertiary text.</summary>
+    private const double TertiaryGap = 10;
 
     public double GetItemHeight(UiListItem? item, UiDensity density, double availableWidth) =>
         density switch
@@ -86,28 +90,30 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
             primaryLeft += dotSize + 6;
         }
 
-        // Line 1: Tertiary text (right aligned). It may start no further left than 20 DIP after the primary
-        // text and must end 8 DIP before the edge; text wider than that is shortened with an ellipsis, or left
-        // out when not one character fits before the ellipsis, rather than drawn past the row. The semantic
-        // node keeps it whole.
+        BFontStyle primaryFont = isUnread ? context.Font with { Weight = BFontWeight.Bold } : context.Font;
+        double primaryRoom = Math.Max(0, bounds.Right - 8 - primaryLeft);
+
+        // Line 1: Tertiary text (right aligned, 8 DIP before the edge). It is drawn whole or not at all, since a
+        // shortened date or time reads as a different one ("10:..." for "10:42"). It is drawn only when it fits
+        // beside the gap and the least of the primary text that is still readable: its first few characters and
+        // an ellipsis, or all of it when that is shorter, and never less than 10 DIP, the least a date that fit
+        // left it before. In a narrower row it is left out and the primary text gets the line; the semantic
+        // node keeps it either way.
         double tertiaryWidth = 0;
         if (!string.IsNullOrEmpty(context.Item.TertiaryText))
         {
             BFontStyle tertiaryFont = context.Font with { Size = Math.Max(9, context.Font.Size - 2) };
-            double tertiaryRoom = Math.Max(0, bounds.Right - 8 - (primaryLeft + 20));
-            string tertiaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.TertiaryText, tertiaryFont, tertiaryRoom);
-            if (tertiaryText == Ellipsis && context.Item.TertiaryText != Ellipsis)
-                tertiaryText = string.Empty;
-            if (tertiaryText.Length > 0)
+            double width = BTextMeasurer.MeasureAdvance(context.Item.TertiaryText, tertiaryFont);
+            double primaryMinimum = Math.Max(TertiaryGap, MinimumPrimaryWidth(context.Item.Text, primaryFont));
+            if (width + TertiaryGap + primaryMinimum <= primaryRoom)
             {
-                tertiaryWidth = BTextMeasurer.MeasureAdvance(tertiaryText, tertiaryFont);
-                list.DrawText(new BTextRun(tertiaryText, tertiaryFont, secondaryForeground), new BPoint(bounds.Right - 8 - tertiaryWidth, primaryTop + 1));
+                tertiaryWidth = width;
+                list.DrawText(new BTextRun(context.Item.TertiaryText, tertiaryFont, secondaryForeground), new BPoint(bounds.Right - 8 - width, primaryTop + 1));
             }
         }
 
         // Line 1: Primary text (sender / title)
-        double maxPrimaryWidth = Math.Max(0, bounds.Right - 8 - (tertiaryWidth > 0 ? tertiaryWidth + 10 : 0) - primaryLeft);
-        BFontStyle primaryFont = isUnread ? context.Font with { Weight = BFontWeight.Bold } : context.Font;
+        double maxPrimaryWidth = Math.Max(0, primaryRoom - (tertiaryWidth > 0 ? tertiaryWidth + TertiaryGap : 0));
         string primaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.Text, primaryFont, maxPrimaryWidth);
         if (!string.IsNullOrEmpty(primaryText))
         {
@@ -132,6 +138,29 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         {
             list.StrokeRect(StandardControlPaint.Inset(bounds, 2), context.FocusRing, 1);
         }
+    }
+
+    /// <summary>
+    /// The narrowest the primary text is made to give the tertiary text room: its first
+    /// <see cref="MinimumPrimaryCharacters"/> characters and an ellipsis, measured the way
+    /// <see cref="DefaultListItemPresenter.TruncateWithEllipsis"/> measures them so that it keeps them, or the
+    /// whole text when that is no wider.
+    /// </summary>
+    private static double MinimumPrimaryWidth(string text, BFontStyle font)
+    {
+        if (string.IsNullOrEmpty(text))
+            return 0;
+
+        int length = 0;
+        for (int count = 0; count < MinimumPrimaryCharacters && length < text.Length; count++)
+            length += StringInfo.GetNextTextElementLength(text.AsSpan(length));
+
+        double whole = BTextMeasurer.MeasureAdvance(text, font);
+        if (length >= text.Length)
+            return whole;
+
+        double shortened = BTextMeasurer.MeasureAdvance(text[..length], font) + BTextMeasurer.MeasureAdvance(DefaultListItemPresenter.Ellipsis, font);
+        return Math.Min(whole, shortened);
     }
 
     public UiSemanticNode CreateSemanticNode(UiListItemSemanticContext context)

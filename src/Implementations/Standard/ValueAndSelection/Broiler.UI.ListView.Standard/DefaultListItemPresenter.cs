@@ -16,6 +16,9 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
 {
     public static readonly DefaultListItemPresenter Instance = new();
 
+    /// <summary>What <see cref="TruncateWithEllipsis"/> appends to text it shortens.</summary>
+    internal const string Ellipsis = "...";
+
     public double GetItemHeight(UiListItem? item, UiDensity density, double availableWidth) =>
         density switch
         {
@@ -90,8 +93,7 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
         if (BTextMeasurer.MeasureAdvance(text, font) <= maxWidth)
             return text;
 
-        const string ellipsis = "...";
-        double ellipsisWidth = BTextMeasurer.MeasureAdvance(ellipsis, font);
+        double ellipsisWidth = BTextMeasurer.MeasureAdvance(Ellipsis, font);
         if (ellipsisWidth > maxWidth)
             return string.Empty;
 
@@ -107,6 +109,6 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
             result = candidate;
         }
 
-        return result + ellipsis;
+        return result + Ellipsis;
     }
 }
