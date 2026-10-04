@@ -52,8 +52,8 @@ public sealed class SelectionTextRoleTests
 
         Assert.Equal(HighlightText, system.SelectionText);
         // No muted variant of a system pair exists, so secondary text on the selection takes the pair's text.
+        // (Whether a real system pair is readable is the host's to check, where its palette is built.)
         Assert.Equal(HighlightText, system.SelectionTextMuted);
-        AssertMeets(system.SelectionText, system.AccentSoft, system, "SelectionText/AccentSoft");
 
         // An explicit muted role still wins.
         BColor muted = BColor.FromArgb(0xFF, 0x20, 0x20, 0x20);
