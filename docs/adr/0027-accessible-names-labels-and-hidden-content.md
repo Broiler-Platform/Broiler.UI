@@ -43,6 +43,9 @@ problems that originate in Broiler.UI, not in the host bridge (ADR 0008):
   the selected tab's content and unhides content it removes. `UiSplitContainer` hides a collapsed
   pane, and its splitter while either pane is collapsed: both stay attached and `Visible` but are
   arranged to an empty rectangle. It unhides a pane it replaces.
+  Since ADR [0030](0030-layout-invalidation-hidden-tabs-and-input-direction.md), session hit testing
+  skips hidden content as well, and inactive tab content keeps its last arrangement instead of an
+  empty rectangle.
 - **Focus traversal follows the same rules.** `StandardFocusScope.MoveFocus` skips hidden content,
   so Tab never reaches inactive tab content or a collapsed pane, and orders candidates by `TabIndex`
   with a stable sort, so equal indexes keep document order (`List.Sort` is unstable beyond 16
