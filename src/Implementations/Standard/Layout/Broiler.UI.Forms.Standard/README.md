@@ -35,6 +35,12 @@ Its `UiElement.Controls` is the section's `Content`, which a host exposes as the
 the button controls while it is shown. `FormSection` implements `IUiExpandable`
 (`Expand`, `Collapse`). See ADR 0028.
 
+The disclosure button says "Show " or "Hide " and the section's title, which keeps a
+sentence-case title's capital in the middle of the phrase ("Show Keyboard shortcuts").
+Set `ShowText` and `HideText` to give it your own text, such as "Show keyboard
+shortcuts"; null or blank composes it again. The text is the button's accessible name,
+and its state and relations are the same either way. See ADR 0031.
+
 `InlineFeedback.Set` updates literal text, semantic status, theme-colored decoration,
 and session announcements. Native hosts still need to map semantic events into their
 accessibility bridge and apply visibility/announcement policy. Use a real application
