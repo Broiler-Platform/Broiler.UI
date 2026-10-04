@@ -10,7 +10,8 @@ using static Broiler.UI.Edit.Standard.Tests.EditStandardHarness;
 namespace Broiler.UI.Edit.Standard.Tests;
 
 /// <summary>
-/// Selected text in the theme's selection text color (ADR 0029), and the presets' single run kept.
+/// Selected text in the theme's selection text color (ADR 0029), drawn once per strip that holds text, and
+/// the presets' single run kept.
 /// </summary>
 public sealed class StandardEditSelectionColorTests
 {
@@ -46,6 +47,39 @@ public sealed class StandardEditSelectionColorTests
         // Without a selection the text is one run again.
         scene.Edit.SetSelection(0, 0);
         Assert.Equal([SystemPalette.Text], Runs(scene.Render(), "Hello world").Select(run => run.Color));
+    }
+
+    [Fact]
+    public void Text_Selected_From_End_To_End_Is_Drawn_Once_And_A_Selection_From_The_Start_Twice()
+    {
+        EditScene scene = Create("Hello world");
+        scene.Edit.ApplyTheme(SystemPalette);
+        BRect unselectedClip = Assert.Single(ClippedRuns(scene.Render(), "Hello world")).Clip;
+
+        // No strip beside the selection holds any text, so the text is drawn once, under the clip it has
+        // without a selection.
+        scene.Edit.SetSelection(0, "Hello world".Length);
+        Assert.Equal([(unselectedClip, HighlightText)], ClippedRuns(scene.Render(), "Hello world"));
+
+        // From the start to the middle: the selected strip runs to the left edge, then the rest.
+        scene.Edit.SetSelection(0, 5);
+        BRenderList list = scene.Render();
+        BRect selection = Assert.Single(list.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Color == Highlight).Rect;
+        List<(BRect Clip, BColor Color)> strips = ClippedRuns(list, "Hello world");
+        Assert.Equal([HighlightText, SystemPalette.Text], strips.Select(strip => strip.Color));
+        Assert.True(strips[0].Clip.Left <= selection.Left);
+        Assert.Equal(selection.Right, strips[0].Clip.Right, 6);
+        Assert.Equal(selection.Right, strips[1].Clip.Left, 6);
+
+        // From the middle to the end: the rest, then the selected strip to the right edge.
+        scene.Edit.SetSelection(6, 5);
+        list = scene.Render();
+        selection = Assert.Single(list.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Color == Highlight).Rect;
+        strips = ClippedRuns(list, "Hello world");
+        Assert.Equal([SystemPalette.Text, HighlightText], strips.Select(strip => strip.Color));
+        Assert.Equal(selection.Left, strips[0].Clip.Right, 6);
+        Assert.Equal(selection.Left, strips[1].Clip.Left, 6);
+        Assert.True(strips[1].Clip.Right > selection.Right);
     }
 
     [Fact]

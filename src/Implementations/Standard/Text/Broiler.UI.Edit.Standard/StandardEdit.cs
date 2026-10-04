@@ -545,10 +545,24 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
         }
 
         // The whole text is drawn once per strip - before, on, and after the selection - each clipped to its
-        // strip, so every glyph is drawn in one color and shaping is not broken at the selection edges.
-        DrawClippedText(context, display, origin, Foreground, new BRect(inner.Left, inner.Top, selection.Left - inner.Left, inner.Height));
-        DrawClippedText(context, display, origin, selected, new BRect(selection.Left, inner.Top, selection.Width, inner.Height));
-        DrawClippedText(context, display, origin, Foreground, new BRect(selection.Right, inner.Top, inner.Right - selection.Right, inner.Height));
+        // strip, so shaping is not broken at the selection edges. Where the selection reaches the start or the
+        // end of the text, nothing is left on that side to draw in the foreground, so the selected strip runs on
+        // to the edge instead, and text selected from end to end is drawn once. Composition text is drawn among
+        // the text the selection indexes, so while it is there all three strips are drawn.
+        bool composing = !string.IsNullOrEmpty(_compositionText) && !IsPassword;
+        bool fromStart = !composing && SelectionStart <= 0;
+        bool toEnd = !composing && SelectionEnd >= display.Length;
+        if (fromStart && toEnd)
+        {
+            context.RenderList.DrawText(new BTextRun(display, Font, selected), origin);
+            return;
+        }
+
+        double selectedLeft = fromStart ? inner.Left : selection.Left;
+        double selectedRight = toEnd ? inner.Right : selection.Right;
+        DrawClippedText(context, display, origin, Foreground, new BRect(inner.Left, inner.Top, selectedLeft - inner.Left, inner.Height));
+        DrawClippedText(context, display, origin, selected, new BRect(selectedLeft, inner.Top, selectedRight - selectedLeft, inner.Height));
+        DrawClippedText(context, display, origin, Foreground, new BRect(selectedRight, inner.Top, inner.Right - selectedRight, inner.Height));
     }
 
     private void DrawClippedText(UiRenderContext context, string display, BPoint origin, BColor color, BRect clip)

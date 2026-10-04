@@ -11,7 +11,8 @@ namespace Broiler.UI.RichEdit.Standard.Tests;
 
 /// <summary>
 /// Selected text in the theme's selection text color (ADR 0029). Each line is drawn once per strip - before,
-/// on, and after the selection - so every glyph is drawn once, and the presets keep their single runs.
+/// on, and after the selection - each clipped to its strip, a strip with no text left in it is not drawn, and
+/// the presets keep their single runs.
 /// </summary>
 public sealed class StandardRichEditSelectionColorTests
 {
@@ -44,9 +45,41 @@ public sealed class StandardRichEditSelectionColorTests
         Assert.Equal(selection.Width, strips[1].Clip.Width, 6);
         Assert.Equal(selection.Right, strips[2].Clip.Left, 6);
 
-        // A disabled editor keeps its dimmed text on the selection too.
+        // A disabled editor still fills its selection, so the selected text takes the selection color there
+        // too, while the rest keeps its dimmed color.
         scene.Edit.IsEnabled = false;
-        Assert.Single(ClippedRuns(session.RenderFrame(), "hello world"));
+        list = session.RenderFrame();
+        Assert.Contains(list.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Color == Highlight);
+        Assert.Equal(
+            [scene.Edit.PlaceholderForeground, HighlightText, scene.Edit.PlaceholderForeground],
+            ClippedRuns(list, "hello world").Select(strip => strip.Color));
+    }
+
+    [Fact]
+    public void A_Line_Selected_From_End_To_End_Is_Drawn_Once_And_A_Selection_From_Its_Start_Twice()
+    {
+        RichEditScene scene = Create(new BSize(320, 160), "hello world");
+        using UiSession session = scene.Session;
+        scene.Edit.ApplyTheme(SystemPalette);
+        session.SetFocus(scene.Edit);
+        BRect unselectedClip = Assert.Single(ClippedRuns(session.RenderFrame(), "hello world")).Clip;
+        scene.Edit.ExecuteCommand(RichEditCommand.SelectAll);
+
+        BRenderList list = session.RenderFrame();
+
+        // No strip beside the selection holds any of the line, so it is drawn once, under the clip it has
+        // without a selection.
+        Assert.Equal([(unselectedClip, HighlightText)], ClippedRuns(list, "hello world"));
+
+        // From the start of the line to its middle: the selected strip runs to the left edge, then the rest.
+        scene.Edit.Selection = new RichTextRange(new RichTextPosition(0, 0), new RichTextPosition(0, 5));
+        list = session.RenderFrame();
+        BRect selection = Assert.Single(list.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Color == Highlight).Rect;
+        List<(BRect Clip, BColor Color)> strips = ClippedRuns(list, "hello world");
+        Assert.Equal([HighlightText, SystemPalette.Text], strips.Select(strip => strip.Color));
+        Assert.True(strips[0].Clip.Left <= selection.Left);
+        Assert.Equal(selection.Right, strips[0].Clip.Right, 6);
+        Assert.Equal(selection.Right, strips[1].Clip.Left, 6);
     }
 
     [Fact]
@@ -58,11 +91,16 @@ public sealed class StandardRichEditSelectionColorTests
         session.SetFocus(scene.Edit);
         scene.Edit.ExecuteCommand(RichEditCommand.SelectAll);
         scene.Edit.ExecuteCommand(RichEditCommand.SetForeground, BColor.Red);
-        scene.Edit.Selection = new RichTextRange(new RichTextPosition(0, 6), new RichTextPosition(0, 11));
+        scene.Edit.Selection = new RichTextRange(new RichTextPosition(0, 2), new RichTextPosition(0, 8));
 
         List<(BRect Clip, BColor Color)> strips = ClippedRuns(session.RenderFrame(), "hello world");
 
         Assert.Equal([BColor.Red, HighlightText, BColor.Red], strips.Select(strip => strip.Color));
+
+        // To the end of the line, no text is left after the selection to draw in the run's color.
+        scene.Edit.Selection = new RichTextRange(new RichTextPosition(0, 6), new RichTextPosition(0, 11));
+        strips = ClippedRuns(session.RenderFrame(), "hello world");
+        Assert.Equal([BColor.Red, HighlightText], strips.Select(strip => strip.Color));
     }
 
     [Fact]

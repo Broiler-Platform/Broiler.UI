@@ -562,9 +562,11 @@ internal sealed class RichEditPainter
     {
         RichEditViewport view = frame.View;
         BColor fallback = frame.IsEnabled ? frame.Palette.Foreground : frame.Palette.PlaceholderForeground;
-        // Only an enabled editor whose theme gives the selection a text colour of its
-        // own recolours selected text; otherwise every run keeps its colour, as before.
-        BColor? selected = frame.IsEnabled ? frame.Palette.SelectionForeground : null;
+        // Only an editor whose theme gives the selection a text colour of its own
+        // recolours selected text; otherwise every run keeps its colour, as before. A
+        // disabled editor still draws its selection fill, so it recolours too: its
+        // dimmed text is no more readable on the fill than the ordinary text is.
+        BColor? selected = frame.Palette.SelectionForeground;
         (int start, int count) = VisibleLines(view, inner);
         for (int i = start; i < start + count; i++)
         {
@@ -582,11 +584,24 @@ internal sealed class RichEditPainter
             }
 
             // The line is drawn once per strip - before, on, and after the selection -
-            // each clipped to its strip, so every glyph is drawn in one colour and a
-            // run's shaping is not broken where the selection starts or ends.
-            DrawLineClipped(renderList, frame, line, y, fallback, null, new BRect(inner.Left, inner.Top, left - inner.Left, inner.Height));
-            DrawLineClipped(renderList, frame, line, y, fallback, selectionColor, new BRect(left, inner.Top, width, inner.Height));
-            DrawLineClipped(renderList, frame, line, y, fallback, null, new BRect(left + width, inner.Top, inner.Right - (left + width), inner.Height));
+            // each clipped to its strip, so a run's shaping is not broken where the
+            // selection starts or ends. Where the selection reaches the start or the end
+            // of the line, no text is left on that side to draw in its own colours, so
+            // the selected strip runs on to the edge instead; a line selected from end
+            // to end is drawn once, as it would be without a selection.
+            bool fromLineStart = frame.Selection.Start <= new RichTextPosition(line.ParagraphIndex, line.Start);
+            bool toLineEnd = frame.Selection.End >= new RichTextPosition(line.ParagraphIndex, line.End);
+            if (fromLineStart && toLineEnd)
+            {
+                DrawLine(renderList, frame, line, y, fallback, selectionColor);
+                continue;
+            }
+
+            double selectedLeft = fromLineStart ? inner.Left : left;
+            double selectedRight = toLineEnd ? inner.Right : left + width;
+            DrawLineClipped(renderList, frame, line, y, fallback, null, new BRect(inner.Left, inner.Top, selectedLeft - inner.Left, inner.Height));
+            DrawLineClipped(renderList, frame, line, y, fallback, selectionColor, new BRect(selectedLeft, inner.Top, selectedRight - selectedLeft, inner.Height));
+            DrawLineClipped(renderList, frame, line, y, fallback, null, new BRect(selectedRight, inner.Top, inner.Right - selectedRight, inner.Height));
         }
     }
 
