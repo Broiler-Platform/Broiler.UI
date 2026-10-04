@@ -13,6 +13,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
     private readonly List<UiElement> _children = [];
     private UiVisibility _visibility = UiVisibility.Visible;
     private bool _isDisposed;
+    private bool _isDisposing;
     private string? _accessibleName;
     private UiElement? _labeledBy;
     private IUiExpandable? _discloses;
@@ -49,6 +50,9 @@ public abstract class UiElement : IDisposable, IUiFocusable
 
             _visibility = value;
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+            // Showing or collapsing an element adds it to or removes it from its parent's children as
+            // assistive technology sees them.
+            (Parent ?? this).RaiseStructureChanged();
         }
     }
 
@@ -288,6 +292,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
 
         OnChildAdded(child);
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        RaiseStructureChanged();
     }
 
     public bool MoveChildToFront(UiElement child) => MoveChild(child, _children.Count - 1);
@@ -310,6 +315,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
         _children.RemoveAt(oldIndex);
         _children.Insert(newIndex, child);
         Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        RaiseStructureChanged();
         return true;
     }
 
@@ -330,6 +336,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
         child._isArrangeValid = false;
         OnChildRemoved(child);
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        RaiseStructureChanged();
         return true;
     }
 
@@ -474,6 +481,28 @@ public abstract class UiElement : IDisposable, IUiFocusable
         element._hiddenFromAccessibility = hidden;
         element.Invalidate(UiInvalidationKind.Semantic);
         element.Parent?.Invalidate(UiInvalidationKind.Semantic);
+        (element.Parent ?? element).RaiseStructureChanged();
+    }
+
+    /// <summary>
+    /// Tells assistive technology that the children of this element changed in a way the element tree
+    /// does not show, such as the items of a list or the tabs of a tab view. Adding, removing or moving
+    /// a child element, changing a child's <see cref="Visibility"/> and
+    /// <see cref="SetHiddenFromAccessibility"/> already raise it.
+    /// </summary>
+    /// <remarks>
+    /// Raises <see cref="UiSemanticChangeKind.StructureChanged"/> for this element on its session, once
+    /// per call. A host that rebuilds its view of the children on this should coalesce, since a batch
+    /// of changes raises one event per change.
+    /// </remarks>
+    protected void NotifyStructureChanged() => RaiseStructureChanged();
+
+    // A disposing element's own children are removed one by one; its parent is told once, when the
+    // element itself is removed.
+    private void RaiseStructureChanged()
+    {
+        if (!_isDisposing && !_isDisposed)
+            Session?.NotifyStructureChanged(this);
     }
 
     private string? ResolveAccessibleName()
@@ -523,6 +552,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
         if (_isDisposed)
             return;
 
+        _isDisposing = true;
         Dispose(disposing: true);
         _isDisposed = true;
         GC.SuppressFinalize(this);

@@ -235,6 +235,16 @@ public sealed class UiSession : IDisposable
         RaiseSemanticChanged(source, UiSemanticChangeKind.StatusAnnounced, message);
     }
 
+    /// <summary>
+    /// Raises <see cref="UiSemanticChangeKind.StructureChanged"/> for an element whose children, as
+    /// assistive technology sees them, changed.
+    /// </summary>
+    internal void NotifyStructureChanged(UiElement element)
+    {
+        if (!_isDisposed)
+            RaiseSemanticChanged(element, UiSemanticChangeKind.StructureChanged);
+    }
+
     private void RaiseSemanticChanged(UiElement element, UiSemanticChangeKind change, string? message = null)
     {
         if (Host is IUiAccessibilityHost a11yHost)

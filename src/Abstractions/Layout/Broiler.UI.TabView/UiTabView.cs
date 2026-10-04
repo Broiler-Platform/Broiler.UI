@@ -140,6 +140,7 @@ public abstract class UiTabView : UiElement
         UpdateContentAccessibility();
 
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        NotifyStructureChanged();
         return item;
     }
 
@@ -219,6 +220,7 @@ public abstract class UiTabView : UiElement
         TabRemoved?.Invoke(this, new UiTabChangedEventArgs(tab));
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange |
             UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        NotifyStructureChanged();
         return true;
     }
 
@@ -262,6 +264,7 @@ public abstract class UiTabView : UiElement
 
         UpdateContentAccessibility();
         Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        NotifyStructureChanged();
         return true;
     }
 

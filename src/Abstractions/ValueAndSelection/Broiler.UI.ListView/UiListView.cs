@@ -225,6 +225,7 @@ public abstract class UiListView : UiElement, IUiScrollable
         }
 
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        NotifyStructureChanged();
     }
 
     /// <summary>
