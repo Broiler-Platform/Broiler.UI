@@ -80,6 +80,65 @@ public sealed class ListViewPresenterAndVirtualizationTests
         Assert.Contains(fills, f => f.Rect.Width == 6.0 && f.Rect.Height == 6.0);
     }
 
+    [Theory]
+    [InlineData(60)]
+    [InlineData(120)]
+    [InlineData(168)]
+    [InlineData(200)]
+    [InlineData(400)]
+    public void TwoLinePresenter_Keeps_The_Tertiary_Text_Inside_The_Row(double width)
+    {
+        const string date = "September 27, 2026";
+        var bounds = new BRect(0, 0, width, 52);
+        BRenderList renderList = RenderTwoLineRow(bounds, new UiListItem("m", "Ada Lovelace", "Re: analytical engines", date, isRead: false));
+
+        List<BRenderCommand.DrawText> texts = renderList.Commands.OfType<BRenderCommand.DrawText>().ToList();
+        foreach (BRenderCommand.DrawText text in texts)
+        {
+            double right = text.Origin.X + BTextMeasurer.MeasureAdvance(text.Text.Text, text.Text.Font);
+            Assert.True(right <= bounds.Right + 0.5, $"'{text.Text.Text}' ends at {right}, past the row's right edge {bounds.Right}.");
+        }
+
+        // The date is the only text in the smaller tertiary font.
+        BFontStyle tertiaryFont = BFontStyle.Default with { Size = BFontStyle.Default.Size - 2 };
+        BRenderCommand.DrawText? tertiary = texts.SingleOrDefault(text => text.Text.Font == tertiaryFont);
+        double fullWidth = BTextMeasurer.MeasureAdvance(date, tertiaryFont);
+        double room = bounds.Right - 8 - (10 + 12 + 20);
+        if (fullWidth <= room)
+        {
+            // A date that fits is drawn whole, right-aligned 8 DIP from the edge, as it always was.
+            Assert.NotNull(tertiary);
+            Assert.Equal(date, tertiary.Text.Text);
+            Assert.Equal(bounds.Right - 8 - fullWidth, tertiary.Origin.X, 6);
+        }
+        else if (BTextMeasurer.MeasureAdvance("S...", tertiaryFont) <= room)
+        {
+            // Shortened, it still ends 8 DIP from the edge and starts no further left than before.
+            Assert.NotNull(tertiary);
+            Assert.EndsWith("...", tertiary.Text.Text, StringComparison.Ordinal);
+            Assert.StartsWith(tertiary.Text.Text[..^3], date, StringComparison.Ordinal);
+            Assert.True(tertiary.Text.Text.Length > 3, "At least one character is kept before the ellipsis.");
+            Assert.Equal(bounds.Right - 8, tertiary.Origin.X + BTextMeasurer.MeasureAdvance(tertiary.Text.Text, tertiaryFont), 6);
+            Assert.True(tertiary.Origin.X >= 10 + 12 + 20 - 0.5);
+        }
+        else
+        {
+            // Not one character fits before an ellipsis: the date is left out and the sender gets the line.
+            Assert.Null(tertiary);
+            Assert.Contains(texts, text => text.Text.Text.StartsWith("A", StringComparison.Ordinal) && text.Text.Font.Weight == BFontWeight.Bold);
+        }
+    }
+
+    [Fact]
+    public void TwoLinePresenter_Keeps_The_Full_Tertiary_Text_In_Its_Semantic_Name()
+    {
+        var item = new UiListItem("m", "Ada", "Engines", "September 27, 2026", isRead: true);
+        UiSemanticNode node = StandardTwoLineListItemPresenter.Instance.CreateSemanticNode(
+            new UiListItemSemanticContext { Item = item, State = new UiListItemState(false, false, true, 0), Bounds = new BRect(0, 0, 60, 52), Index = 0 });
+
+        Assert.Contains("September 27, 2026", node.Name, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Presenter_Creates_Accurate_ListItem_Semantic_Nodes()
     {
@@ -472,6 +531,26 @@ public sealed class ListViewPresenterAndVirtualizationTests
         Assert.NotEmpty(texts);
         Assert.Contains(texts, t => t.Text.Text.Contains("12:00 PM", StringComparison.Ordinal));
         Assert.Contains(texts, t => t.Text.Text.Contains("...", StringComparison.Ordinal));
+    }
+
+    private static BRenderList RenderTwoLineRow(BRect bounds, UiListItem item)
+    {
+        var renderList = new BRenderList();
+        StandardTwoLineListItemPresenter.Instance.Render(new UiListItemRenderContext
+        {
+            RenderList = renderList,
+            Bounds = bounds,
+            Item = item,
+            State = new UiListItemState(false, false, item.IsRead, 0),
+            Font = BFontStyle.Default,
+            Foreground = StandardThemeTokens.Light.Text,
+            SecondaryForeground = StandardThemeTokens.Light.TextMuted,
+            Background = StandardThemeTokens.Light.Surface,
+            SelectedBackground = StandardThemeTokens.Light.AccentSoft,
+            FocusRing = StandardThemeTokens.Light.FocusRing,
+            Accent = StandardThemeTokens.Light.Accent,
+        });
+        return renderList;
     }
 
     private static int IndexOf(UiListView listView, string id)

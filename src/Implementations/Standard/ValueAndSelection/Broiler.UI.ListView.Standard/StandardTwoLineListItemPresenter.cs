@@ -16,6 +16,9 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
 {
     public static readonly StandardTwoLineListItemPresenter Instance = new();
 
+    /// <summary>What <see cref="DefaultListItemPresenter.TruncateWithEllipsis"/> appends to shortened text.</summary>
+    private const string Ellipsis = "...";
+
     public double GetItemHeight(UiListItem? item, UiDensity density, double availableWidth) =>
         density switch
         {
@@ -83,14 +86,23 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
             primaryLeft += dotSize + 6;
         }
 
-        // Line 1: Tertiary text (right aligned)
+        // Line 1: Tertiary text (right aligned). It may start no further left than 20 DIP after the primary
+        // text and must end 8 DIP before the edge; text wider than that is shortened with an ellipsis, or left
+        // out when not one character fits before the ellipsis, rather than drawn past the row. The semantic
+        // node keeps it whole.
         double tertiaryWidth = 0;
         if (!string.IsNullOrEmpty(context.Item.TertiaryText))
         {
             BFontStyle tertiaryFont = context.Font with { Size = Math.Max(9, context.Font.Size - 2) };
-            tertiaryWidth = BTextMeasurer.MeasureAdvance(context.Item.TertiaryText, tertiaryFont);
-            double tertiaryLeft = Math.Max(primaryLeft + 20, bounds.Right - 8 - tertiaryWidth);
-            list.DrawText(new BTextRun(context.Item.TertiaryText, tertiaryFont, secondaryForeground), new BPoint(tertiaryLeft, primaryTop + 1));
+            double tertiaryRoom = Math.Max(0, bounds.Right - 8 - (primaryLeft + 20));
+            string tertiaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.TertiaryText, tertiaryFont, tertiaryRoom);
+            if (tertiaryText == Ellipsis && context.Item.TertiaryText != Ellipsis)
+                tertiaryText = string.Empty;
+            if (tertiaryText.Length > 0)
+            {
+                tertiaryWidth = BTextMeasurer.MeasureAdvance(tertiaryText, tertiaryFont);
+                list.DrawText(new BTextRun(tertiaryText, tertiaryFont, secondaryForeground), new BPoint(bounds.Right - 8 - tertiaryWidth, primaryTop + 1));
+            }
         }
 
         // Line 1: Primary text (sender / title)
