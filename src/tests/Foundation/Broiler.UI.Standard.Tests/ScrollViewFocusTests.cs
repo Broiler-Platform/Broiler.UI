@@ -250,17 +250,85 @@ public sealed class ScrollViewFocusTests
     }
 
     [Fact]
-    public void AStopHiddenWhileFocusedIsLeftToWhatHidIt()
+    public void AStopHiddenWhileFocusedIsLeftToWhatHidItUntilItIsShownAsNoStop()
     {
+        var content = new Fixed(new BSize(80, 300));
         var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
-        scroll.AddChild(new Fixed(new BSize(80, 300)));
+        scroll.AddChild(content);
         var after = new StandardButton { Text = "After" };
         using UiSession session = Attach(new Column().Add(scroll, 100).Add(after, 30), 200, 600);
         session.SetFocus(scroll);
 
         scroll.Visibility = UiVisibility.Collapsed;
         session.RenderFrame();
+        Assert.Same(scroll, session.FocusedElement);
 
+        // Its content shrinks while it is hidden, and it is shown again with nothing to scroll.
+        content.Desired = new BSize(80, 60);
+        session.RenderFrame();
+        Assert.Same(scroll, session.FocusedElement);
+        scroll.Visibility = UiVisibility.Visible;
+        BRenderList frame = session.RenderFrame();
+
+        Assert.False(scroll.CanFocus);
+        Assert.Same(after, session.FocusedElement);
+        Assert.Empty(Rings(frame, scroll));
+    }
+
+    [Theory]
+    [InlineData("a control inside is enabled")]
+    [InlineData("a control inside is made focusable")]
+    public void AStopWhoseContentGainsAControlWithoutALayoutHandsFocusToIt(string change)
+    {
+        // Neither change measures or arranges anything: only the next frame that draws the view sees it.
+        var retry = new StandardButton { Text = "Retry", IsEnabled = false };
+        var link = new Fixed(new BSize(80, 20));
+        var content = new Fixed(new BSize(80, 300));
+        content.AddChild(change == "a control inside is enabled" ? retry : link);
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
+        scroll.AddChild(content);
+        var after = new StandardButton { Text = "After" };
+        using UiSession session = Attach(new Column().Add(scroll, 100).Add(after, 30), 200, 600);
+        Assert.True(scroll.CanFocus);
+        session.SetFocus(scroll);
+        Assert.Single(Rings(session.RenderFrame(), scroll));
+
+        if (change == "a control inside is enabled")
+            retry.IsEnabled = true;
+        else
+            link.Focusable = true;
+        BRenderList frame = session.RenderFrame();
+
+        Assert.False(scroll.CanFocus);
+        Assert.Same(change == "a control inside is enabled" ? retry : link, session.FocusedElement);
+        Assert.Empty(Rings(frame, scroll));
+    }
+
+    [Fact]
+    public void AStopWhoseFocusWhenScrollableIsTurnedOffWhileFocusedHandsFocusOn()
+    {
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
+        scroll.AddChild(new Fixed(new BSize(80, 300)));
+        var before = new StandardButton { Text = "Before" };
+        var after = new StandardButton { Text = "After" };
+        using UiSession session = Attach(new Column().Add(before, 30).Add(scroll, 100).Add(after, 30), 200, 600);
+        session.SetFocus(scroll);
+        Assert.Single(Rings(session.RenderFrame(), scroll));
+
+        scroll.FocusWhenScrollable = false;
+        BRenderList frame = session.RenderFrame();
+
+        Assert.False(scroll.CanFocus);
+        Assert.Same(after, session.FocusedElement);
+        Assert.Empty(Rings(frame, scroll));
+
+        // A view that is focusable of its own keeps focus: it is still a stop.
+        scroll.FocusWhenScrollable = true;
+        scroll.Focusable = true;
+        session.SetFocus(scroll);
+        session.RenderFrame();
+        scroll.FocusWhenScrollable = false;
+        session.RenderFrame();
         Assert.Same(scroll, session.FocusedElement);
     }
 
