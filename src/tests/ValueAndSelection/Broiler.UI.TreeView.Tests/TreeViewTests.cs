@@ -137,6 +137,71 @@ public sealed class TreeViewTests
     }
 
     [Fact]
+    public void Positions_Within_A_Level_Follow_Every_Change_To_The_Rows()
+    {
+        // The positions are worked out once for each set of rows, so every change that rebuilds the
+        // rows (expanding, collapsing, a refresh) and every scroll is checked against a count made
+        // from Rows directly.
+        var source = new CountingTreeSource();
+        source.Add("/", "/A", "/B", "/C");
+        source.Add("/A", "/A/one", "/A/two", "/A/three");
+        source.Add("/A/two", "/A/two/x", "/A/two/y");
+        source.Add("/B", "/B/one", "/B/two");
+        using var tree = new StandardTreeView { DataSource = source, VisibleRowCapacity = 100 };
+
+        AssertPositionsMatchRows(tree, expectedRows: 3);
+        tree.Expand(new TreeNodeId("/A"));
+        AssertPositionsMatchRows(tree, expectedRows: 6);
+        tree.Expand(new TreeNodeId("/A/two"));
+        AssertPositionsMatchRows(tree, expectedRows: 8);
+        tree.Expand(new TreeNodeId("/B"));
+        AssertPositionsMatchRows(tree, expectedRows: 10);
+        Assert.Contains(tree.GetSemanticNode().Children, row => row.Name.EndsWith("y, level 3, 2 of 2", StringComparison.Ordinal));
+        Assert.Contains(tree.GetSemanticNode().Children, row => row.Name.EndsWith("C, level 1, 3 of 3", StringComparison.Ordinal));
+
+        tree.Collapse(new TreeNodeId("/A"));
+        AssertPositionsMatchRows(tree, expectedRows: 5);
+        source.Add("/", "/D");
+        tree.Refresh();
+        AssertPositionsMatchRows(tree, expectedRows: 6);
+        Assert.Contains(tree.GetSemanticNode().Children, row => row.Name.EndsWith("C, level 1, 3 of 4", StringComparison.Ordinal));
+
+        tree.Expand(new TreeNodeId("/A"));
+        tree.VisibleRowCapacity = 3;
+        for (int first = 0; first < tree.Rows.Count; first++)
+        {
+            tree.FirstVisibleRow = first;
+            AssertPositionsMatchRows(tree, expectedRows: Math.Min(3, tree.Rows.Count - first));
+        }
+    }
+
+    /// <summary>
+    /// Every described row's level and position against a count made by walking <see cref="UiTreeView.Rows"/>:
+    /// the rows at the same depth since the last shallower row, and up to the next one.
+    /// </summary>
+    private static void AssertPositionsMatchRows(UiTreeView tree, int expectedRows)
+    {
+        IReadOnlyList<TreeRow> rows = tree.Rows;
+        IReadOnlyList<UiSemanticNode> described = tree.GetSemanticNode().Children;
+        Assert.Equal(expectedRows, described.Count);
+        for (int slot = 0; slot < described.Count; slot++)
+        {
+            int index = tree.FirstVisibleRow + slot;
+            int depth = rows[index].Depth;
+            int start = index;
+            while (start > 0 && rows[start - 1].Depth >= depth)
+                start--;
+            int end = index;
+            while (end < rows.Count - 1 && rows[end + 1].Depth >= depth)
+                end++;
+
+            int position = Enumerable.Range(start, index - start + 1).Count(i => rows[i].Depth == depth);
+            int count = Enumerable.Range(start, end - start + 1).Count(i => rows[i].Depth == depth);
+            Assert.EndsWith($", level {depth + 1}, {position} of {count}", described[slot].Name, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void Expansion_And_Selection_Survive_A_Data_Source_Refresh()
     {
         CountingTreeSource source = BuildSolution(projects: 3, filesPerProject: 5);
