@@ -196,13 +196,23 @@ public abstract class UiTreeView : UiElement
         {
             if (_visibleRowCapacity == value)
                 return;
+            int shownBefore = RowsInViewCount();
             _visibleRowCapacity = value;
 
             // The rows in view are the semantic children, so a resize that shows more or fewer of
-            // them changes the children as a scroll does.
-            Invalidate(UiInvalidationKind.Semantic);
+            // them changes the children as a scroll does. Room the rows do not fill changes none of
+            // them and says nothing: StandardTreeView sets this from inside its arrange, at every
+            // first layout among others, and a host told then compares the rows mid-layout and
+            // paints another frame for nothing. Rows not built yet cannot be counted, so a change
+            // then is reported, as any change was before.
+            if (!_rowsValid || RowsInViewCount() != shownBefore)
+                Invalidate(UiInvalidationKind.Semantic);
         }
     }
+
+    /// <summary>How many rows <see cref="GetSemanticNodeCore"/> describes, counted the same way.</summary>
+    private int RowsInViewCount() =>
+        Math.Max(0, Math.Min(_rows.Count, _firstVisibleRow + VisibleRowCapacity) - _firstVisibleRow);
 
     /// <summary>
     /// Where a row draws its secondary label. See

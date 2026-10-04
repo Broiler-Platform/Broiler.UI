@@ -101,6 +101,40 @@ public sealed class TreeRowsInViewSemanticsTests
         Assert.Single(rowsHeard);
     }
 
+    [Fact]
+    public void Room_The_Rows_Do_Not_Fill_Is_Not_A_Change_Hosts_Hear_Of()
+    {
+        // StandardTreeView works out how many rows fit inside its arrange, at its first layout and on
+        // every resize. While every row is in view either way, the children are the same, so nothing
+        // is said from inside the layout and nothing is left pending for another frame.
+        var host = new ResizableHost(new BSize(300, 200));
+        using UiSession session = new StandardUiSessionBuilder()
+            .WithDispatcher(new ImmediateUiDispatcher())
+            .Build(host);
+        var source = new CountingTreeSource();
+        source.Add("/", "/a", "/b", "/c");
+        var tree = new StandardTreeView { DataSource = source };
+        session.AddRoot(tree);
+        int heard = 0;
+        session.SemanticChanged += (_, e) =>
+        {
+            if (ReferenceEquals(e.Element, tree) && e.Change == UiSemanticChangeKind.StateChanged)
+                heard++;
+        };
+        int defaultCapacity = tree.VisibleRowCapacity;
+
+        session.RenderFrame();
+        int firstCapacity = tree.VisibleRowCapacity;
+        host.ViewportSize = new BSize(300, 150);
+        session.RenderFrame();
+
+        Assert.NotEqual(defaultCapacity, firstCapacity);
+        Assert.True(tree.VisibleRowCapacity < firstCapacity);
+        Assert.True(tree.VisibleRowCapacity >= tree.Rows.Count);
+        Assert.Equal(0, heard);
+        Assert.DoesNotContain(session.Invalidations, invalidation => ReferenceEquals(invalidation.Element, tree));
+    }
+
     private static CountingTreeSource Many()
     {
         var source = new CountingTreeSource();
