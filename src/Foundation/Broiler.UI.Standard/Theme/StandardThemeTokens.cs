@@ -13,8 +13,9 @@ namespace Broiler.UI.Standard;
 /// theme (light, dark, high-contrast) can be swapped by changing the active token
 /// set. Every role is <c>required</c>, so a preset that omits a token fails to
 /// compile rather than silently rendering a transparent value. The selection text
-/// roles (<see cref="SelectionText"/>, <see cref="SelectionTextMuted"/>) are the
-/// exception: they derive from the text roles until a theme sets them.
+/// roles (<see cref="SelectionText"/>, <see cref="SelectionTextMuted"/>) and the
+/// state roles (<see cref="StateFill"/>, <see cref="StateText"/>) are the
+/// exception: they derive from other roles until a theme sets them.
 /// </summary>
 public sealed record StandardThemeTokens
 {
@@ -69,6 +70,38 @@ public sealed record StandardThemeTokens
     {
         get => _selectionTextMuted ?? (SelectionText == Text ? TextMuted : SelectionText);
         init => _selectionTextMuted = value;
+    }
+
+    // State. Not required and unset in the presets, like the selection roles, so a copy that changes
+    // AccentSoft, SelectionText or Text carries the change onto the state fill and its text.
+    private BColor? _stateFill;
+    private BColor? _stateText;
+
+    /// <summary>
+    /// The fill a control draws for a state that is not a selection: a hovered secondary button or spin box
+    /// arrow, a checked, indeterminate or pressed toggle button, the open toolbar overflow button, and the code
+    /// editor's matching bracket. Unless a theme sets it, it is <see cref="AccentSoft"/>, which these states
+    /// have always been drawn on.
+    /// </summary>
+    public BColor StateFill
+    {
+        get => _stateFill ?? AccentSoft;
+        init => _stateFill = value;
+    }
+
+    /// <summary>
+    /// Text and glyphs drawn on the <see cref="StateFill"/>. Unless a theme sets it, it is
+    /// <see cref="SelectionText"/> while the state fill is the <see cref="AccentSoft"/> selection fill, because
+    /// that is the text the theme reads on that color, and <see cref="Text"/> once the theme gives the states a
+    /// fill of their own. In the presets both are <see cref="Text"/>. While it is <see cref="Text"/>, each
+    /// control keeps the color it has always drawn on its state fill (a toggle button's label in
+    /// <see cref="Accent"/>, a spin box's arrows in <see cref="TextMuted"/>); once it differs, every label and
+    /// glyph on a state fill takes it.
+    /// </summary>
+    public BColor StateText
+    {
+        get => _stateText ?? (StateFill == AccentSoft ? SelectionText : Text);
+        init => _stateText = value;
     }
 
     // Focus
@@ -181,6 +214,7 @@ public sealed record StandardThemeTokens
     public double AccentContrast => StandardContrast.Ratio(OnAccent, Accent);
     public double FocusRingContrast => StandardContrast.Ratio(FocusRing, Surface);
     public double SelectionTextContrast => StandardContrast.Ratio(SelectionText, AccentSoft);
+    public double StateTextContrast => StandardContrast.Ratio(StateText, StateFill);
     public bool MeetsAaNormalText => StandardContrast.Meets(Text, Surface, StandardContrast.AaNormalText);
     public bool MeetsAaLargeOrUi => StandardContrast.Meets(BorderStrong, Surface, StandardContrast.AaLargeOrUi);
 
