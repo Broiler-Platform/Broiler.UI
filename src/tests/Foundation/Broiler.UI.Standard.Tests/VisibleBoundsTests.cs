@@ -133,7 +133,12 @@ public sealed class VisibleBoundsTests
         // The list's own children use the same geometry, including the extra row it realizes below.
         IReadOnlyList<UiSemanticNode> rows = list.GetSemanticNode().Children;
         Assert.Equal(cut.Bounds, rows[partial].Bounds);
-        Assert.True(rows[^1].State.HasFlag(UiSemanticState.Offscreen) || rows.Count == partial + 1);
+        Assert.True(rows.Count > partial + 1);
+        for (int index = 0; index < rows.Count; index++)
+        {
+            Assert.Equal(index <= partial, rows[index].State.HasFlag(UiSemanticState.Visible));
+            Assert.Equal(index > partial, rows[index].State.HasFlag(UiSemanticState.Offscreen));
+        }
 
         // A row out of view is Offscreen, not Visible, and says where scrolling would bring it.
         UiSemanticNode below = list.GetItemSemanticNode(partial + 2)!;
@@ -206,6 +211,40 @@ public sealed class VisibleBoundsTests
         tabs.SelectedIndex = 0;
         session.DispatchInput(MouseDown(settings.Left + (settings.Width / 2), settings.Top + (settings.Height / 2)));
         Assert.Equal(2, tabs.SelectedIndex);
+    }
+
+    [Fact]
+    public void TabNodesAreClippedLikeTheViewAndOffscreenOnceTheirHeaderIsScrolledAway()
+    {
+        var tabs = new StandardTabView { PreferredSize = new BSize(300, 300) };
+        tabs.AddTab("inbox", "Inbox", new StandardPanel());
+        tabs.AddTab("sent", "Sent", new StandardPanel());
+        var content = new Stack(80) { Tail = tabs };
+        var scroll = new StandardScrollView { ScrollbarThickness = 0, Constraint = UiScrollConstraint.ConstrainWidth };
+        scroll.AddChild(content);
+        using UiSession session = Attach(scroll, 300, 100);
+        double headerHeight = tabs.EffectiveHeaderHeight;
+        Assert.True(headerHeight > 20);
+
+        // The header strip starts at y=80 in a 100 DIP viewport: only its top 20 DIP show.
+        BRect header = tabs.GetTabHeaderBounds(1);
+        Assert.Equal(80, header.Top, 6);
+        UiSemanticNode node = tabs.GetSemanticNode().Children[1];
+        AssertClose(new BRect(header.Left, 80, header.Width, 20), node.Bounds);
+        Assert.True(node.State.HasFlag(UiSemanticState.Visible));
+        Assert.False(node.State.HasFlag(UiSemanticState.Offscreen));
+
+        // Scrolled until the header strip is above the viewport while the tab page still shows: the
+        // tab is Offscreen and keeps its full header, which says where scrolling would bring it.
+        Assert.True(scroll.SetOffset(new BPoint(0, 80 + headerHeight + 10)));
+        session.RenderFrame();
+        Assert.False(tabs.GetVisibleBounds().IsEmpty);
+        header = tabs.GetTabHeaderBounds(1);
+        Assert.True(header.Bottom < 0);
+        node = tabs.GetSemanticNode().Children[1];
+        AssertClose(header, node.Bounds);
+        Assert.True(node.State.HasFlag(UiSemanticState.Offscreen));
+        Assert.True(node.State.HasFlag(UiSemanticState.Visible));
     }
 
     private static void AssertClose(BRect expected, BRect actual)
