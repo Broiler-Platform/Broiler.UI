@@ -232,7 +232,7 @@ public sealed class StandardRichEditReadOnlyAndScrollingTests
     }
 
     [Fact]
-    public void A_Horizontal_Wheel_Scrolls_Sideways_Like_Shift_Wheel()
+    public void A_Wheel_Tilted_Right_Scrolls_Right_Like_Shift_With_The_Wheel_Turned_Down()
     {
         string text = string.Join("\n", Enumerable.Range(0, 5).Select(i => $"long line {i} with lots and lots of text to induce horizontal scrolling"));
         RichEditScene scene = Focused(text, new BSize(150, 100));
@@ -240,11 +240,23 @@ public sealed class StandardRichEditReadOnlyAndScrollingTests
         scene.Edit.HorizontalScrollPolicy = RichEditScrollPolicy.Auto;
         scene.Session.RenderFrame();
 
+        // Win32 reports a wheel tilted right (WM_MOUSEHWHEEL) as a positive notch.
+        scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Horizontal, 1, InputEventSource.Synthetic));
+        double tilted = scene.Edit.HorizontalScrollOffset;
+        Assert.True(tilted > 0);
+        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+
+        // Shift with the wheel turned towards the user (a negative notch) scrolls right as well.
+        scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Vertical, -1, InputEventSource.Synthetic, InputModifiers.Shift));
+        double shifted = scene.Edit.HorizontalScrollOffset;
+        Assert.True(shifted > tilted);
+        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+
         scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
             MouseButtons.None, MouseWheelAxis.Horizontal, -1, InputEventSource.Synthetic));
-
-        Assert.True(scene.Edit.HorizontalScrollOffset > 0);
-        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+        Assert.True(scene.Edit.HorizontalScrollOffset < shifted);
         scene.Session.Dispose();
     }
 

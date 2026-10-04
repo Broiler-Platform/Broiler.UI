@@ -414,7 +414,8 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
         EnsureLayout();
         if (input.WheelAxis == MouseWheelAxis.Horizontal && MaxHorizontalScroll > 0)
         {
-            SetHorizontalScroll(_scrollX - input.WheelDeltaNotches * _characterAdvance * 6);
+            // A wheel tilted right (a positive horizontal notch) scrolls right.
+            SetHorizontalScroll(_scrollX + input.WheelDeltaNotches * _characterAdvance * 6);
             return true;
         }
         if (VerticalScrollPolicy == FormatCodeViewScrollPolicy.Never || MaxVerticalScroll <= 0)

@@ -95,8 +95,11 @@ public sealed partial class StandardRichEdit
         bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
         if ((shift || input.WheelAxis == MouseWheelAxis.Horizontal) && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
         {
+            // A wheel tilted right scrolls right; a wheel turned up with Shift scrolls left, which is
+            // the sign the vertical axis uses.
             double delta = input.WheelDeltaNotches * DefaultLineHeight * 3;
-            if (_scroller.ScrollToX(_scroller.OffsetX - delta, HorizontalScrollMetrics))
+            double next = input.WheelAxis == MouseWheelAxis.Horizontal ? _scroller.OffsetX + delta : _scroller.OffsetX - delta;
+            if (_scroller.ScrollToX(next, HorizontalScrollMetrics))
             {
                 Invalidate(UiInvalidationKind.Render);
                 return true;

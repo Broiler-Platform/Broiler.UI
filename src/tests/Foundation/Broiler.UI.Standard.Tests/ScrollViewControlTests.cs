@@ -167,13 +167,37 @@ public sealed class ScrollViewControlTests
         Assert.Equal(0, scrollView.VerticalOffset);
     }
 
-    private static UiInputEvent Wheel(double notches, InputModifiers modifiers, long sequence) =>
+    [Fact]
+    public void Standard_ScrollView_A_Wheel_Tilted_Right_Scrolls_Right()
+    {
+        var scrollView = new StandardScrollView { ScrollbarThickness = 10 };
+        scrollView.AddChild(new FixedElement(new BSize(300, 300)));
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out _);
+
+        // Win32 reports a wheel tilted right (WM_MOUSEHWHEEL) as a positive notch, and so does
+        // every Broiler input source.
+        Assert.True(scrollView.DispatchInput(Wheel(1, InputModifiers.None, 1, MouseWheelAxis.Horizontal)));
+        Assert.Equal(scrollView.LineScrollAmount, scrollView.HorizontalOffset);
+        Assert.Equal(0, scrollView.VerticalOffset);
+
+        Assert.True(scrollView.DispatchInput(Wheel(-1, InputModifiers.None, 2, MouseWheelAxis.Horizontal)));
+        Assert.Equal(0, scrollView.HorizontalOffset);
+
+        // Shift with the wheel turned towards the user scrolls right too; turned away, back left.
+        Assert.True(scrollView.DispatchInput(Wheel(-1, InputModifiers.Shift, 3)));
+        Assert.Equal(scrollView.LineScrollAmount, scrollView.HorizontalOffset);
+        Assert.True(scrollView.DispatchInput(Wheel(1, InputModifiers.Shift, 4)));
+        Assert.Equal(0, scrollView.HorizontalOffset);
+        Assert.Equal(0, scrollView.VerticalOffset);
+    }
+
+    private static UiInputEvent Wheel(double notches, InputModifiers modifiers, long sequence, MouseWheelAxis axis = MouseWheelAxis.Vertical) =>
         UiInputEvent.FromMouseWheel(
             new MouseWheelEvent(
                 Header(sequence),
                 InputPoint.ClientDeviceIndependentPixels(50, 50),
                 MouseButtons.None,
-                MouseWheelAxis.Vertical,
+                axis,
                 notches,
                 InputEventSource.Synthetic,
                 modifiers));

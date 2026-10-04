@@ -3,6 +3,7 @@ using Broiler.Graphics.Geometry;
 using Broiler.Graphics.Windowing;
 using Broiler.Input;
 using Broiler.Input.Keyboard;
+using Broiler.Input.Mouse;
 using Broiler.Input.Text;
 
 namespace Broiler.UI.FormatCodeView.Standard.Tests;
@@ -205,5 +206,24 @@ public sealed class StandardFormatCodeViewInputTests
 
         Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -2)));
         Assert.True(scene.View.VerticalScrollOffset > 0);
+    }
+
+    [Fact]
+    public void A_Wheel_Tilted_Right_Scrolls_Right_And_Tilted_Left_Scrolls_Back()
+    {
+        using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
+            new BSize(160, 70),
+            FormatCodeViewStandardHarness.Project(string.Join('\n', Enumerable.Repeat("a long line that is much wider than the view", 3))));
+        scene.View.Wrapping = FormatCodeViewWrapping.NoWrap;
+        scene.Session.RenderFrame();
+
+        // Win32 reports a wheel tilted right (WM_MOUSEHWHEEL) as a positive notch.
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, 1, MouseWheelAxis.Horizontal)));
+        double right = scene.View.HorizontalScrollOffset;
+        Assert.True(right > 0);
+        Assert.Equal(0, scene.View.VerticalScrollOffset);
+
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -1, MouseWheelAxis.Horizontal)));
+        Assert.True(scene.View.HorizontalScrollOffset < right);
     }
 }
