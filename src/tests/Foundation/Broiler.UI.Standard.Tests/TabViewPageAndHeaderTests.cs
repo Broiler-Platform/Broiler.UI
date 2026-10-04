@@ -65,20 +65,35 @@ public sealed class TabViewPageAndHeaderTests
     }
 
     [Fact]
-    public void AnUnthemedTabViewTakesTheSelectedLabelFromTheSharedPaletteUntilTheApplicationSetsIt()
+    public void AnUnthemedTabViewKeepsTheSelectedLabelOfTheSharedPaletteItWasBuiltUnder()
     {
         StandardThemeTokens original = StandardControlPaint.Theme;
         try
         {
-            StandardTabView tabs = ThreeTabs();
-            using UiSession session = Attach(tabs, 400, 200);
+            foreach ((StandardThemeTokens builtUnder, StandardThemeTokens later) in new[]
+            {
+                (StandardThemeTokens.Light, StandardThemeTokens.Dark),
+                (StandardThemeTokens.Dark, StandardThemeTokens.Light),
+            })
+            {
+                StandardControlPaint.ApplyTheme(builtUnder);
+                StandardTabView tabs = ThreeTabs();
+                using UiSession session = Attach(tabs, 400, 200);
+                Assert.Equal(builtUnder.AccentText, Label(session.RenderFrame(), "Inbox").Color);
 
-            StandardControlPaint.ApplyTheme(StandardThemeTokens.Dark);
-            Assert.Equal(StandardThemeTokens.Dark.AccentText, Label(session.RenderFrame(), "Inbox").Color);
+                // The fills it is drawn on were captured when the view was built, so the label is too: the later
+                // palette's accent text on the earlier palette's fill did not read (Dark's on white at 2.1:1).
+                StandardControlPaint.ApplyTheme(later);
+                BRenderList frame = session.RenderFrame();
+                Assert.Equal(builtUnder.AccentText, Label(frame, "Inbox").Color);
+                Assert.Single(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == builtUnder.AccentText);
+                double ratio = StandardContrast.Ratio(tabs.SelectedHeaderForeground, tabs.SelectedHeaderBackground);
+                Assert.True(ratio >= StandardContrast.AaNormalText, $"Built under {builtUnder.Name}: the selected label reads at {ratio:0.00}:1.");
 
-            BColor custom = BColor.FromArgb(0xFF, 0xF0, 0xC0, 0x40);
-            tabs.SelectedHeaderForeground = custom;
-            Assert.Equal(custom, Label(session.RenderFrame(), "Inbox").Color);
+                BColor custom = BColor.FromArgb(0xFF, 0xF0, 0xC0, 0x40);
+                tabs.SelectedHeaderForeground = custom;
+                Assert.Equal(custom, Label(session.RenderFrame(), "Inbox").Color);
+            }
         }
         finally
         {

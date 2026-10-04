@@ -34,7 +34,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     // The focus ring's offset and thickness.
     private StandardThemeTokens _theme = StandardControlPaint.Theme;
-    private BColor? _selectedHeaderForeground;
+    private BColor _selectedHeaderForeground = StandardControlPaint.AccentText;
     private BColor? _selectedIndicatorColor;
     private double _selectedIndicatorThickness = 2;
 
@@ -48,12 +48,13 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     /// <summary>
     /// The selected tab's label. <see cref="ApplyTheme"/> sets it to the theme's
-    /// <see cref="StandardThemeTokens.AccentText"/>; until then, or until the application sets it, it is the shared
-    /// palette's, read when the view is drawn.
+    /// <see cref="StandardThemeTokens.AccentText"/>; until then it is the shared palette's when the view was
+    /// built, as the fills it is drawn on are, so a later change of the shared palette does not put one
+    /// palette's label on another's fill.
     /// </summary>
     public BColor SelectedHeaderForeground
     {
-        get => _selectedHeaderForeground ?? StandardControlPaint.AccentText;
+        get => _selectedHeaderForeground;
         set
         {
             if (_selectedHeaderForeground == value)
