@@ -220,6 +220,13 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
         if (input.KeyTransition != KeyboardKeyTransition.Down || Tabs.Count == 0)
             return false;
 
+        // The strip's keys, read only while the strip has focus. A key the focused control inside a
+        // tab leaves unhandled (Right on a button) bubbles up to here, and switching tabs for it took
+        // the user out of the tab they were working in. A key that reaches the view while nothing has
+        // focus was not aimed at the strip either.
+        if (Session?.FocusedElement != this)
+            return false;
+
         if (IsKey(input, BVirtualKey.Right, "Right"))
             return SelectAndFocus((SelectedIndex + 1) % Tabs.Count);
         if (IsKey(input, BVirtualKey.Left, "Left"))
