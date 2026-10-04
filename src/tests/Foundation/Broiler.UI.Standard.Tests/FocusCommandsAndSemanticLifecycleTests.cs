@@ -374,6 +374,50 @@ public sealed class FocusCommandsAndSemanticLifecycleTests
     }
 
     [Fact]
+    public void FindAdjacentStop_Places_An_Element_That_Is_No_Stop_By_TabIndex_And_Document_Order()
+    {
+        var host = new TestUiHost(new BSize(400, 300));
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var focus = new StandardFocusScope(session);
+
+        var root = new TestContainerElement();
+        var first = new StandardButton { Text = "First", TabIndex = 1 };
+        var gone = new StandardButton { Text = "Gone", TabIndex = 1, Visibility = UiVisibility.Collapsed };
+        var last = new StandardButton { Text = "Last", TabIndex = 1 };
+        var early = new StandardButton { Text = "Early", TabIndex = 0 };
+        root.AddChild(first);
+        root.AddChild(gone);
+        root.AddChild(last);
+        root.AddChild(early);
+        session.AddRoot(root);
+
+        // Tab order is Early, First, Last; Gone, collapsed, keeps its place between First and Last.
+        Assert.False(gone.CanFocus);
+        Assert.Same(last, focus.FindAdjacentStop(gone, 1));
+        Assert.Same(first, focus.FindAdjacentStop(gone, -1));
+        Assert.Same(first, focus.FindAdjacentStop(early, 1));
+
+        // It does not wrap, and finds nothing for an element outside its scope.
+        Assert.Null(focus.FindAdjacentStop(early, -1));
+        Assert.Null(focus.FindAdjacentStop(last, 1));
+        Assert.Null(focus.FindAdjacentStop(gone, 1, scopeRoot: early));
+
+        // The active modal element is the scope by default, as for MoveFocus.
+        var dialog = new TestContainerElement();
+        var ok = new StandardButton { Text = "OK" };
+        var cancel = new StandardButton { Text = "Cancel" };
+        dialog.AddChild(ok);
+        dialog.AddChild(cancel);
+        session.AddRoot(dialog);
+        session.PushModalElement(dialog);
+        Assert.Same(cancel, focus.FindAdjacentStop(ok, 1));
+        Assert.Null(focus.FindAdjacentStop(gone, 1));
+
+        // It only finds: nothing was focused.
+        Assert.Null(session.FocusedElement);
+    }
+
+    [Fact]
     public void Focus_Capture_And_Restoration_Restores_Focus_On_Dispose()
     {
         var host = new TestUiHost(new BSize(400, 300));

@@ -113,6 +113,48 @@ public sealed class StandardFocusScope
         return _session.FocusedElement == next;
     }
 
+    /// <summary>
+    /// The tab stop that follows <paramref name="from"/> in Tab order (+1), or that precedes it (-1), among the
+    /// stops <see cref="MoveFocus"/> moves between: in <paramref name="scopeRoot"/>, or else the active modal element,
+    /// or else every root. <paramref name="from"/> need not be a stop itself, such as a control that can no longer
+    /// take focus: its place is where it would sort among the stops, by <see cref="UiElement.TabIndex"/> and then
+    /// document order. Null when <paramref name="from"/> is not in the scope or no stop lies that way; it does not
+    /// wrap. Nothing is focused or scrolled.
+    /// </summary>
+    public UiElement? FindAdjacentStop(UiElement from, int direction, UiElement? scopeRoot = null)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        UiElement? root = scopeRoot ?? _session.ModalElement;
+        IEnumerable<UiElement> roots = root is not null ? [root] : _session.Roots;
+
+        // Every element has a place, shown or not, so one that was just hidden still has its own.
+        var places = new Dictionary<UiElement, int>(ReferenceEqualityComparer.Instance);
+        List<UiElement> candidates = [];
+        foreach (UiElement sessionRoot in roots)
+        {
+            Number(sessionRoot, places);
+            CollectFocusable(sessionRoot, candidates);
+        }
+
+        if (!places.TryGetValue(from, out int place))
+            return null;
+
+        // Candidates in Tab order, as MoveFocus orders them; the neighbor is the first past from's key that way.
+        int Compare(UiElement stop) =>
+            stop.TabIndex != from.TabIndex ? stop.TabIndex.CompareTo(from.TabIndex) : places[stop].CompareTo(place);
+        IEnumerable<UiElement> ordered = candidates.OrderBy(candidate => candidate.TabIndex);
+        return direction > 0
+            ? ordered.FirstOrDefault(stop => Compare(stop) > 0)
+            : ordered.LastOrDefault(stop => Compare(stop) < 0);
+
+        static void Number(UiElement element, Dictionary<UiElement, int> places)
+        {
+            places[element] = places.Count;
+            foreach (UiElement child in element.Children)
+                Number(child, places);
+        }
+    }
+
     private static void CollectFocusable(UiElement element, List<UiElement> candidates)
     {
         if (element.Visibility != UiVisibility.Visible || element.IsHiddenFromAccessibility)
