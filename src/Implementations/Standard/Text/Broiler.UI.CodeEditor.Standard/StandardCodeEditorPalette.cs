@@ -36,6 +36,9 @@ public static class StandardCodeEditorPalette
             CurrentLineBackground = tokens.SurfaceAlt,
             Selection = tokens.AccentSoft,
             InactiveSelection = tokens.SurfaceDisabled,
+
+            // Only a theme that gives selected text a colour of its own recolours it.
+            SelectionForeground = tokens.SelectionText == tokens.Text ? null : tokens.SelectionText,
             Caret = tokens.Text,
             BracketMatch = tokens.AccentSoft,
             CompositionUnderline = tokens.Text,

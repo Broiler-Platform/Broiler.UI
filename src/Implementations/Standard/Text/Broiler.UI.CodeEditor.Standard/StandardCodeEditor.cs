@@ -353,7 +353,7 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
 
         RenderSelection(list, palette, line, lineStart, lineLength, span, top, textLeft, tabSize);
 
-        RenderClassifiedText(list, palette, line, span, top, textLeft, tabSize);
+        RenderClassifiedText(list, palette, line, span, top, textLeft, tabSize, SelectedTextRange(palette, lineStart, lineLength));
         RenderDiagnostics(list, palette, line, lineStart, span, top, textLeft, tabSize);
 
         if (matchingBracket is { } bracket && bracket >= lineStart && bracket < lineStart + lineLength)
@@ -437,6 +437,22 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
             HasFocus ? palette.Selection : palette.InactiveSelection);
     }
 
+    /// <summary>
+    /// The part of a line, in offsets into it, whose text is drawn in the palette's
+    /// selection text colour: the selection, while the editor has focus and the
+    /// palette has such a colour. Empty otherwise.
+    /// </summary>
+    private (int From, int To) SelectedTextRange(CodeEditorPalette palette, int lineStart, int lineLength)
+    {
+        CodeSelection selection = Selection;
+        if (palette.SelectionForeground is null || !HasFocus || selection.IsEmpty)
+            return (0, 0);
+
+        return (
+            Math.Clamp(selection.Start - lineStart, 0, lineLength),
+            Math.Clamp(selection.End - lineStart, 0, lineLength));
+    }
+
     private void RenderClassifiedText(
         BRenderList list,
         CodeEditorPalette palette,
@@ -444,7 +460,8 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
         ReadOnlySpan<char> span,
         double top,
         double textLeft,
-        int tabSize)
+        int tabSize,
+        (int From, int To) selected)
     {
         if (span.Length == 0)
             return;
@@ -464,7 +481,7 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
 
         if (spans.Length == 0)
         {
-            DrawSegment(list, span, 0, span.Length, CodeClassificationKind.None, palette, top, textLeft, tabSize);
+            DrawSegment(list, span, 0, span.Length, CodeClassificationKind.None, palette, top, textLeft, tabSize, selected);
             return;
         }
 
@@ -474,16 +491,22 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
             int start = Math.Clamp(classification.Start, 0, span.Length);
             int end = Math.Clamp(classification.Start + classification.Length, start, span.Length);
             if (start > cursor)
-                DrawSegment(list, span, cursor, start, CodeClassificationKind.None, palette, top, textLeft, tabSize);
+                DrawSegment(list, span, cursor, start, CodeClassificationKind.None, palette, top, textLeft, tabSize, selected);
             if (end > start)
-                DrawSegment(list, span, start, end, classification.Kind, palette, top, textLeft, tabSize);
+                DrawSegment(list, span, start, end, classification.Kind, palette, top, textLeft, tabSize, selected);
             cursor = Math.Max(cursor, end);
         }
 
         if (cursor < span.Length)
-            DrawSegment(list, span, cursor, span.Length, CodeClassificationKind.None, palette, top, textLeft, tabSize);
+            DrawSegment(list, span, cursor, span.Length, CodeClassificationKind.None, palette, top, textLeft, tabSize, selected);
     }
 
+    /// <summary>
+    /// Draws a classified stretch of a line, the part of it in <paramref name="selected"/>
+    /// in the palette's selection text colour. Every character has its own column, so
+    /// the stretch is split at the selection's edges just as the line is split at
+    /// classification edges, and the pieces line up with the selection fill.
+    /// </summary>
     private void DrawSegment(
         BRenderList list,
         ReadOnlySpan<char> line,
@@ -493,7 +516,34 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
         CodeEditorPalette palette,
         double top,
         double textLeft,
-        int tabSize)
+        int tabSize,
+        (int From, int To) selected)
+    {
+        BColor color = palette.GetClassificationColor(kind);
+        if (palette.SelectionForeground is BColor selectionColor && selected.From < end && selected.To > start)
+        {
+            int from = Math.Max(start, selected.From);
+            int to = Math.Min(end, selected.To);
+            DrawPiece(list, line, start, from, kind, palette, top, textLeft, tabSize, color);
+            DrawPiece(list, line, from, to, kind, palette, top, textLeft, tabSize, selectionColor);
+            DrawPiece(list, line, to, end, kind, palette, top, textLeft, tabSize, color);
+            return;
+        }
+
+        DrawPiece(list, line, start, end, kind, palette, top, textLeft, tabSize, color);
+    }
+
+    private void DrawPiece(
+        BRenderList list,
+        ReadOnlySpan<char> line,
+        int start,
+        int end,
+        CodeClassificationKind kind,
+        CodeEditorPalette palette,
+        double top,
+        double textLeft,
+        int tabSize,
+        BColor color)
     {
         if (end <= start)
             return;
@@ -529,7 +579,7 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
             font = font with { Slant = BFontSlant.Italic };
 
         list.DrawText(
-            new BTextRun(_lineBuffer.ToString(), font, palette.GetClassificationColor(kind)),
+            new BTextRun(_lineBuffer.ToString(), font, color),
             new BPoint(x, top));
     }
 
