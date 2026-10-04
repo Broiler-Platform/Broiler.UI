@@ -40,7 +40,8 @@ public static class StandardCodeEditorPalette
             // Only a theme that gives selected text a colour of its own recolours it.
             SelectionForeground = tokens.SelectionText == tokens.Text ? null : tokens.SelectionText,
             Caret = tokens.Text,
-            BracketMatch = tokens.AccentSoft,
+            // A matching bracket is marked, not selected, so it takes the state fill.
+            BracketMatch = tokens.StateFill,
             CompositionUnderline = tokens.Text,
 
             Comment = Adjust(tokens.Success, dark),

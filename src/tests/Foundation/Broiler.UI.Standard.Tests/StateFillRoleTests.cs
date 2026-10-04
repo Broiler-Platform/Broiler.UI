@@ -1,4 +1,12 @@
+using System.Collections.Generic;
+using System.Linq;
 using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.Input;
+using Broiler.Input.Mouse;
+using Broiler.UI.CodeEditor.Standard;
+using Broiler.UI.SpinBox.Standard;
 using Xunit;
 
 namespace Broiler.UI.Standard.Tests;
@@ -79,5 +87,108 @@ public sealed class StateFillRoleTests
 
         Assert.Equal(StandardControlPaint.Theme.StateFill, StandardControlPaint.StateFill);
         Assert.Equal(StandardControlPaint.Theme.StateText, StandardControlPaint.StateText);
+    }
+
+    [Fact]
+    public void A_Hovered_Spin_Arrow_Is_Drawn_In_The_State_Pair()
+    {
+        StandardThemeTokens theme = DistinctStates();
+        using SpinFixture fixture = SpinFixture.Create(theme);
+
+        (BRenderList list, BRect up) = fixture.HoverUpArrow();
+
+        Assert.Equal(theme.StateFill, fixture.Spin.ArrowHoverBackground);
+        Assert.Equal(theme.StateText, fixture.Spin.ArrowHoverColor);
+        Assert.Contains(list.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Rect == up && fill.Color == theme.StateFill);
+        Assert.Equal([theme.StateText, theme.TextMuted], ArrowColors(list));
+    }
+
+    [Fact]
+    public void A_Hovered_Spin_Arrow_Reads_On_A_System_Highlight()
+    {
+        StandardThemeTokens system = SelectionTextRoleTests.SystemHighContrast();
+        using SpinFixture fixture = SpinFixture.Create(system);
+
+        (BRenderList list, BRect up) = fixture.HoverUpArrow();
+
+        Assert.Contains(list.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Rect == up && fill.Color == system.AccentSoft);
+        Assert.Equal([HighlightText, system.TextMuted], ArrowColors(list));
+    }
+
+    [Theory]
+    [MemberData(nameof(Presets))]
+    public void A_Preset_Draws_A_Hovered_Spin_Arrow_As_Before(StandardThemeTokens theme)
+    {
+        using SpinFixture fixture = SpinFixture.Create(theme);
+
+        (BRenderList list, BRect up) = fixture.HoverUpArrow();
+
+        Assert.Contains(list.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Rect == up && fill.Color == theme.AccentSoft);
+        Assert.Equal([theme.TextMuted, theme.TextMuted], ArrowColors(list));
+
+        // An arrow color the application sets after the theme still reaches the hovered arrow, as it always has.
+        BColor custom = BColor.FromArgb(0xFF, 0x80, 0x10, 0x10);
+        fixture.Spin.ArrowColor = custom;
+        Assert.Equal([custom, custom], ArrowColors(fixture.Session.RenderFrame()));
+    }
+
+    [Fact]
+    public void A_Matching_Bracket_Is_Marked_With_The_State_Fill()
+    {
+        Assert.Equal(DistinctStates().StateFill, StandardCodeEditorPalette.FromTokens(DistinctStates()).BracketMatch);
+        foreach (StandardThemeTokens preset in new[] { StandardThemeTokens.Light, StandardThemeTokens.Dark, StandardThemeTokens.HighContrastLight, StandardThemeTokens.HighContrastDark })
+            Assert.Equal(preset.AccentSoft, StandardCodeEditorPalette.FromTokens(preset).BracketMatch);
+    }
+
+    /// <summary>The up arrow's color, then the down arrow's: the order the box draws them in.</summary>
+    private static List<BColor> ArrowColors(BRenderList list) =>
+        list.Commands.OfType<BRenderCommand.FillTriangle>().Select(static triangle => triangle.Color).ToList();
+
+    private sealed class SpinFixture : System.IDisposable
+    {
+        private SpinFixture(UiSession session, StandardSpinBox spin)
+        {
+            Session = session;
+            Spin = spin;
+        }
+
+        public UiSession Session { get; }
+
+        public StandardSpinBox Spin { get; }
+
+        public static SpinFixture Create(StandardThemeTokens theme)
+        {
+            UiSession session = new StandardUiSessionBuilder().WithDispatcher(new ImmediateUiDispatcher()).Build(new TestHost());
+            var spin = new StandardSpinBox { Minimum = 0, Maximum = 100, Value = 5 };
+            spin.ApplyTheme(theme);
+            session.AddRoot(spin);
+            return new SpinFixture(session, spin);
+        }
+
+        public (BRenderList List, BRect Up) HoverUpArrow()
+        {
+            Session.RenderFrame();
+            BRect up = Spin.UpArrowBounds;
+            Assert.False(up.IsEmpty);
+            BPoint center = new(up.Left + (up.Width / 2), up.Top + (up.Height / 2));
+            Session.DispatchInput(UiInputEvent.FromMouseMove(
+                new MouseMoveEvent(
+                    new InputEventHeader(InputDeviceId.FromOpaqueValue("mouse"), new InputTimestamp(1, System.TimeSpan.TicksPerSecond, "state-test"), 1),
+                    InputPoint.ClientDeviceIndependentPixels(center.X, center.Y),
+                    MouseButtons.None,
+                    InputEventSource.Synthetic)));
+            return (Session.RenderFrame(), up);
+        }
+
+        public void Dispose() => Session.Dispose();
+    }
+
+    private sealed class TestHost : IUiHost
+    {
+        public BSize ViewportSize { get; } = new(160, 32);
+        public double Scale => 1.0;
+        public BRenderList CreateRenderList(int capacity = 0) => new(capacity);
+        public void Invalidate(UiInvalidation invalidation) { }
+        public void Present(BRenderList renderList) { }
     }
 }

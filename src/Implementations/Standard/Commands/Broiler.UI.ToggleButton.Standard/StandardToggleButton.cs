@@ -26,20 +26,31 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
         }
         Background = theme.Surface;
-        CheckedBackground = theme.AccentSoft;
-        IndeterminateBackground = theme.AccentSoft;
+        CheckedBackground = theme.StateFill;
+        IndeterminateBackground = theme.StateFill;
         Foreground = theme.Accent;
         BorderColor = theme.Border;
         DisabledForeground = theme.TextDisabled;
         HoverBackground = theme.SurfaceAlt;
-        PressedBackground = theme.AccentSoft;
+        PressedBackground = theme.StateFill;
         FocusRing = theme.FocusRing;
+
+        // The label on the state fills keeps following Foreground unless the theme gives state text a color of
+        // its own. The accent label can be the fill's own color, as in a system palette that maps both to its
+        // highlight.
+        BColor? checkedForeground = theme.StateText == theme.Text ? null : theme.StateText;
+        if (_checkedForeground != checkedForeground)
+        {
+            _checkedForeground = checkedForeground;
+            Invalidate(UiInvalidationKind.Render);
+        }
     }
 
     private bool _isPressed;
     private bool _isHovering;
     private BColor _background = StandardControlPaint.Surface;
-    private BColor _checkedBackground = StandardControlPaint.AccentSoft;
+    private BColor _checkedBackground = StandardControlPaint.StateFill;
+    private BColor? _checkedForeground;
     private BColor _indeterminateBackground = BColor.FromArgb(0xFF, 0xF0, 0xF5, 0xFF);
     private BColor _foreground = StandardControlPaint.Accent;
     private BColor _borderColor = BColor.FromArgb(0xFF, 0x9B, 0xBA, 0xE0);
@@ -95,6 +106,23 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
         {
             if (_foreground == value) return;
             _foreground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    /// <summary>
+    /// The color of the label and icon on the checked fill, and on the two fills drawn in its place: the
+    /// indeterminate fill and the pressed fill. Until it is set it is <see cref="Foreground"/>.
+    /// <see cref="ApplyTheme"/> sets it to the theme's <see cref="StandardThemeTokens.StateText"/> when that
+    /// differs from the theme's text color, and otherwise lets it follow <see cref="Foreground"/> again.
+    /// </summary>
+    public BColor CheckedForeground
+    {
+        get => _checkedForeground ?? _foreground;
+        set
+        {
+            if (_checkedForeground == value) return;
+            _checkedForeground = value;
             Invalidate(UiInvalidationKind.Render);
         }
     }
@@ -244,7 +272,7 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
     protected override void RenderCore(UiRenderContext context)
     {
         BColor background = ResolveBackground();
-        BColor foreground = IsEnabled ? Foreground : DisabledForeground;
+        BColor foreground = ResolveForeground();
         StandardControlPaint.FillRounded(context.RenderList, Bounds, background, CornerRadius);
         StandardControlPaint.StrokeRounded(context.RenderList, Bounds, IsDefault ? FocusRing : BorderColor, CornerRadius, IsDefault ? 2 : 1);
 
@@ -384,6 +412,15 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
         return ToggleState == UiToggleState.Off && _isHovering
             ? HoverBackground
             : toggledBackground;
+    }
+
+    /// <summary>The label color that goes with the fill <see cref="ResolveBackground"/> draws.</summary>
+    private BColor ResolveForeground()
+    {
+        if (!IsEnabled)
+            return DisabledForeground;
+
+        return _isPressed || ToggleState != UiToggleState.Off ? CheckedForeground : Foreground;
     }
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>

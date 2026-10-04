@@ -32,8 +32,16 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
         FocusRing = theme.FocusRing;
         PrimaryBackground = theme.Accent;
         PrimaryForeground = theme.OnAccent;
-        SecondaryHoverBackground = theme.AccentSoft;
+        SecondaryHoverBackground = theme.StateFill;
         SecondaryPressedBackground = theme.SurfaceDisabled;
+
+        // The hovered label keeps following Foreground unless the theme gives state text a color of its own.
+        BColor? hoverForeground = theme.StateText == theme.Text ? null : theme.StateText;
+        if (_secondaryHoverForeground != hoverForeground)
+        {
+            _secondaryHoverForeground = hoverForeground;
+            Invalidate(UiInvalidationKind.Render);
+        }
     }
 
     private bool _isPressed;
@@ -47,7 +55,8 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
     private BColor _focusRing = StandardControlPaint.Focus;
     private BColor _primaryBackground = StandardControlPaint.Accent;
     private BColor _primaryForeground = BColor.White;
-    private BColor _secondaryHoverBackground = StandardControlPaint.AccentSoft;
+    private BColor _secondaryHoverBackground = StandardControlPaint.StateFill;
+    private BColor? _secondaryHoverForeground;
     private BColor _secondaryPressedBackground = StandardControlPaint.SurfaceDisabled;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
@@ -163,6 +172,23 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
         {
             if (_secondaryHoverBackground == value) return;
             _secondaryHoverBackground = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    /// <summary>
+    /// The color of the label and icon of a hovered secondary button, drawn on
+    /// <see cref="SecondaryHoverBackground"/>. Until it is set it is <see cref="Foreground"/>.
+    /// <see cref="ApplyTheme"/> sets it to the theme's <see cref="StandardThemeTokens.StateText"/> when that
+    /// differs from the theme's text color, and otherwise lets it follow <see cref="Foreground"/> again.
+    /// </summary>
+    public BColor SecondaryHoverForeground
+    {
+        get => _secondaryHoverForeground ?? _foreground;
+        set
+        {
+            if (_secondaryHoverForeground == value) return;
+            _secondaryHoverForeground = value;
             Invalidate(UiInvalidationKind.Render);
         }
     }
@@ -431,8 +457,11 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
     {
         if (!IsEnabled)
             return DisabledForeground;
+        if (IsDefault)
+            return PrimaryForeground;
 
-        return IsDefault ? PrimaryForeground : Foreground;
+        // The label goes with the fill ResolveBackground draws: the hover fill only while not pressed.
+        return _isHovering && !_isPressed ? SecondaryHoverForeground : Foreground;
     }
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>
