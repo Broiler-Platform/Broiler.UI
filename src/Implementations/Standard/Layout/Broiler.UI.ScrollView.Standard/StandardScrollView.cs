@@ -14,6 +14,8 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 {
     private StandardThemeTokens _theme = StandardControlPaint.Theme;
     private bool _focusWhenScrollable;
+    // Whether the view was a FocusWhenScrollable stop when its last layout ended.
+    private bool _wasScrollStop;
     private BSize _contentDesiredExtent;
     private BRect _verticalTrackBounds = BRect.Empty;
     private BRect _horizontalTrackBounds = BRect.Empty;
@@ -52,7 +54,11 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     /// </summary>
     /// <remarks>
     /// A scroll view whose content has a control of its own is left to that control, and one with
-    /// nothing to scroll would take focus with nothing to do or announce.
+    /// nothing to scroll would take focus with nothing to do or announce. When a layout ends the stop
+    /// while it has focus (its content shrinks, its viewport grows, or a control inside it can take
+    /// focus), it hands focus on to the next tab stop in the focus scope, or the previous one when none
+    /// follows, through <see cref="IUiDispatcher.Post"/>. It scrolls nothing, and leaves focus that is
+    /// elsewhere by then alone. A view hidden while it has focus is left to what hid it.
     /// </remarks>
     public bool FocusWhenScrollable
     {
@@ -380,6 +386,8 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 arrangeWidth,
                 arrangeHeight));
         }
+
+        HandFocusOnIfNoLongerAStop();
     }
 
     protected override void RenderCore(UiRenderContext context)
@@ -477,8 +485,17 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     protected override BRect? GetClipBoundsForChild(UiElement child) =>
         ContentBounds.IsEmpty ? Bounds : ContentBounds;
 
-    // The same visibility rules as UiElement.CanFocus, without its Focusable requirement.
     private bool IsKeyboardScrollStop()
+    {
+        if (!IsShown())
+            return false;
+
+        bool scrolls = ExtentSize.Height > ViewportSize.Height + 0.5 || ExtentSize.Width > ViewportSize.Width + 0.5;
+        return scrolls && !HasFocusableDescendant(this);
+    }
+
+    // The same visibility rules as UiElement.CanFocus, without its Focusable requirement.
+    private bool IsShown()
     {
         if (IsDisposed || Session is null || Visibility != UiVisibility.Visible)
             return false;
@@ -488,8 +505,40 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 return false;
         }
 
-        bool scrolls = ExtentSize.Height > ViewportSize.Height + 0.5 || ExtentSize.Width > ViewportSize.Width + 0.5;
-        return scrolls && !HasFocusableDescendant(this);
+        return true;
+    }
+
+    /// <summary>
+    /// Called as a layout ends. A <see cref="FocusWhenScrollable"/> stop that has focus and was a stop when the
+    /// last layout ended, but is none now while it is still shown, would keep focus with no ring and nothing for
+    /// the keys to do, so focus moves on, as <see cref="FocusWhenScrollable"/> describes. It moves through the
+    /// session's dispatcher: a host that queues posts moves it after the frame, not in the middle of layout.
+    /// </summary>
+    private void HandFocusOnIfNoLongerAStop()
+    {
+        bool wasStop = _wasScrollStop;
+        _wasScrollStop = FocusWhenScrollable && IsKeyboardScrollStop();
+        if (!wasStop || _wasScrollStop || !FocusWhenScrollable || Session is not { } session || session.FocusedElement != this)
+            return;
+
+        if (!base.CanFocus && IsShown())
+            session.Dispatcher.Post(HandFocusOn);
+    }
+
+    /// <summary>
+    /// Moves focus to the next tab stop in the focus scope, or to the previous one when none follows, unless it has
+    /// moved elsewhere since the layout, or this view is a stop again. Nothing is scrolled: this follows a change of
+    /// layout, not the user's navigation, and the stop beside the view is normally in sight.
+    /// </summary>
+    private void HandFocusOn()
+    {
+        if (IsDisposed || Session is not { } session || session.FocusedElement != this || CanFocus || !IsShown())
+            return;
+
+        var scope = new StandardFocusScope(session);
+        UiElement? target = scope.FindAdjacentStop(this, 1) ?? scope.FindAdjacentStop(this, -1);
+        if (target is not null)
+            session.SetFocus(target);
     }
 
     private static bool HasFocusableDescendant(UiElement element)
