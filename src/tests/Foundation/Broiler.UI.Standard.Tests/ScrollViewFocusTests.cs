@@ -333,7 +333,7 @@ public sealed class ScrollViewFocusTests
     }
 
     [Fact]
-    public void HandingFocusOnScrollsNothing()
+    public void HandingFocusOnRevealsAStopNoneOfWhichShowsAndScrollsNothingElse()
     {
         // The status area, a list scrolled part of the way, and a form whose first control is below its fold.
         var status = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
@@ -348,15 +348,42 @@ public sealed class ScrollViewFocusTests
         Assert.True(list.ScrollBy(0, 50));
         session.RenderFrame();
         session.SetFocus(status);
+        Assert.True(save.GetVisibleBounds().IsEmpty);
+
+        statusContent.Desired = new BSize(80, 60);
+        session.RenderFrame();
+        session.RenderFrame();
+
+        // The form scrolls just far enough to show Save whole, as Tab would; nothing else moves.
+        Assert.Same(save, session.FocusedElement);
+        Assert.Equal(save.Bounds, save.GetVisibleBounds());
+        Assert.Equal(80, form.VerticalOffset);
+        Assert.Equal(0, status.VerticalOffset);
+        Assert.Equal(50, list.VerticalOffset);
+    }
+
+    [Theory]
+    [InlineData(40, 0)]  // Save shows in part: its ring shows where focus went, so nothing scrolls.
+    [InlineData(60, 40)] // Save cannot be seen: the form that holds the status area too scrolls to show it.
+    public void HandingFocusOnScrollsOnlyWhenNoneOfTheNewFocusShows(double gap, double formOffset)
+    {
+        // A form 150 tall whose status area is followed, after a gap, by Save.
+        var status = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
+        var statusContent = new Fixed(new BSize(80, 300));
+        status.AddChild(statusContent);
+        var save = new StandardButton { Text = "Save" };
+        var form = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth };
+        form.AddChild(new Column().Add(status, 100).Add(new Fixed(new BSize(80, gap)), gap).Add(save, 30));
+        using UiSession session = Attach(new Column().Add(form, 150), 200, 600);
+        session.SetFocus(status);
 
         statusContent.Desired = new BSize(80, 60);
         session.RenderFrame();
         session.RenderFrame();
 
         Assert.Same(save, session.FocusedElement);
-        Assert.Equal(0, status.VerticalOffset);
-        Assert.Equal(50, list.VerticalOffset);
-        Assert.Equal(0, form.VerticalOffset);
+        Assert.False(save.GetVisibleBounds().IsEmpty);
+        Assert.Equal(formOffset, form.VerticalOffset);
     }
 
     [Fact]

@@ -59,9 +59,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     /// stop while it has focus (its content shrinks, its viewport grows, a control inside it can take
     /// focus, or this is turned off) hands focus on when it is next drawn, through
     /// <see cref="IUiDispatcher.Post"/>: to the next tab stop in the focus scope, or the previous one
-    /// when none follows. It scrolls nothing, and leaves focus that is elsewhere by then alone. A view
-    /// hidden while it has focus is left to what hid it, and hands focus on once it is shown again if
-    /// it is no stop then.
+    /// when none follows. That stop is scrolled into view only when none of it can be seen, and
+    /// focus that is elsewhere by then is left alone. A view hidden while it has focus is left to
+    /// what hid it, and hands focus on once it is shown again if it is no stop then.
     /// </remarks>
     public bool FocusWhenScrollable
     {
@@ -532,8 +532,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 
     /// <summary>
     /// Moves focus to the next tab stop in the focus scope, or to the previous one when none follows, unless it has
-    /// moved elsewhere since the view was drawn, or this view is a stop again. Nothing is scrolled: this follows a
-    /// change of layout, not the user's navigation, and the stop beside the view is normally in sight.
+    /// moved elsewhere since the view was drawn, or this view is a stop again. The stop is scrolled into view, as Tab
+    /// would, only when none of it can be seen: a ring that shows in part shows where focus went, and this follows a
+    /// change of layout, not the user's navigation, so content the user is reading is not moved for it.
     /// </summary>
     private void HandFocusOn()
     {
@@ -542,8 +543,12 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 
         var scope = new StandardFocusScope(session);
         UiElement? target = scope.FindAdjacentStop(this, 1) ?? scope.FindAdjacentStop(this, -1);
-        if (target is not null)
-            session.SetFocus(target);
+        if (target is null)
+            return;
+
+        session.SetFocus(target);
+        if (session.FocusedElement == target && target.GetVisibleBounds().IsEmpty)
+            target.BringIntoView();
     }
 
     private static bool HasFocusableDescendant(UiElement element)
