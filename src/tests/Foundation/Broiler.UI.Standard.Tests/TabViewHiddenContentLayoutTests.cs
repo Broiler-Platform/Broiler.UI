@@ -117,6 +117,34 @@ public sealed class TabViewHiddenContentLayoutTests
         Assert.Equal(content.Bounds.Size, content.LastAvailableSize);
     }
 
+    [Fact]
+    public void ATabViewStackedAtTheHeightItAskedForMeasuresItsContentOncePerLayout()
+    {
+        // A vertical stack offers the tab view the window's height and arranges it at the height it
+        // asked for. The content fits either way, so measuring it again at the smaller height only
+        // measured it twice on every pass, at two sizes, and the measure cache missed both times.
+        var content = new RecordsMeasure { FixedHeight = 200 };
+        using var tabs = new StandardTabView();
+        tabs.AddTab("only", "Only", content);
+        tabs.AddTab("other", "Other", new StandardPanel());
+        var stack = new StandardPanel();
+        stack.AddChild(tabs);
+        using UiSession session = new StandardUiSessionBuilder().Build(new Host(new BSize(640, 480)));
+        session.AddRoot(stack);
+        session.RenderFrame();
+        Assert.Equal(new BSize(640, 200), content.Bounds.Size);
+
+        int before = content.MeasureCount;
+        for (int pass = 0; pass < 10; pass++)
+        {
+            content.InvalidateMeasure();
+            session.RenderFrame();
+        }
+
+        Assert.Equal(10, content.MeasureCount - before);
+        Assert.Equal(new BSize(640, 200), content.Bounds.Size);
+    }
+
     /// <summary>
     /// The form's feedback ends at the bottom of its rectangle, and measuring it again at that
     /// rectangle changes nothing: it was measured at the size it was given.
@@ -231,11 +259,16 @@ public sealed class TabViewHiddenContentLayoutTests
     private sealed class RecordsMeasure : UiElement
     {
         public BSize LastAvailableSize { get; private set; }
+        public int MeasureCount { get; private set; }
+
+        /// <summary>A height asked for whatever is offered; otherwise all of it.</summary>
+        public double? FixedHeight { get; init; }
 
         protected override BSize MeasureCore(BSize availableSize)
         {
             LastAvailableSize = availableSize;
-            return new BSize(availableSize.Width, double.IsFinite(availableSize.Height) ? availableSize.Height : 100);
+            MeasureCount++;
+            return new BSize(availableSize.Width, FixedHeight ?? (double.IsFinite(availableSize.Height) ? availableSize.Height : 100));
         }
     }
 
