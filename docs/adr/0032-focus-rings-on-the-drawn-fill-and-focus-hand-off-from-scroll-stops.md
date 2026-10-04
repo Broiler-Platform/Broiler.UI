@@ -51,6 +51,11 @@ their ring color against the fill under it.
   is 1.46:1). While the box has focus, an arrow fill the ring does not stand out from is therefore drawn
   inside the ring, inset by its 2 DIP width and rounded concentrically with the frame, so the field shows
   between them. Where the ring stands out from the arrow fill, the arrow is filled up to the frame as before.
+- **One frame in a themed spin box.** The box strips the frame and ring of the edit inside it, so that one frame
+  surrounds both halves. `StandardThemeController` themes the tree parent first, so it reached the edit after the
+  box and gave them back: every controller-themed spin box drew the edit's own square border (at rest) or ring
+  (focused) inside its frame, a second ring that followed no rule, and a line between the field and the arrows.
+  The box now strips them again each time it draws, as it already set the edit's background.
 - **The tab view** calls the helper for its selected header, with unchanged behavior.
 - The rule is not tied to `IsHighContrast`: Light's default button needed it as much as a system palette.
 
@@ -134,6 +139,8 @@ the ring is drawn in HighlightText instead:
   - A focused spin box frames itself in the field's text color when `FocusRing` does not stand out from the
     field. While it has focus, a hovered or pressed arrow whose fill the ring does not stand out from is filled
     inside the ring, rounded, rather than up to the frame. Neither happens in the presets.
+  - A spin box themed through `StandardThemeController` no longer draws its edit's square border or ring inside
+    its frame.
   - The `FocusRing` properties keep the value set or themed; the color drawn is decided at render time.
   - A focused `FocusWhenScrollable` view that stops being a stop hands focus to the next tab stop (or the
     previous one) through the session's dispatcher.
@@ -173,7 +180,9 @@ the ring is drawn in HighlightText instead:
   - Buttons and toggle buttons draw a 1 DIP ring whatever the theme's `FocusRingThickness` (2 DIP in the
     high-contrast presets), unlike the tab view and the scroll view.
   - The rule picks between two colors. If an application's label color reads no better on its fill than the
-    ring, the label color is still drawn.
+    ring, the label color is still drawn. An unthemed button is such a case: its default label is white, not
+    the shared palette's `OnAccent`, so under a shared palette with a light accent its ring is as faint as its
+    label (white on Aquatic's highlight, 1.46:1). Themed buttons take `OnAccent`.
   - A spin box's 1 DIP border at rest merges with a hovered arrow's fill in the system palettes (the window text
     on the highlight is 1.4 to 1.9:1). It is a border, not focus, and its outer edge still bounds the control.
   - `DefaultListItemPresenter` keeps its own form of the rule, in high contrast only, without the opacity check.

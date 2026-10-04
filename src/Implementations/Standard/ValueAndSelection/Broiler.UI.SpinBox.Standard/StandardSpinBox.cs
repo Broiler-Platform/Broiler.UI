@@ -273,7 +273,10 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         BColor background = IsEnabled ? Background : StandardControlPaint.SurfaceDisabled;
         StandardControlPaint.FillRounded(context.RenderList, Bounds, background, CornerRadius);
 
-        // The edit paints over this, so it has to know the fill it is sitting on.
+        // The edit paints over this, so it has to know the fill it is sitting on. Its frame and ring are stripped
+        // here too: a theme applied to the whole tree reaches the edit after the box, and gives them back.
+        _edit.BorderColor = BColor.Empty;
+        _edit.FocusRing = BColor.Empty;
         _edit.Background = background;
         base.RenderCore(context);
 
