@@ -765,17 +765,20 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
     private bool FocusIndexedChild(bool first)
     {
         List<UiElement> items = GetVisibleChildren();
-        if (Session is null)
+        if (items.Count == 0 || Session is null)
             return false;
 
         for (int step = 0; step < items.Count; step++)
         {
             UiElement candidate = items[first ? step : items.Count - 1 - step];
-            if (CanNavigateTo(candidate))
-                return FocusChild(candidate);
+            if (NavigationTarget(candidate) is UiElement target)
+                return FocusChild(candidate, target);
         }
 
-        return false;
+        // Nothing on the bar can take focus right now (every command disabled while it works).
+        // The key is still the bar's: handed on, it would reach a container that reads the same
+        // keys, such as a tab view, and move the user somewhere else.
+        return true;
     }
 
     private bool MoveFocus(int delta)
@@ -807,27 +810,44 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
         for (int step = 1; step <= items.Count; step++)
         {
             int next = ((index + (delta * step)) % items.Count + items.Count) % items.Count;
-            if (CanNavigateTo(items[next]))
-                return FocusChild(items[next]);
+            if (NavigationTarget(items[next]) is UiElement target)
+                return FocusChild(items[next], target);
         }
 
-        return false;
+        // As for Home and End: the key is spent even when nothing can take focus.
+        return true;
     }
 
     /// <summary>
-    /// Whether arrowing along the bar may stop on a child. A control that takes focus but cannot
-    /// right now, such as a disabled button, is passed over, as Tab passes over it; a child that
-    /// never takes focus itself is reached as before.
+    /// Where arrowing along the bar lands for a child, or null to pass it over, as Tab passes over
+    /// it: a control that takes focus but cannot right now (disabled), or one that never takes focus
+    /// and holds nothing that does (a status label). A child that holds controls without taking
+    /// focus itself (a group) lands on the first of them that can.
     /// </summary>
-    private static bool CanNavigateTo(UiElement child) => !child.Focusable || child.CanFocus;
+    private static UiElement? NavigationTarget(UiElement child)
+    {
+        if (child.CanFocus)
+            return child;
+        if (child.Focusable || child.Visibility != UiVisibility.Visible || child.IsHiddenFromAccessibility)
+            return null;
+
+        foreach (UiElement nested in child.Children)
+        {
+            if (NavigationTarget(nested) is UiElement target)
+                return target;
+        }
+
+        return null;
+    }
 
     /// <summary>
-    /// Moves focus to a child, showing the drop-down when the child is inside it
-    /// and shutting it again on the way out. Arrowing along the bar reaches every
-    /// item it holds, which is what it did when the far end was merely clipped and
-    /// has to keep doing now that the far end is behind a chevron.
+    /// Moves focus to a child, or to <paramref name="target"/> inside it, showing
+    /// the drop-down when the child is inside it and shutting it again on the way
+    /// out. Arrowing along the bar reaches every item it holds, which is what it
+    /// did when the far end was merely clipped and has to keep doing now that the
+    /// far end is behind a chevron.
     /// </summary>
-    private bool FocusChild(UiElement child)
+    private bool FocusChild(UiElement child, UiElement target)
     {
         if (Session is null)
             return false;
@@ -846,7 +866,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
             Arrange(Bounds);
         }
 
-        Session.SetFocus(child);
+        Session.SetFocus(target);
         return true;
     }
 
