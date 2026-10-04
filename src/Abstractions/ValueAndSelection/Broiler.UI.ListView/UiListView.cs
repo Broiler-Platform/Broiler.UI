@@ -69,7 +69,9 @@ public abstract class UiListView : UiElement, IUiScrollable
     }
 
     /// <summary>
-    /// Whether scroll anchoring is enabled across item insertions and removals.
+    /// Whether scroll anchoring is enabled across item insertions and removals. While it is, the row at the
+    /// top of the view keeps its place on screen when <see cref="SetItems"/> replaces the items; when that row
+    /// is removed, the nearest row of the old order that is still there keeps its place instead.
     /// </summary>
     public bool EnableScrollAnchoring { get; set; } = true;
 
@@ -184,17 +186,15 @@ public abstract class UiListView : UiElement, IUiScrollable
         if (copy.Select(static item => item.Id).Distinct(StringComparer.Ordinal).Count() != copy.Length)
             throw new ArgumentException("List item IDs must be unique.", nameof(items));
 
-        string? anchorItemId = null;
-        double anchorRelativeOffset = 0;
+        IReadOnlyList<UiListItem> oldItems = _items;
+        int anchorIndex = -1;
+        double oldOffset = VerticalOffset;
         double itemHeight = GetItemHeightForAnchoring();
         if (EnableScrollAnchoring && _items.Count > 0 && VerticalOffset > 0 && itemHeight > 0)
         {
             int firstVisible = GetFirstVisibleIndexForAnchoring();
             if ((uint)firstVisible < (uint)_items.Count)
-            {
-                anchorItemId = _items[firstVisible].Id;
-                anchorRelativeOffset = VerticalOffset - (firstVisible * itemHeight);
-            }
+                anchorIndex = firstVisible;
         }
 
         string? oldSelection = _selectedItemId;
@@ -206,15 +206,11 @@ public abstract class UiListView : UiElement, IUiScrollable
         if (_selectedItemId is not null && IndexOf(_selectedItemId) < 0)
             _selectedItemId = _selectedItemIds.Count > 0 ? _selectedItemIds[0] : null;
 
-        if (anchorItemId is not null)
-        {
-            int newIndex = IndexOf(anchorItemId);
-            if (newIndex >= 0)
-            {
-                double newOffset = (newIndex * itemHeight) + anchorRelativeOffset;
-                SetVerticalOffset(newOffset);
-            }
-        }
+        // The first visible row stays where it was on screen. When it is gone, the
+        // nearest row of the old order that survived stays where it was instead, so
+        // the rows around it do not jump; only when none survived is the offset kept.
+        if (anchorIndex >= 0 && TryFindSurvivingRow(oldItems, copy, anchorIndex, out int oldIndex, out int newIndex))
+            SetVerticalOffset(oldOffset + ((newIndex - oldIndex) * itemHeight));
 
         if (!StringComparer.Ordinal.Equals(oldSelection, _selectedItemId) ||
             !oldSelections.SequenceEqual(_selectedItemIds, StringComparer.Ordinal))
@@ -510,6 +506,47 @@ public abstract class UiListView : UiElement, IUiScrollable
         }
 
         return new UiSemanticNode(UiSemanticRole.ListItem, item.Text, bounds, state, []);
+    }
+
+    /// <summary>
+    /// The row of <paramref name="oldItems"/> nearest <paramref name="anchorIndex"/> that is also among
+    /// <paramref name="newItems"/>, the anchor itself first. At equal distance the row after the anchor wins:
+    /// it was on screen, while the row before it had scrolled off the top.
+    /// </summary>
+    private static bool TryFindSurvivingRow(
+        IReadOnlyList<UiListItem> oldItems,
+        IReadOnlyList<UiListItem> newItems,
+        int anchorIndex,
+        out int oldIndex,
+        out int newIndex)
+    {
+        var newIndexes = new Dictionary<string, int>(newItems.Count, StringComparer.Ordinal);
+        for (int index = 0; index < newItems.Count; index++)
+            newIndexes[newItems[index].Id] = index;
+
+        for (int distance = 0; distance < oldItems.Count; distance++)
+        {
+            int after = anchorIndex + distance;
+            if (after < oldItems.Count && newIndexes.TryGetValue(oldItems[after].Id, out newIndex))
+            {
+                oldIndex = after;
+                return true;
+            }
+
+            int before = anchorIndex - distance;
+            if (distance > 0 && before >= 0 && newIndexes.TryGetValue(oldItems[before].Id, out newIndex))
+            {
+                oldIndex = before;
+                return true;
+            }
+
+            if (after >= oldItems.Count && before < 0)
+                break;
+        }
+
+        oldIndex = -1;
+        newIndex = -1;
+        return false;
     }
 
     protected virtual double GetItemHeightForAnchoring() => 26.0;

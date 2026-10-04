@@ -149,6 +149,71 @@ public sealed class ListViewPresenterAndVirtualizationTests
     }
 
     [Fact]
+    public void Scroll_Anchoring_Keeps_The_Next_Row_In_Place_When_The_Anchor_Row_Is_Removed()
+    {
+        var listView = new StandardListView { ItemHeight = 25, EnableScrollAnchoring = true };
+        List<UiListItem> items = Enumerable.Range(0, 50).Select(i => new UiListItem($"item-{i}", $"Item {i}")).ToList();
+        listView.SetItems(items);
+        using UiSession session = AttachAndRender(listView, new BSize(200, 250), out _);
+
+        // item-10 at the top, scrolled 10 DIP into it, so item-11 is 15 DIP down the view.
+        listView.ScrollIntoView("item-19");
+        Assert.True(listView.MakeVisible(new BRect(0, 255, 10, 5)));
+        Assert.Equal(260, listView.VerticalOffset);
+        double item11Top = (11 * 25) - listView.VerticalOffset;
+
+        listView.SetItems(items.Where(item => item.Id != "item-10"));
+        listView.Arrange(new BRect(0, 0, 200, 250));
+
+        // item-11 did not move; the row before the removed one slides in above it.
+        Assert.Equal(235, listView.VerticalOffset);
+        Assert.Equal(item11Top, (IndexOf(listView, "item-11") * 25) - listView.VerticalOffset);
+        Assert.Equal("item-9", listView.Items[listView.FirstVisibleIndex].Id);
+
+        // When the rows after it are gone too, the row before it keeps its place.
+        double item9Top = (IndexOf(listView, "item-9") * 25) - listView.VerticalOffset;
+        listView.SetItems(listView.Items.Where(item => item.Id is not ("item-11" or "item-12" or "item-13")).ToList());
+        listView.Arrange(new BRect(0, 0, 200, 250));
+        Assert.Equal(item9Top, (IndexOf(listView, "item-9") * 25) - listView.VerticalOffset);
+    }
+
+    [Fact]
+    public void Scroll_Anchoring_Keeps_The_Nearest_Row_When_The_Anchor_Falls_Off_A_Newer_Page()
+    {
+        // A mail list shows the newest 50 messages. 25 new ones push the row at the top of the view, and
+        // every row below it, off the page.
+        var listView = new StandardListView { ItemHeight = 25, EnableScrollAnchoring = true };
+        List<UiListItem> page = Enumerable.Range(0, 50).Select(i => new UiListItem($"item-{i}", $"Item {i}")).ToList();
+        listView.SetItems(page);
+        using UiSession session = AttachAndRender(listView, new BSize(200, 250), out _);
+        listView.ScrollIntoView("item-39");
+        Assert.Equal(750, listView.VerticalOffset);
+        Assert.Equal("item-30", listView.Items[listView.FirstVisibleIndex].Id);
+
+        List<UiListItem> newer = Enumerable.Range(0, 25).Select(i => new UiListItem($"new-{i}", $"New {i}")).Concat(page.Take(25)).ToList();
+        listView.SetItems(newer);
+        listView.Arrange(new BRect(0, 0, 200, 250));
+
+        // item-24, the nearest survivor, is pulled as close to where it was as the list allows: the view
+        // ends with it instead of showing unrelated rows from the middle of the new page.
+        Assert.Equal(1000, listView.VerticalOffset);
+        Assert.Equal("item-24", listView.Items[listView.FirstVisibleIndex + listView.VisibleItemCount - 1].Id);
+    }
+
+    [Fact]
+    public void Scroll_Anchoring_Keeps_The_Offset_When_No_Row_Survives()
+    {
+        var listView = new StandardListView { ItemHeight = 25, EnableScrollAnchoring = true };
+        listView.SetItems(Enumerable.Range(0, 50).Select(i => new UiListItem($"item-{i}", $"Item {i}")));
+        using UiSession session = AttachAndRender(listView, new BSize(200, 250), out _);
+        listView.ScrollIntoView("item-19");
+
+        listView.SetItems(Enumerable.Range(0, 50).Select(i => new UiListItem($"other-{i}", $"Other {i}")));
+
+        Assert.Equal(250, listView.VerticalOffset);
+    }
+
+    [Fact]
     public void Scroll_Anchoring_Disabled_Does_Not_Shift_Offset()
     {
         var listView = new StandardListView
@@ -407,6 +472,17 @@ public sealed class ListViewPresenterAndVirtualizationTests
         Assert.NotEmpty(texts);
         Assert.Contains(texts, t => t.Text.Text.Contains("12:00 PM", StringComparison.Ordinal));
         Assert.Contains(texts, t => t.Text.Text.Contains("...", StringComparison.Ordinal));
+    }
+
+    private static int IndexOf(UiListView listView, string id)
+    {
+        for (int index = 0; index < listView.Items.Count; index++)
+        {
+            if (listView.Items[index].Id == id)
+                return index;
+        }
+
+        return -1;
     }
 
     private static UiSession AttachAndRender(UiElement element, BSize size, out BRenderList renderList)
