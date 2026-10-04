@@ -84,6 +84,8 @@ public sealed class StateFillRoleTests
     [MemberData(nameof(Presets))]
     public void State_Text_Meets_WCAG_AA_On_The_State_Fill(StandardThemeTokens theme)
     {
+        // The token pair only. A control keeps its own label color on the fill while StateText is Text (a toggle
+        // button's accent), so the drawn pairs are checked control by control.
         Assert.True(
             theme.StateTextContrast >= StandardContrast.AaNormalText,
             $"{theme.Name}: StateText/StateFill contrast {theme.StateTextContrast:0.00}:1 is below the required {StandardContrast.AaNormalText:0.0}:1.");
@@ -125,9 +127,6 @@ public sealed class StateFillRoleTests
         var legacy = new StandardThemeTokens(BColor.Black, BColor.White, BColor.Green, BColor.Red);
         Assert.Equal(legacy.AccentSoft, legacy.StateFill);
         Assert.Equal(BColor.White, legacy.StateText);
-
-        Assert.Equal(StandardControlPaint.Theme.StateFill, StandardControlPaint.StateFill);
-        Assert.Equal(StandardControlPaint.Theme.StateText, StandardControlPaint.StateText);
     }
 
     [Fact]

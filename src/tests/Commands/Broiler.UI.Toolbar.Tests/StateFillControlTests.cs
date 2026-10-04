@@ -193,6 +193,23 @@ public sealed class StateFillControlTests
     }
 
     [Fact]
+    public void A_Checked_Toggle_Button_Paints_Its_Icon_In_The_State_Text()
+    {
+        StandardThemeTokens theme = DistinctStates;
+        BColor iconColor = BColor.Empty;
+        var toggle = new StandardToggleButton { Text = "Bold", IconPainter = (_, _, color) => iconColor = color };
+        toggle.ApplyTheme(theme);
+        using var harness = new Harness(toggle, new BRect(10, 10, 30, 30));
+
+        harness.Render();
+        Assert.Equal(theme.Accent, iconColor);
+
+        toggle.ToggleState = UiToggleState.On;
+        harness.Render();
+        Assert.Equal(theme.StateText, iconColor);
+    }
+
+    [Fact]
     public void A_Toggle_Button_Whose_Accent_Is_The_State_Fill_Draws_Its_Label_In_The_State_Text()
     {
         // A system palette maps the accent and the state fill to one highlight. Here the selected text is the
@@ -242,7 +259,7 @@ public sealed class StateFillControlTests
 
     [Theory]
     [MemberData(nameof(Presets))]
-    public void A_Preset_Draws_The_Open_Overflow_Chevron_As_Before(StandardThemeTokens theme)
+    public void A_Preset_Draws_The_Open_Overflow_Chevron_In_Its_Own_Theme(StandardThemeTokens theme)
     {
         (Harness harness, StandardToolbar toolbar) = OverflowingBar(theme);
         using (harness)
@@ -250,6 +267,12 @@ public sealed class StateFillControlTests
             harness.Render();
             Assert.True(toolbar.OpenOverflow());
             Assert.Equal((theme.AccentSoft, theme.Text), ChevronLook(harness.Render(), toolbar));
+
+            // A foreground the application sets after the theme still reaches the open chevron, as it always has.
+            BColor custom = BColor.FromArgb(0xFF, 0x80, 0x10, 0x10);
+            toolbar.Foreground = custom;
+            toolbar.Invalidate(UiInvalidationKind.Render);
+            Assert.Equal((theme.AccentSoft, custom), ChevronLook(harness.Render(), toolbar));
         }
     }
 
@@ -340,6 +363,8 @@ public sealed class StateFillControlTests
             _route = new StandardInputRoute(_session);
             _session.RenderFrame();
         }
+
+        public UiSession Session => _session;
 
         public BRenderList Render() => _session.RenderFrame();
 

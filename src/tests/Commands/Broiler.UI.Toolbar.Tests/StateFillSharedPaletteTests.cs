@@ -104,4 +104,26 @@ public sealed class StateFillSharedPaletteTests
             StandardControlPaint.ApplyTheme(original);
         }
     }
+
+    [Theory]
+    [MemberData(nameof(Presets), MemberType = typeof(StateFillControlTests))]
+    public void A_Preset_Applied_Through_The_Controller_Draws_The_Open_Overflow_Chevron_As_Before(StandardThemeTokens theme)
+    {
+        StandardThemeTokens original = StandardControlPaint.Theme;
+        try
+        {
+            (Harness bar, StandardToolbar toolbar) = OverflowingBar(null);
+            using (bar)
+            {
+                StandardThemeController.Apply(bar.Session, theme);
+                bar.Render();
+                Assert.True(toolbar.OpenOverflow());
+                Assert.Equal((theme.AccentSoft, theme.Text), ChevronLook(bar.Render(), toolbar));
+            }
+        }
+        finally
+        {
+            StandardControlPaint.ApplyTheme(original);
+        }
+    }
 }
