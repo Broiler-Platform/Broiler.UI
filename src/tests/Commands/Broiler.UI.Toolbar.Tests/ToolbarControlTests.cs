@@ -166,8 +166,8 @@ public sealed class ToolbarControlTests
     [Fact]
     public void Toolbar_Keeps_Its_Keys_When_Nothing_On_It_Can_Take_Focus()
     {
-        // Every command on the bar disabled while it works, the focused one included. Handed on, an
-        // arrow would reach the tab view around the bar, which switches tabs on the same keys.
+        // Every command on the bar disabled while it works, the focused one included. The bar keeps
+        // its arrows, Home and End, as it always has, and nothing around it acts on them.
         var host = new TestHost(new BSize(480, 200));
         using UiSession session = CreateSession(host);
         var toolbar = new StandardToolbar { Title = "Message" };

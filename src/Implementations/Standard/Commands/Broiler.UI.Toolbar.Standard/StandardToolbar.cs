@@ -777,7 +777,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
 
         // Nothing on the bar can take focus right now (every command disabled while it works).
         // The key is still the bar's: handed on, it would reach a container that reads the same
-        // keys, such as a tab view, and move the user somewhere else.
+        // keys and move the user somewhere else.
         return true;
     }
 
