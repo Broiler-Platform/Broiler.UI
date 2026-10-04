@@ -57,6 +57,19 @@ public sealed class AccentTextRoleTests
         Assert.Equal(BColor.Green, legacy.AccentText);
     }
 
+    [Theory]
+    [InlineData("Aquatic", 0x202020u, 0xFFFFFFu, 0x8EE3F0u, 0x263B50u)]
+    [InlineData("Desert", 0xFFFAEFu, 0x3D3D3Du, 0x903909u, 0xFFF5E3u)]
+    [InlineData("Dusk", 0x2D3236u, 0xFFFFFFu, 0xA1BFDEu, 0x212D3Bu)]
+    [InlineData("NightSky", 0x000000u, 0xFFFFFFu, 0xD6B4FDu, 0x2B2B2Bu)]
+    public void A_Windows_Contrast_Theme_Reads_Its_Highlight_As_Accent_Text(string name, uint window, uint windowText, uint highlight, uint highlightText)
+    {
+        // A host's palette follows its accent, the highlight, which these themes choose to read on the window.
+        StandardThemeTokens system = StateFillRoleTests.SystemPalette(name, window, windowText, highlight, highlightText);
+        Assert.Equal(system.Accent, system.AccentText);
+        AssertMeets(system.AccentText, system.Surface, system, "AccentText/Surface");
+    }
+
     [Fact]
     public void The_Shared_Palette_Reads_The_Accent_Text()
     {
