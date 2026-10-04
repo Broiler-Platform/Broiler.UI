@@ -29,11 +29,14 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         Foreground = theme.Text;
         DisabledForeground = theme.TextDisabled;
         SelectedBackground = theme.AccentSoft;
+        // The open item keeps following Foreground unless the theme gives the selection a text color of its own.
+        _selectedForeground = theme.SelectionText == theme.Text ? null : theme.SelectionText;
         BorderColor = theme.Border;
     }
 
     private readonly List<BRect> _topLevelBounds = [];
     private UiElement? _focusBeforeOpen;
+    private BColor? _selectedForeground;
 
     public BColor Background { get; set; } = BColor.Transparent;
 
@@ -44,6 +47,19 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
     public BColor DisabledForeground { get; set; } = StandardControlPaint.TextDisabled;
 
     public BColor SelectedBackground { get; set; } = StandardControlPaint.AccentSoft;
+
+    /// <summary>
+    /// The color of the open or highlighted item's text, drawn on <see cref="SelectedBackground"/>. Until it is
+    /// set it is <see cref="Foreground"/>. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.SelectionText"/> when that differs from the theme's text color, and
+    /// otherwise lets it follow <see cref="Foreground"/> again. Disabled items keep
+    /// <see cref="DisabledForeground"/>.
+    /// </summary>
+    public BColor SelectedForeground
+    {
+        get => _selectedForeground ?? Foreground;
+        set => _selectedForeground = value;
+    }
 
     public BColor BorderColor { get; set; } = StandardControlPaint.Border;
 
@@ -274,9 +290,11 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             double width = Math.Max(54, BTextMeasurer.MeasureAdvance(item.Text, Font) + 24);
             BRect rect = new(x, Bounds.Top, width, MenuBarHeight);
             _topLevelBounds.Add(rect);
-            if (SelectedPath.Count > 0 && SelectedPath[0] == index && IsOpen)
+            bool selected = SelectedPath.Count > 0 && SelectedPath[0] == index && IsOpen;
+            if (selected)
                 StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(rect, 2), SelectedBackground, CornerRadius);
-            context.RenderList.DrawText(new BTextRun(item.Text, Font, item.IsEnabled ? Foreground : DisabledForeground), new BPoint(rect.Left + 10, rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            BColor foreground = !item.IsEnabled ? DisabledForeground : selected ? SelectedForeground : Foreground;
+            context.RenderList.DrawText(new BTextRun(item.Text, Font, foreground), new BPoint(rect.Left + 10, rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
             x = rect.Right;
         }
     }
@@ -300,7 +318,8 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
                     StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(row, 2), SelectedBackground, CornerRadius);
                 string prefix = item.IsCheckable ? (item.IsChecked ? "x " : "  ") : string.Empty;
                 string suffix = item.Children.Count > 0 ? " >" : string.Empty;
-                context.RenderList.DrawText(new BTextRun(prefix + item.Text + suffix, Font, item.IsEnabled ? Foreground : DisabledForeground), new BPoint(row.Left + 8, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+                BColor foreground = !item.IsEnabled ? DisabledForeground : selectedIndex == index ? SelectedForeground : Foreground;
+                context.RenderList.DrawText(new BTextRun(prefix + item.Text + suffix, Font, foreground), new BPoint(row.Left + 8, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
             }
 
             if (selectedIndex < 0)

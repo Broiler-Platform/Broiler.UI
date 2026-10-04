@@ -34,6 +34,20 @@ public sealed partial class StandardRichEdit
 
     public BColor ContextMenuHighlight { get; set; } = StandardControlPaint.AccentSoft;
 
+    /// <summary>
+    /// The color of the highlighted row's text and shortcut, drawn on <see cref="ContextMenuHighlight"/>. Until
+    /// it is set it is <see cref="ContextMenuForeground"/>, with the shortcut in
+    /// <see cref="ContextMenuDisabledForeground"/> as on the other rows. <see cref="ApplyTheme"/> sets it to the
+    /// theme's <see cref="StandardThemeTokens.SelectionText"/> when that differs from the theme's text color.
+    /// </summary>
+    public BColor ContextMenuHighlightForeground
+    {
+        get => _contextMenuHighlightForeground ?? ContextMenuForeground;
+        set => _contextMenuHighlightForeground = value;
+    }
+
+    private BColor? _contextMenuHighlightForeground;
+
     public BColor ContextMenuBorderColor { get; set; } = StandardControlPaint.Border;
 
     public double ContextMenuItemHeight { get; set; } = 26;
@@ -418,16 +432,21 @@ public sealed partial class StandardRichEdit
             }
 
             var row = new BRect(menu.Left, top, menu.Width, ContextMenuItemHeight);
-            if (index == _contextMenuHighlightedIndex)
+            bool highlighted = index == _contextMenuHighlightedIndex;
+            if (highlighted)
                 StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(row, 2), ContextMenuHighlight, StandardControlPaint.SmallRadius);
 
-            BColor foreground = item.IsEnabled ? ContextMenuForeground : ContextMenuDisabledForeground;
+            // A highlight with a text color of its own takes the shortcut too: the dimmed shortcut color is
+            // chosen for the menu background, not for the highlight.
+            bool ownHighlightColor = highlighted && ContextMenuHighlightForeground != ContextMenuForeground;
+            BColor foreground = !item.IsEnabled ? ContextMenuDisabledForeground : highlighted ? ContextMenuHighlightForeground : ContextMenuForeground;
             double baseline = row.Top + Math.Max(0, (row.Height - lineHeight) / 2);
             context.RenderList.DrawText(new BTextRun(item.Text, Font, foreground), new BPoint(row.Left + ContextMenuPaddingX, baseline));
             if (item.Shortcut.Length > 0)
             {
                 double shortcutWidth = BTextMeasurer.MeasureAdvance(item.Shortcut, Font);
-                context.RenderList.DrawText(new BTextRun(item.Shortcut, Font, ContextMenuDisabledForeground), new BPoint(row.Right - ContextMenuPaddingX - shortcutWidth, baseline));
+                BColor shortcut = ownHighlightColor ? ContextMenuHighlightForeground : ContextMenuDisabledForeground;
+                context.RenderList.DrawText(new BTextRun(item.Shortcut, Font, shortcut), new BPoint(row.Right - ContextMenuPaddingX - shortcutWidth, baseline));
             }
 
             top += ContextMenuItemHeight;

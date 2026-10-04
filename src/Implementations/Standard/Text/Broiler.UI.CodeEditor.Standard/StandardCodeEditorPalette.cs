@@ -63,11 +63,13 @@ public static class StandardCodeEditorPalette
     }
 
     /// <summary>
-    /// A theme whose surface and text sit at the extremes is a high-contrast
-    /// theme, whatever it is named.
+    /// A theme that says it is high contrast is one, and so is a theme whose
+    /// surface and text sit at the extremes, whatever it is named.
     /// </summary>
     private static bool IsHighContrast(StandardThemeTokens tokens)
     {
+        if (tokens.IsHighContrast)
+            return true;
         double surface = Luminance(tokens.Surface);
         double text = Luminance(tokens.Text);
         return Math.Abs(surface - text) > 0.9;

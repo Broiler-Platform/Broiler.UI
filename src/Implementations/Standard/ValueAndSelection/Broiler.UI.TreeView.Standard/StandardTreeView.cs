@@ -36,6 +36,8 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
     private BColor _foreground = new(0x1F, 0x23, 0x28);
     private BColor _mutedForeground = new(0x6B, 0x72, 0x80);
     private BColor _selection = new(0xB3, 0xD4, 0xFC);
+    private BColor? _selectionForeground;
+    private BColor? _selectionMutedForeground;
     private BColor _inactiveSelection = new(0xDC, 0xE3, 0xEB);
     private BColor _focusRing = new(0x25, 0x63, 0xEB);
     private BColor _errorColor = new(0xD1, 0x24, 0x2F);
@@ -119,6 +121,10 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         _foreground = tokens.Text;
         _mutedForeground = tokens.TextMuted;
         _selection = tokens.AccentSoft;
+        // Rows on the selection keep the ordinary text colors unless the theme gives the selection its own,
+        // as a palette built from a system highlight pair does.
+        _selectionForeground = tokens.SelectionText == tokens.Text ? null : tokens.SelectionText;
+        _selectionMutedForeground = tokens.SelectionTextMuted == tokens.TextMuted ? null : tokens.SelectionTextMuted;
         _inactiveSelection = tokens.SurfaceDisabled;
         _focusRing = tokens.FocusRing;
         _errorColor = tokens.Danger;
@@ -127,10 +133,10 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
 
         _scrollbars.ApplyPaint(tokens.SurfaceDisabled, tokens.BorderStrong);
 
-        // A theme whose surface and text sit at the extremes is high contrast,
-        // whatever it is called. There, decorations carry a glyph as well as a
-        // colour so a row's state does not depend on hue.
-        _highContrast = Math.Abs(Luminance(tokens.Surface) - Luminance(tokens.Text)) > 0.9;
+        // A theme that says it is high contrast, or whose surface and text sit
+        // at the extremes whatever it is called. There, decorations carry a
+        // glyph as well as a colour so a row's state does not depend on hue.
+        _highContrast = tokens.IsHighContrast || Math.Abs(Luminance(tokens.Surface) - Luminance(tokens.Text)) > 0.9;
         Invalidate(UiInvalidationKind.Render);
     }
 
@@ -222,11 +228,21 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         // when the pane is narrower than the path that got to it.
         double indent = bounds.Left + 4 + (row.Depth * _indentWidth) - _horizontalOffset;
 
-        if (Selection.Contains(row.Id))
+        // Only a focused view fills its selection with the selection color; an
+        // inactive selection is a muted surface the ordinary text reads on.
+        bool onSelection = Selection.Contains(row.Id);
+        BColor foreground = _foreground;
+        BColor mutedForeground = _mutedForeground;
+        if (onSelection)
         {
             list.FillRect(
                 new BRect(bounds.Left, top, bounds.Width, _rowHeight),
                 viewFocused ? _selection : _inactiveSelection);
+            if (viewFocused)
+            {
+                foreground = _selectionForeground ?? _foreground;
+                mutedForeground = _selectionMutedForeground ?? _mutedForeground;
+            }
         }
 
         if (FocusedNode == row.Id && viewFocused)
@@ -253,17 +269,17 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
             if (row.IsExpanded)
             {
                 for (double step = 0; step < size / 2; step++)
-                    list.FillRect(new BRect(indent + step, glyphTop + step, size - (step * 2), 1), _foreground);
+                    list.FillRect(new BRect(indent + step, glyphTop + step, size - (step * 2), 1), foreground);
             }
             else
             {
                 for (double step = 0; step < size / 2; step++)
-                    list.FillRect(new BRect(indent + step, glyphTop + step, 1, size - (step * 2)), _foreground);
+                    list.FillRect(new BRect(indent + step, glyphTop + step, 1, size - (step * 2)), foreground);
             }
         }
 
         double textLeft = indent + _indentWidth;
-        list.DrawText(new BTextRun(presentation.Label, _font, _foreground), new BPoint(textLeft, top + 2));
+        list.DrawText(new BTextRun(presentation.Label, _font, foreground), new BPoint(textLeft, top + 2));
 
         double advance = BTextMeasurer.MeasureAdvance(presentation.Label, _font);
         if (presentation.SecondaryLabel is { Length: > 0 } secondary)
@@ -274,13 +290,13 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
                 // answers reads down the pane instead of starting wherever the
                 // name above it happened to end.
                 list.DrawText(
-                    new BTextRun(secondary, _font, _mutedForeground),
+                    new BTextRun(secondary, _font, mutedForeground),
                     new BPoint(textLeft, top + 2 + BTextMeasurer.GetLineHeight(_font)));
             }
             else
             {
                 list.DrawText(
-                    new BTextRun(secondary, _font, _mutedForeground),
+                    new BTextRun(secondary, _font, mutedForeground),
                     new BPoint(textLeft + advance + 8, top + 2));
                 advance += BTextMeasurer.MeasureAdvance(secondary, _font) + 8;
             }

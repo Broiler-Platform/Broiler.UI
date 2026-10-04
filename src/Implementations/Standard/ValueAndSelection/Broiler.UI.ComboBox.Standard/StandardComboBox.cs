@@ -27,6 +27,8 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         Foreground = theme.Text;
         BorderColor = theme.Border;
         SelectedBackground = theme.AccentSoft;
+        // The highlighted item keeps following Foreground unless the theme gives the selection a text color of its own.
+        SetSelectedForeground(theme.SelectionText == theme.Text ? null : theme.SelectionText);
         PopupBackground = theme.Surface;
         FocusRing = theme.FocusRing;
     }
@@ -38,6 +40,7 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
     private BColor _foreground = StandardControlPaint.Text;
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _selectedBackground = StandardControlPaint.AccentSoft;
+    private BColor? _selectedForeground;
     private BColor _popupBackground = StandardControlPaint.Surface;
     private BColor _focusRing = StandardControlPaint.Focus;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
@@ -87,6 +90,25 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
             _selectedBackground = value;
             Invalidate(UiInvalidationKind.Render);
         }
+    }
+
+    /// <summary>
+    /// The color of the highlighted drop-down item's text, drawn on <see cref="SelectedBackground"/>. Until it
+    /// is set it is <see cref="Foreground"/>. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.SelectionText"/> when that differs from the theme's text color, and
+    /// otherwise lets it follow <see cref="Foreground"/> again.
+    /// </summary>
+    public BColor SelectedForeground
+    {
+        get => _selectedForeground ?? Foreground;
+        set => SetSelectedForeground(value);
+    }
+
+    private void SetSelectedForeground(BColor? value)
+    {
+        if (_selectedForeground == value) return;
+        _selectedForeground = value;
+        Invalidate(UiInvalidationKind.Render);
     }
 
     public BColor PopupBackground
@@ -321,9 +343,11 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         for (int index = 0; index < visible; index++)
         {
             BRect itemRect = new(PopupBounds.Left, PopupBounds.Top + index * ItemHeight, PopupBounds.Width, ItemHeight);
-            if (index == _highlightedIndex)
+            bool highlighted = index == _highlightedIndex;
+            if (highlighted)
                 context.RenderList.FillRect(StandardControlPaint.Inset(itemRect, 2), SelectedBackground);
-            context.RenderList.DrawText(new BTextRun(Items[index].Text, Font, Foreground), new BPoint(itemRect.Left + 8, itemRect.Top + Math.Max(0, (itemRect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            BColor foreground = highlighted ? SelectedForeground : Foreground;
+            context.RenderList.DrawText(new BTextRun(Items[index].Text, Font, foreground), new BPoint(itemRect.Left + 8, itemRect.Top + Math.Max(0, (itemRect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
         }
         context.RenderList.PopClip();
     }

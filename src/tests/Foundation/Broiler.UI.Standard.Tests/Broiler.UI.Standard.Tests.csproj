@@ -27,6 +27,8 @@
     <ProjectReference Include="..\..\..\Implementations\Standard\Commands\Broiler.UI.Button.Standard\Broiler.UI.Button.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.Edit.Standard\Broiler.UI.Edit.Standard.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\Commands\Broiler.UI.Menu\Broiler.UI.Menu.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\Commands\Broiler.UI.Menu.Standard\Broiler.UI.Menu.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.CodeEditor.Standard\Broiler.UI.CodeEditor.Standard.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.CheckBox\Broiler.UI.CheckBox.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.RadioButton\Broiler.UI.RadioButton.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.Slider\Broiler.UI.Slider.csproj" />
