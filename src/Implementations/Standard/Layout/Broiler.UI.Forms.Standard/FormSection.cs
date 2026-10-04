@@ -9,7 +9,9 @@ namespace Broiler.UI.Forms.Standard;
 /// <remarks>
 /// A collapsible section follows the disclosure pattern: its <see cref="Toggle"/> discloses the section
 /// (<see cref="UiElement.Discloses"/>), so the focused button reports Expanded or Collapsed and a host
-/// can expand and collapse it there. The group itself reports neither state. See Broiler.UI ADR 0028.
+/// can expand and collapse it there, and it controls the <see cref="Content"/>
+/// (<see cref="UiElement.Controls"/>), which a host exposes while it is shown. The group itself reports
+/// neither state. See Broiler.UI ADR 0028.
 /// </remarks>
 public sealed class FormSection : UiElement, IFormSection, IUiExpandable
 {
@@ -30,6 +32,8 @@ public sealed class FormSection : UiElement, IFormSection, IUiExpandable
             Toggle = new StandardButton();
             Toggle.Clicked += (_, _) => IsExpanded = !IsExpanded;
             Toggle.Discloses = this;
+            // The section is what expands; its content is where the toggle sends a reader.
+            Toggle.Controls = Content;
             _layout.AddChild(Toggle);
         }
         _summary.Visibility = UiVisibility.Collapsed;

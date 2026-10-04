@@ -20,6 +20,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
     private string? _accessibleName;
     private UiElement? _labeledBy;
     private IUiExpandable? _discloses;
+    private UiElement? _controls;
     private UiElement? _describedBy;
     private UiElement? _errorMessage;
     private bool _isRequired;
@@ -100,13 +101,14 @@ public abstract class UiElement : IDisposable, IUiFocusable
     /// What this element shows and hides when it is operated, such as the section a "Show details"
     /// button opens. The element then reports the target's <see cref="UiSemanticState.Expanded"/> or
     /// <see cref="UiSemanticState.Collapsed"/> state as its own, so a disclosure button carries the
-    /// state where the focus is. A host offers its expand/collapse pattern on this element, acts
-    /// through the target, and, when the target is itself an element, exposes it as the element this
-    /// one controls.
+    /// state where the focus is. A host offers its expand/collapse pattern on this element and acts
+    /// through the target.
     /// </summary>
     /// <remarks>
     /// The target does not know who discloses it. When its state changes it must invalidate the
-    /// semantics of the disclosing element, as <c>FormSection</c> does for its toggle.
+    /// semantics of the disclosing element, as <c>FormSection</c> does for its toggle. The target is
+    /// what acts, and can be a container the element sits in; the content a reader should be sent to
+    /// is named separately by <see cref="Controls"/>.
     /// </remarks>
     public IUiExpandable? Discloses
     {
@@ -118,6 +120,31 @@ public abstract class UiElement : IDisposable, IUiFocusable
                 return;
 
             _discloses = value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// The element whose content this one shows, hides or changes, such as the fields a "Show
+    /// details" button opens. A host exposes it as the element this one controls (UI Automation's
+    /// ControllerFor, ARIA's <c>aria-controls</c>) while it is shown, so a screen reader can move
+    /// from the button to what it opened.
+    /// </summary>
+    /// <remarks>
+    /// Only the relation: <see cref="Discloses"/> carries the expand and collapse state and action.
+    /// An element cannot control itself, and an ancestor, which already contains the element, is no
+    /// place to send a reader; a host leaves it out.
+    /// </remarks>
+    public UiElement? Controls
+    {
+        get => _controls;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_controls, value))
+                return;
+
+            _controls = ReferenceEquals(value, this) ? null : value;
             Invalidate(UiInvalidationKind.Semantic);
         }
     }

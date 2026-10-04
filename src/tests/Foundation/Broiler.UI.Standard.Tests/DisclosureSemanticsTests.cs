@@ -142,9 +142,32 @@ public sealed class DisclosureSemanticsTests
         Assert.True(((IUiExpandable)menu).Expand());
         Assert.True(menu.IsOpen);
         Assert.Equal(UiSemanticState.Expanded, menu.GetSemanticNode().State & ExpandState);
+        // Each call reports whether anything changed.
+        Assert.False(((IUiExpandable)menu).Expand());
+        Assert.True(menu.IsOpen);
 
         Assert.True(((IUiExpandable)menu).Collapse());
         Assert.False(menu.IsOpen);
+        Assert.False(((IUiExpandable)menu).Collapse());
+    }
+
+    [Fact]
+    public void ASectionToggleControlsTheContentItShowsNotTheSectionAroundIt()
+    {
+        using var section = new FormSection("Cc and Bcc", collapsible: true, expanded: false);
+        StandardButton toggle = section.Toggle!;
+
+        // The relation a host exposes points at the fields, not at a group that already holds the button.
+        Assert.Same(section.Content, toggle.Controls);
+        Assert.False(toggle.IsDescendantOf(toggle.Controls!));
+        Assert.False(section.Content.IsDescendantOf(toggle));
+
+        // A section without a toggle controls nothing; an element cannot control itself.
+        using var fixedSection = new FormSection("Server");
+        Assert.Null(fixedSection.Toggle);
+        var button = new StandardButton { Text = "Details" };
+        button.Controls = button;
+        Assert.Null(button.Controls);
     }
 
     private sealed class TestMenu : UiMenu;
