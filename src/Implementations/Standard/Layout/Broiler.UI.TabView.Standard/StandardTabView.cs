@@ -110,18 +110,19 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
                 ? UiVisibility.Collapsed
                 : UiVisibility.Visible;
 
-            if (index == SelectedIndex)
-            {
-                if (double.IsFinite(contentRect.Width) && Math.Abs(content.Bounds.Width - contentRect.Width) > 0.001 && Math.Abs(content.DesiredSize.Width - contentRect.Width) > 0.001)
-                {
-                    content.Measure(contentRect.Size);
-                }
-                content.Arrange(contentRect);
-            }
-            else
-            {
-                content.Arrange(BRect.Empty);
-            }
+            // A hidden tab keeps the arrangement it was last shown with. Arranging it at an empty
+            // rectangle laid a hidden form out at no width and clamped its scroll positions, so the
+            // user came back to a tab that was not as they had left it. It is neither drawn nor hit.
+            if (index != SelectedIndex)
+                continue;
+
+            // Measured at the rectangle it is given. That is usually the size measure already used,
+            // and the content's measure cache makes this free. When it is not, in either dimension
+            // (a tab shown again after the window was resized, or a tab view measured at an unbounded
+            // height), the content is laid out at the size it really has rather than the width alone.
+            if (double.IsFinite(contentRect.Width) && double.IsFinite(contentRect.Height))
+                content.Measure(contentRect.Size);
+            content.Arrange(contentRect);
         }
     }
 

@@ -104,6 +104,9 @@ public abstract class UiElement : IDisposable, IUiFocusable
         }
     }
 
+    /// <summary>This element itself, not an ancestor, was hidden by its container.</summary>
+    internal bool IsHiddenByContainer => _hiddenFromAccessibility;
+
     public virtual bool Focusable { get; set; }
     public virtual bool IsTabStop { get; set; } = true;
     public virtual int TabIndex { get; set; }
@@ -355,6 +358,8 @@ public abstract class UiElement : IDisposable, IUiFocusable
     /// Lets a container hide a child it keeps alive (for example inactive tab content) from
     /// assistive technology. The child is left out of the parent's default semantic children and
     /// reports the Offscreen state; <see cref="IsHiddenFromAccessibility"/> exposes it to providers.
+    /// The session's hit testing skips it too, so content that keeps its last arrangement while
+    /// hidden never takes a pointer meant for what is shown in its place.
     /// </summary>
     protected static void SetHiddenFromAccessibility(UiElement element, bool hidden)
     {
