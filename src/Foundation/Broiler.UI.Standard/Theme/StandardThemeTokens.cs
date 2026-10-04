@@ -43,23 +43,43 @@ public sealed record StandardThemeTokens
     /// <summary>Text/icon color drawn on top of an accent fill (e.g. a primary button label).</summary>
     public required BColor OnAccent { get; init; }
 
-    // Accent text. Not required, like the selection roles, and unset in every preset but Dark, so a copy that
-    // changes Accent carries the new accent onto its text.
+    // Accent text. Not required, like the selection roles. Light and Dark set it for their own accent (the
+    // accent it was chosen for is kept beside it), so a copy that changes Accent and not AccentText carries the
+    // new accent onto its text, as it did before the role existed.
     private BColor? _accentText;
+    private BColor? _accentTextChosenFor;
 
     /// <summary>
-    /// Text and marks drawn in the accent on a surface: the selected tab's label and the bar under it, an accent
-    /// label, a toggle button's label, inline code. <see cref="Accent"/> is chosen as a fill, for
-    /// <see cref="OnAccent"/> text on it, which does not make it readable as text on <see cref="Surface"/>. Unless a
-    /// theme sets it, it is <see cref="Accent"/>. <see cref="Dark"/> sets a lighter tint of its accent, which as text
-    /// reads at only 3.4:1 on its surface; every preset reaches 4.5:1 on <see cref="Surface"/> and
-    /// <see cref="SurfaceAlt"/>. A set value is kept by every copy, so a copy of <see cref="Dark"/> that changes the
-    /// accent sets this too.
+    /// Text and marks drawn in the accent on a surface or on the soft accent fill: the selected tab's label and
+    /// the bar under it, an accent label, a toggle button's label (also when checked, on
+    /// <see cref="AccentSoft"/>), inline code. <see cref="Accent"/> is chosen as a fill, for <see cref="OnAccent"/>
+    /// text on it, which does not make it readable as text on <see cref="Surface"/>. Unless a theme sets it, it is
+    /// <see cref="Accent"/>. <see cref="Light"/> and <see cref="Dark"/> set a shade of their accent that reads at
+    /// 4.5:1 on <see cref="Surface"/>, <see cref="SurfaceAlt"/> and <see cref="AccentSoft"/>, where the accent itself
+    /// reads at 4.3:1 (Light, on the soft fill) or 3.4:1 (Dark, on the surface); every preset reaches 4.5:1 there.
+    /// A value set in an initializer or a <c>with</c> is kept by every copy, as <see cref="StateFill"/>'s is. A
+    /// preset's own value belongs to its accent: a copy that changes <see cref="Accent"/> without setting this
+    /// draws its new accent.
     /// </summary>
     public BColor AccentText
     {
-        get => _accentText ?? Accent;
-        init => _accentText = value;
+        get => _accentText is { } text && (_accentTextChosenFor is not { } chosenFor || chosenFor == Accent) ? text : Accent;
+        init
+        {
+            _accentText = value;
+            _accentTextChosenFor = null;
+        }
+    }
+
+    /// <summary>
+    /// Ties a preset's <see cref="AccentText"/> to the preset's <see cref="Accent"/>. The preset chose it as a
+    /// readable shade of that accent, so it means nothing for another one, and a copy such as
+    /// <c>Dark with { Accent = brand }</c> would otherwise draw a brand's accent text in Dark's blue.
+    /// </summary>
+    private static StandardThemeTokens TieAccentTextToAccent(StandardThemeTokens preset)
+    {
+        preset._accentTextChosenFor = preset.Accent;
+        return preset;
     }
 
     // Selection. Not required, so existing initializers keep compiling, and unset in the presets, so a
@@ -114,9 +134,10 @@ public sealed record StandardThemeTokens
     /// <see cref="SelectionText"/> while the state fill is the <see cref="AccentSoft"/> selection fill, because
     /// that is the text the theme reads on that color, and <see cref="Text"/> once the theme gives the states a
     /// fill of their own. In the presets both are <see cref="Text"/>. While it is <see cref="Text"/>, each
-    /// control keeps the color it has always drawn on its state fill (a toggle button's label in
-    /// <see cref="Accent"/>, a spin box's arrows in <see cref="TextMuted"/>) unless that color is the state fill
-    /// itself; once it differs, every label and glyph on a state fill takes it.
+    /// control keeps the color it has always drawn on its state fill (a themed toggle button's label in
+    /// <see cref="AccentText"/>, and in <see cref="Accent"/> while it is never themed; a spin box's arrows in
+    /// <see cref="TextMuted"/>) unless that color, or for a toggle button the accent, is the state fill itself;
+    /// once it differs, every label and glyph on a state fill takes it.
     /// </summary>
     public BColor StateText
     {
@@ -294,7 +315,7 @@ public sealed record StandardThemeTokens
     public static StandardThemeTokens Default => Light;
 
     /// <summary>Light theme — the historical Broiler.UI palette, now fully tokenized.</summary>
-    public static StandardThemeTokens Light { get; } = new()
+    public static StandardThemeTokens Light { get; } = TieAccentTextToAccent(new()
     {
         Surface = BColor.White,
         SurfaceAlt = BColor.FromArgb(0xFF, 0xF8, 0xFA, 0xFD),
@@ -309,6 +330,9 @@ public sealed record StandardThemeTokens
         AccentPressed = BColor.FromArgb(0xFF, 0x08, 0x4C, 0x98),
         AccentSoft = BColor.FromArgb(0xFF, 0xE7, 0xF0, 0xFF),
         OnAccent = BColor.White,
+        // The accent hover shade: the accent reads at 4.9:1 on Surface but 4.3:1 on AccentSoft, a checked toggle
+        // button's fill. This reads at 6.1:1 on Surface, 5.8:1 on SurfaceAlt and 5.3:1 on AccentSoft.
+        AccentText = BColor.FromArgb(0xFF, 0x0A, 0x61, 0xBE),
         FocusRing = BColor.FromArgb(0xFF, 0x0B, 0x6F, 0xD8),
         Success = BColor.FromArgb(0xFF, 0x0F, 0x7B, 0x0F),
         Warning = BColor.FromArgb(0xFF, 0x8A, 0x5A, 0x00),
@@ -316,10 +340,10 @@ public sealed record StandardThemeTokens
         Info = BColor.FromArgb(0xFF, 0x0B, 0x6F, 0xD8),
         IsDark = false,
         Name = "Light",
-    };
+    });
 
     /// <summary>Dark theme — WCAG AA text/accent contrast on dark surfaces.</summary>
-    public static StandardThemeTokens Dark { get; } = new()
+    public static StandardThemeTokens Dark { get; } = TieAccentTextToAccent(new()
     {
         Surface = BColor.FromArgb(0xFF, 0x20, 0x20, 0x24),
         SurfaceAlt = BColor.FromArgb(0xFF, 0x2A, 0x2A, 0x30),
@@ -334,7 +358,7 @@ public sealed record StandardThemeTokens
         AccentPressed = BColor.FromArgb(0xFF, 0x1B, 0x5E, 0xAF),
         AccentSoft = BColor.FromArgb(0xFF, 0x17, 0x32, 0x4E),
         OnAccent = BColor.White,
-        // The accent's hue, light enough to read as text on the surfaces: 7.8:1 on Surface, 6.8:1 on SurfaceAlt.
+        // The accent's hue, light enough to read as text: 7.8:1 on Surface, 6.8:1 on SurfaceAlt, 6.3:1 on AccentSoft.
         AccentText = BColor.FromArgb(0xFF, 0x7A, 0xB7, 0xFF),
         FocusRing = BColor.FromArgb(0xFF, 0x7A, 0xB7, 0xFF),
         Success = BColor.FromArgb(0xFF, 0x5B, 0xC8, 0x73),
@@ -343,7 +367,7 @@ public sealed record StandardThemeTokens
         Info = BColor.FromArgb(0xFF, 0x7A, 0xB7, 0xFF),
         IsDark = true,
         Name = "Dark",
-    };
+    });
 
     /// <summary>High-contrast light theme — pure black on white with vivid accents.</summary>
     public static StandardThemeTokens HighContrastLight { get; } = new()

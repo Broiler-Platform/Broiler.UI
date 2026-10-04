@@ -5,7 +5,7 @@ namespace Broiler.UI.Standard.Tests;
 
 /// <summary>
 /// The accent text role (ADR 0031): accent-colored text on a surface has a color of its own, which is the accent
-/// until a theme sets it, and which reads on the surfaces in every preset.
+/// until a theme sets it, and which reads on the surfaces and the soft accent fill in every preset.
 /// </summary>
 [Collection(GlobalThemeCollection.Name)]
 public sealed class AccentTextRoleTests
@@ -16,26 +16,55 @@ public sealed class AccentTextRoleTests
     [MemberData(nameof(Presets))]
     public void Accent_Text_Meets_WCAG_AA_On_The_Surfaces(StandardThemeTokens theme)
     {
-        // The surface is also the selected tab header's fill; SurfaceAlt is a pane or a strip behind it.
+        // The surface is also the selected tab header's fill; SurfaceAlt is a pane or a strip behind it; AccentSoft
+        // is a checked toggle button's fill.
         AssertMeets(theme.AccentText, theme.Surface, theme, "AccentText/Surface");
         AssertMeets(theme.AccentText, theme.SurfaceAlt, theme, "AccentText/SurfaceAlt");
+        AssertMeets(theme.AccentText, theme.AccentSoft, theme, "AccentText/AccentSoft");
         Assert.Equal(StandardContrast.Ratio(theme.AccentText, theme.Surface), theme.AccentTextContrast, 6);
     }
 
     [Theory]
     [MemberData(nameof(Presets))]
-    public void Only_The_Dark_Preset_Gives_Accent_Text_A_Color_Of_Its_Own(StandardThemeTokens theme)
+    public void Light_And_Dark_Give_Accent_Text_A_Shade_Of_Their_Accent(StandardThemeTokens theme)
     {
-        if (theme.Name != "Dark")
+        if (theme.IsHighContrast)
         {
-            // Light reads at 4.9:1, and the high-contrast presets keep their accent, the highlight, as text.
+            // The high-contrast presets keep their accent, the highlight, as text: it reads everywhere.
             Assert.Equal(theme.Accent, theme.AccentText);
             return;
         }
 
-        // A lighter tint of the accent: the accent itself is a fill that reads at 3.4:1 on the dark surface.
-        Assert.True(StandardContrast.Ratio(theme.Accent, theme.Surface) < StandardContrast.AaNormalText);
-        Assert.True(StandardContrast.RelativeLuminance(theme.AccentText) > StandardContrast.RelativeLuminance(theme.Accent));
+        // The accent itself is a fill. As text it reads at 3.4:1 on Dark's surface, and at 4.3:1 on Light's soft
+        // accent fill; the accent text is a lighter shade on the dark surfaces and a darker one on the light ones.
+        double accent = Math.Min(StandardContrast.Ratio(theme.Accent, theme.Surface), StandardContrast.Ratio(theme.Accent, theme.AccentSoft));
+        Assert.True(accent < StandardContrast.AaNormalText, $"{theme.Name}: the accent reads at {accent:0.00}:1.");
+        Assert.NotEqual(theme.Accent, theme.AccentText);
+        Assert.Equal(theme.IsDark, StandardContrast.RelativeLuminance(theme.AccentText) > StandardContrast.RelativeLuminance(theme.Accent));
+    }
+
+    [Fact]
+    public void A_Copy_Keeps_A_Presets_Accent_Text_Only_With_The_Presets_Accent()
+    {
+        BColor accent = BColor.FromArgb(0xFF, 0x7B, 0x3F, 0xE4);
+        BColor own = BColor.FromArgb(0xFF, 0xB0, 0x90, 0xF0);
+        foreach (StandardThemeTokens preset in new[] { StandardThemeTokens.Light, StandardThemeTokens.Dark })
+        {
+            // Copies that keep the accent keep the preset's accent text.
+            Assert.Equal(preset.AccentText, preset.WithTextScale(2).AccentText);
+            Assert.Equal(preset.AccentText, (preset with { Text = BColor.FromArgb(0xFF, 0x80, 0x80, 0x80), Density = UiDensity.Compact }).AccentText);
+            Assert.Equal(preset.AccentText, StandardThemeTokens.Select(UiContrastPreference.NoPreference, preset.IsDark, UiDensity.Spacious, reducedMotion: true).AccentText);
+
+            // A new accent, a brand's, is drawn as before the role existed: the preset's shade belongs to its own.
+            Assert.Equal(accent, (preset with { Accent = accent }).AccentText);
+            Assert.Equal(accent, (preset with { Accent = accent }).WithTextScale(2).AccentText);
+            Assert.Equal(preset.AccentText, (preset with { Accent = accent } with { Accent = preset.Accent }).AccentText);
+
+            // Accent text the copy sets is its own, in whichever order it is written and whatever accent follows.
+            Assert.Equal(own, (preset with { Accent = accent, AccentText = own }).AccentText);
+            Assert.Equal(own, (preset with { AccentText = own, Accent = accent }).AccentText);
+            Assert.Equal(own, (preset with { AccentText = own } with { Accent = accent }).AccentText);
+        }
     }
 
     [Fact]
@@ -45,9 +74,9 @@ public sealed class AccentTextRoleTests
         Assert.Equal(accent, (StandardThemeTokens.Light with { Accent = accent }).AccentText);
         Assert.Equal(accent, (StandardThemeTokens.HighContrastDark with { Accent = accent }).AccentText);
 
-        // A set value is the theme's own and survives copies, as Dark's does.
-        Assert.Equal(StandardThemeTokens.Dark.AccentText, (StandardThemeTokens.Dark with { Accent = accent }).WithTextScale(2).AccentText);
+        // A set value is the theme's own and survives copies.
         Assert.Equal(BColor.Black, (StandardThemeTokens.Light with { AccentText = BColor.Black, Accent = accent }).AccentText);
+        Assert.Equal(BColor.Black, (StandardThemeTokens.Light with { AccentText = BColor.Black }).WithTextScale(2).AccentText);
 
         // A host's system palette maps the accent to the highlight, and so its accent text.
         StandardThemeTokens system = SelectionTextRoleTests.SystemHighContrast();
@@ -78,8 +107,8 @@ public sealed class AccentTextRoleTests
         {
             StandardControlPaint.ApplyTheme(StandardThemeTokens.Dark);
             Assert.Equal(StandardThemeTokens.Dark.AccentText, StandardControlPaint.AccentText);
-            StandardControlPaint.ApplyTheme(StandardThemeTokens.Light);
-            Assert.Equal(StandardThemeTokens.Light.Accent, StandardControlPaint.AccentText);
+            StandardControlPaint.ApplyTheme(StandardThemeTokens.HighContrastLight);
+            Assert.Equal(StandardThemeTokens.HighContrastLight.Accent, StandardControlPaint.AccentText);
         }
         finally
         {
