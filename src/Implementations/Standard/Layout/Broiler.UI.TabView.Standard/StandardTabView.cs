@@ -29,8 +29,11 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
         SelectedHeaderForeground = theme.AccentText;
         BorderColor = theme.Border;
         FocusRing = theme.FocusRing;
+        _theme = theme;
     }
 
+    // The focus ring's offset and thickness.
+    private StandardThemeTokens _theme = StandardControlPaint.Theme;
     private BColor? _selectedHeaderForeground;
     private BColor? _selectedIndicatorColor;
     private double _selectedIndicatorThickness = 3;
@@ -269,7 +272,39 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
         }
 
         if (Session?.FocusedElement == this)
-            StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
+            DrawFocusRing(context);
+    }
+
+    /// <summary>
+    /// The focus ring marks the selected tab's header, which is what the strip's keys act on. Around the whole
+    /// view it enclosed every control on the page, did not say which tab had focus, and crossed the page's
+    /// content. It is drawn the theme's ring offset inside the header, above the bar under the label, in the
+    /// theme's ring thickness; around the view only while no tab is selected.
+    /// </summary>
+    private void DrawFocusRing(UiRenderContext context)
+    {
+        BRect header = GetTabHeaderBounds(SelectedIndex);
+        BRect target = Bounds;
+        BColor color = FocusRing;
+        if (!header.IsEmpty)
+        {
+            BRect indicator = GetSelectedIndicatorBounds(header);
+            target = new BRect(header.Left, header.Top, header.Width, Math.Max(0, header.Height - (indicator.IsEmpty ? 0 : indicator.Height)));
+
+            // The ring is drawn on the selected header's fill. A focus color that does not stand out from it
+            // (3:1, as a focus indicator needs) would hide the ring, which then takes the selected label's
+            // color, chosen to be read there.
+            BColor fill = SelectedHeaderBackground;
+            if (fill.A == 255 && StandardContrast.Ratio(FocusRing, fill) < StandardContrast.AaLargeOrUi)
+                color = SelectedHeaderForeground;
+        }
+
+        // A high-contrast palette draws its borders in its text color too, so a ring as thin as they are would
+        // read as one more border: it is at least 2 DIP there, as in the high-contrast presets.
+        double thickness = _theme.IsHighContrast ? Math.Max(2, _theme.FocusRingThickness) : _theme.FocusRingThickness;
+        BRect ring = StandardControlPaint.Inset(target, _theme.FocusRingOffset);
+        if (!ring.IsEmpty && thickness > 0)
+            StandardControlPaint.StrokeRounded(context.RenderList, ring, color, Math.Max(0, CornerRadius - _theme.FocusRingOffset), thickness);
     }
 
     protected override bool OnInput(UiInputEvent input)

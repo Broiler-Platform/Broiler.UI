@@ -149,6 +149,79 @@ public sealed class TabViewPageAndHeaderTests
         Assert.True(sent.Contains(new BPoint(bar.Left + (bar.Width / 2), bar.Top + (bar.Height / 2))));
     }
 
+    [Theory]
+    [MemberData(nameof(Presets))]
+    public void TheFocusRingMarksTheSelectedHeaderAndFollowsTheSelection(StandardThemeTokens theme)
+    {
+        StandardTabView tabs = ThreeTabs();
+        tabs.ApplyTheme(theme);
+        using UiSession session = Attach(tabs, 400, 200);
+        Assert.Empty(Rings(session.RenderFrame(), tabs));
+
+        session.SetFocus(tabs);
+        for (int selected = 0; selected < tabs.Tabs.Count; selected++)
+        {
+            tabs.SelectedIndex = selected;
+            BRenderList frame = session.RenderFrame();
+            BRect header = tabs.GetTabHeaderBounds(selected);
+            BRect bar = Assert.Single(frame.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Color == tabs.SelectedIndicatorColor).Rect;
+
+            // One ring, the theme's offset inside the header and above the bar: not around the view, so it
+            // neither encloses the page nor crosses its content.
+            BRenderCommand.StrokeRoundedRect ring = Assert.Single(Rings(frame, tabs));
+            double offset = theme.FocusRingOffset;
+            Assert.Equal(new BRect(header.Left + offset, header.Top + offset, header.Width - (offset * 2), header.Height - bar.Height - (offset * 2)), ring.Rect);
+            Assert.Equal(tabs.FocusRing, ring.Color);
+            Assert.Equal(theme.FocusRingThickness, ring.Thickness);
+            Assert.True(ring.Rect.Bottom + (ring.Thickness / 2) <= bar.Top, "The ring crosses the bar.");
+            Assert.True(ring.Rect.Bottom <= tabs.Bounds.Top + tabs.EffectiveHeaderHeight);
+
+            // A focus indicator needs 3:1 against what it is drawn on.
+            double ratio = StandardContrast.Ratio(ring.Color, tabs.SelectedHeaderBackground);
+            Assert.True(ratio >= StandardContrast.AaLargeOrUi, $"{theme.Name}: the ring stands out at {ratio:0.00}:1.");
+        }
+
+        // The high-contrast presets draw it 2 DIP thick, thicker than their borders.
+        Assert.Equal(theme.IsHighContrast ? 2 : 1, theme.FocusRingThickness);
+    }
+
+    [Fact]
+    public void AFocusRingThatWouldVanishIntoTheHeaderTakesTheSelectedLabelsColor()
+    {
+        // A focus color equal to the selected header's fill, and a high-contrast palette whose ring is as thin
+        // as its borders.
+        StandardThemeTokens theme = StandardThemeTokens.HighContrastLight with { FocusRing = BColor.White, FocusRingThickness = 1 };
+        StandardTabView tabs = ThreeTabs();
+        tabs.ApplyTheme(theme);
+        using UiSession session = Attach(tabs, 400, 200);
+        session.SetFocus(tabs);
+
+        BRenderCommand.StrokeRoundedRect ring = Assert.Single(Rings(session.RenderFrame(), tabs));
+
+        Assert.Equal(theme.AccentText, ring.Color);
+        Assert.Equal(2, ring.Thickness);
+        Assert.True(StandardContrast.Ratio(ring.Color, tabs.SelectedHeaderBackground) >= StandardContrast.AaLargeOrUi);
+    }
+
+    [Fact]
+    public void AFocusedTabViewWithNoTabsRingsTheView()
+    {
+        var tabs = new StandardTabView();
+        using UiSession session = Attach(tabs, 400, 200);
+        session.SetFocus(tabs);
+
+        BRenderCommand.StrokeRoundedRect ring = Assert.Single(Rings(session.RenderFrame(), tabs));
+
+        Assert.Equal(StandardControlPaint.Inset(tabs.Bounds, StandardControlPaint.FocusRingOffset), ring.Rect);
+    }
+
+    /// <summary>Every rounded stroke but the page's frame.</summary>
+    private static List<BRenderCommand.StrokeRoundedRect> Rings(BRenderList list, StandardTabView tabs)
+    {
+        BRect page = new(tabs.Bounds.Left, tabs.Bounds.Top + tabs.EffectiveHeaderHeight, tabs.Bounds.Width, tabs.Bounds.Height - tabs.EffectiveHeaderHeight);
+        return [.. list.Commands.OfType<BRenderCommand.StrokeRoundedRect>().Where(stroke => stroke.Rect != page)];
+    }
+
     private static StandardTabView ThreeTabs()
     {
         var tabs = new StandardTabView();
