@@ -60,15 +60,19 @@ public sealed class TreeRowsInViewSemanticsTests
     public void Setting_The_First_Visible_Row_Tells_Hosts_Only_When_It_Moves()
     {
         using TreeScene scene = TreeStandardHarness.Create(Many());
+
+        // A frame first: the harness focuses the tree after its frame, and that leaves a semantic
+        // invalidation of the tree pending, which would answer for the set below.
+        scene.Render();
         using var heard = new RowsHeard(scene);
 
         scene.Tree.FirstVisibleRow = 0;
         Assert.Empty(heard.FirstRows);
+        Assert.Equal(0, PendingSemanticInvalidations(scene));
 
         scene.Tree.FirstVisibleRow = 40;
         heard.AssertLastShowsTheRowsInView();
-        Assert.Contains(scene.Session.Invalidations, invalidation =>
-            ReferenceEquals(invalidation.Element, scene.Tree) && invalidation.Kind.HasFlag(UiInvalidationKind.Semantic));
+        Assert.Equal(1, PendingSemanticInvalidations(scene));
     }
 
     [Fact]
@@ -134,6 +138,10 @@ public sealed class TreeRowsInViewSemanticsTests
         Assert.Equal(0, heard);
         Assert.DoesNotContain(session.Invalidations, invalidation => ReferenceEquals(invalidation.Element, tree));
     }
+
+    private static int PendingSemanticInvalidations(TreeScene scene) =>
+        scene.Session.Invalidations.Count(invalidation =>
+            ReferenceEquals(invalidation.Element, scene.Tree) && invalidation.Kind.HasFlag(UiInvalidationKind.Semantic));
 
     private static CountingTreeSource Many()
     {
