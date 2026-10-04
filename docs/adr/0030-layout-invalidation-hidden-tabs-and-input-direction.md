@@ -1,12 +1,13 @@
-# ADR 0030 - Layout invalidation, hidden tab layout, and input direction
+# ADR 0030 - Layout invalidation, hidden tab layout, input direction, keyboard scope, and tree row semantics
 
 **Status:** Proposed  
 **Date:** 2026-10-04
 
 ## Context
 
-Broiler.Mail's work on narrow windows, larger text, and native input, and the review of the fixes,
-found these problems in Broiler.UI 0.1.0-preview.17:
+Broiler.Mail's work on narrow windows, larger text, and native input, the review of those fixes, and
+the review of Broiler.Hosting.Windows' UI Automation support for tree rows found these problems in
+Broiler.UI 0.1.0-preview.17:
 
 - `UiElement.Invalidate(Arrange)` stopped at the first ancestor that was already arrange-invalid, and
   `Measure` cleared only the element's own arrange flag when its desired size changed. An element
@@ -39,9 +40,13 @@ found these problems in Broiler.UI 0.1.0-preview.17:
   focused, a key that reached the strip only because of where it was dispatched switched tabs too.
 - `UiTreeView` describes only the rows in view as its semantic children, but a change of
   `FirstVisibleRow` (the wheel, the scroll bar, a row brought into view) invalidated only Render, and a
-  change of `VisibleRowCapacity` (the tree resized) invalidated nothing. Broiler.Hosting.Windows learned
-  of the new rows only at the tree's next state change. When the focus moved, it heard the selection
-  change before the scroll, while the old rows were still in view.
+  change of `VisibleRowCapacity` (the tree resized) invalidated nothing. A host learned of the new rows
+  only at the tree's next state change. When the focus moved, it heard the selection change before the
+  scroll, while the old rows were still in view. Broiler.Hosting.Windows' tree row support, not yet
+  released, works around this by checking the rows itself after the scrolls it causes.
+- `UiTreeView` found each described row's position within its level by walking the row's siblings,
+  so describing the tree cost the rows in view times the size of their level: about 1.3 ms for 20 rows
+  of a flat tree of 50,000.
 
 ## Decision
 
@@ -90,12 +95,18 @@ found these problems in Broiler.UI 0.1.0-preview.17:
   nothing has focus, is left unhandled and goes on to its ancestors. The tab view has no Ctrl+Tab or
   Ctrl+PageUp/PageDown handling, and none is added. Applications that offer those shortcuts handle
   them themselves, as Broiler.Mail does before it dispatches a key.
-- **Scrolling a tree is a semantic change.** `UiTreeView.FirstVisibleRow` and `VisibleRowCapacity`
-  invalidate Semantic when they change, and only then. Hosts therefore hear after every scroll and
-  every change in how many rows fit that the tree's children changed. When the focus moves, the last
-  thing they hear is the scroll. The change is reported as the tree's state change, as every semantic
-  invalidation is. A tree's rows are virtual nodes, and Broiler.Hosting.Windows already compares a
-  tree's rows in view whenever the tree's state changes.
+- **Scrolling a tree is a semantic change.** `UiTreeView.FirstVisibleRow` invalidates Semantic when it
+  changes, and `VisibleRowCapacity` when the number of rows the tree describes changes with it, and
+  only then. Hosts therefore hear after every scroll, and every resize that shows more or fewer rows,
+  that the tree's children changed. Room the rows do not fill is not a change: a tree whose rows all
+  fit says nothing at its first layout or when resized. When the focus moves, the last thing hosts hear
+  is the scroll. The change is reported as the tree's state change, as every semantic invalidation is,
+  because a tree's rows are virtual nodes. A host that keeps the rows it exposed compares them on that
+  state change; Broiler.Hosting.Windows' tree row support (not yet released) does.
+- **Describing a tree costs the rows in view.** `UiTreeView` works out every row's position within its
+  level once for each set of rows, on first use after the rows are rebuilt, in one pass over them, and
+  looks it up when it describes a row. Describing 20 rows of a flat tree of 50,000 takes about 0.01 ms
+  instead of 1.3 ms.
 - **A shrinking form keeps focus in view.** When a `FormViewport`'s viewport becomes smaller, the part
   of the focused control that was on screen is shown again, scrolling no further than needed and
   never past its top. Focus does not move, and nothing scrolls when nothing inside has focus or the
@@ -127,9 +138,26 @@ found these problems in Broiler.UI 0.1.0-preview.17:
   focusing it must focus it first. `StandardToolbar` still keeps its own keys when nothing on it can
   take focus. A tab view no longer needs that, but other containers that read the same keys still do.
 - Behavior change: a tree raises a semantic invalidation (`SemanticChanged` with `StateChanged`) each
-  time a scroll moves its first row and each time the number of rows that fit changes, which usually
-  includes its first layout. A handler that reacts to every event sees more of them. A capacity change made
-  during arrange stays pending after that frame, so a host that renders while invalidations are
-  pending draws one more frame.
-- No change is required in Broiler.Hosting.Windows. A wheel scroll or a resize that does not move the
-  focus now reaches its tree-rows comparison without waiting for the tree's next state change.
+  time a scroll moves its first row, and each time a resize changes how many rows it describes, which
+  includes the first layout of a tree with more rows than fit. A handler that reacts to every event
+  sees more of them. A host that describes the tree for each one pays for the rows in view, not for
+  the tree's size, after one pass over the rows each time they are rebuilt.
+- `StandardTreeView` works out how many rows fit inside its arrange, so a resize that changes the rows
+  in view is reported from inside the layout, as `StandardListView` already reports a scroll offset it
+  clamps there. A host that compares semantics as soon as it is told sees the tree arranged and the
+  rest of the window not yet. Applications with a tree should build their session with
+  `StandardQueuedUiDispatcher`, so work a host posts (Broiler.Hosting.Windows' bridge posts its
+  comparison) runs after the frame; Hosting's structure coalescing already needs one. With
+  `ImmediateUiDispatcher` the comparison runs mid-layout. The invalidation stays pending after that
+  frame, so a host that repaints for every invalidation, of any kind, paints one more frame.
+- Not verified against Broiler.Hosting.Windows. As released, Hosting exposes no tree rows, so it only
+  sees more state changes. Its tree row support (branch `claude/uia-semantics-mapping`, not yet
+  released) needs no change: a wheel scroll or a resize that does not move the focus reaches its
+  tree-rows comparison without waiting for the tree's next state change. Its
+  `AutomationStructureTests` must be re-run once Hosting consumes a Broiler.UI with this change. Two
+  of its comments (the `_treeRows` note in `WindowsAutomationBridge` and `ScrollTreeRowIntoView` in
+  `WindowsElementAutomationPeer.TreeRows`) say Broiler.UI reports a scroll only as a render change and
+  need updating then. The explicit `QueueTreeCheck` in `ScrollTreeRowIntoView` becomes redundant; it
+  is harmless, because the flush dedupes it. While a client listens, Hosting still describes the tree
+  synchronously for every state change of a tree the client has reached; folding that into its
+  per-flush tree check would coalesce a burst of wheel notches or a thumb drag into one description.
