@@ -192,6 +192,12 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
         }
     }
 
+    /// <summary>
+    /// The color of the keyboard focus ring, drawn inside the button's fill, and of a default toggle button's
+    /// border. Where it does not stand out from the fill the button draws in its current state (3:1), the ring is
+    /// drawn in that state's label color instead (<see cref="StandardControlPaint.FocusRingColor"/>), as on a
+    /// checked or pressed button's state fill when the palette uses one color for both.
+    /// </summary>
     public BColor FocusRing
     {
         get => _focusRing;
@@ -312,9 +318,10 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
             context.RenderList.DrawText(new BTextRun(display, Font, foreground), new BPoint(x, y));
         }
 
-        // Keyboard navigation only - see StandardButton.
+        // Keyboard navigation only, and on the fill in the label's color where the ring's own would not show
+        // on it - see StandardButton.
         if (Session?.FocusedElement == this && Session.IsFocusVisible)
-            StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
+            StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), StandardControlPaint.FocusRingColor(FocusRing, background, foreground), Math.Max(0, CornerRadius - 2), 1);
     }
 
     protected override bool OnInput(UiInputEvent input)

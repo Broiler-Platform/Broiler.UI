@@ -3,6 +3,7 @@ using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.Input;
+using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.UI.Button.Standard;
 using Broiler.UI.Standard;
@@ -424,6 +425,20 @@ public sealed class StateFillControlTests
         public void Press(BPoint point) => Button(point, MouseButtonTransition.Down);
 
         public void Release(BPoint point) => Button(point, MouseButtonTransition.Up);
+
+        /// <summary>A key going down or up, sent to the focused element; keyboard input makes the focus visible.</summary>
+        public void Key(string name, int nativeKeyCode, KeyboardKeyTransition transition = KeyboardKeyTransition.Down) =>
+            _route.Dispatch(new KeyboardKeyEvent(
+                Header(),
+                KeyboardKey.FromName(name),
+                transition,
+                KeyboardModifierState.None,
+                nativeKeyCode,
+                0,
+                0,
+                false,
+                false,
+                Source: InputEventSource.Synthetic));
 
         public void Dispose() => _session.Dispose();
 
