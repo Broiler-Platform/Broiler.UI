@@ -159,11 +159,29 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
             && content.DesiredSize.Height <= size.Height + Tolerance;
     }
 
+    // The page's frame. The page itself is drawn and hit-tested inside it.
+    private const double FrameThickness = 1;
+
+    /// <summary>The page below the header strip, where the selected tab's content is arranged.</summary>
+    private BRect PageBounds => new(Bounds.Left, Bounds.Top + EffectiveHeaderHeight, Bounds.Width, Math.Max(0, Bounds.Height - EffectiveHeaderHeight));
+
+    /// <summary>
+    /// The part of the page the selected content shows in: the page inside its frame. The content is
+    /// arranged at the whole page, so what it draws at its own edges (the last, partly scrolled row of a
+    /// list, a scrollbar) used to paint over the frame. It is drawn, hit-tested and reported as visible
+    /// (<see cref="UiElement.GetVisibleBounds"/>) here.
+    /// </summary>
+    private BRect PageClipBounds => StandardControlPaint.Inset(PageBounds, FrameThickness);
+
+    protected override BRect? GetClipBoundsForChild(UiElement child) => PageClipBounds;
+
+    protected override bool ShouldHitTestChildren(BPoint point) => PageClipBounds.Contains(point);
+
     protected override void RenderCore(UiRenderContext context)
     {
-        BRect content = new(Bounds.Left, Bounds.Top + EffectiveHeaderHeight, Bounds.Width, Math.Max(0, Bounds.Height - EffectiveHeaderHeight));
+        BRect content = PageBounds;
         StandardControlPaint.FillRounded(context.RenderList, content, Background, CornerRadius);
-        StandardControlPaint.StrokeRounded(context.RenderList, content, BorderColor, CornerRadius, 1);
+        StandardControlPaint.StrokeRounded(context.RenderList, content, BorderColor, CornerRadius, FrameThickness);
 
         double x = Bounds.Left;
         for (int index = 0; index < Tabs.Count; index++)
@@ -179,7 +197,13 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
             context.RenderList.DrawText(new BTextRun(Tabs[index].Header, Font, headerForeground), new BPoint(header.Left + HeaderPaddingX, header.Top + Math.Max(0, (EffectiveHeaderHeight - BTextMeasurer.GetLineHeight(Font)) / 2)));
         }
 
-        SelectedTab?.Content?.Render(context);
+        if (SelectedTab?.Content is { } selectedContent)
+        {
+            context.RenderList.PushClip(PageClipBounds);
+            selectedContent.Render(context);
+            context.RenderList.PopClip();
+        }
+
         if (Session?.FocusedElement == this)
             StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
     }
