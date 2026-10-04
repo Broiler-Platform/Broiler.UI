@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Broiler.Graphics;
+using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.Graphics.Text;
@@ -54,7 +55,8 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
         string trimmed = TruncateWithEllipsis(context.Item.Text, context.Font, maxTextWidth);
         if (!string.IsNullOrEmpty(trimmed))
         {
-            list.DrawText(new BTextRun(trimmed, context.Font, context.Foreground), new BPoint(textLeft, textTop));
+            BColor foreground = context.State.IsSelected ? context.SelectedForeground : context.Foreground;
+            list.DrawText(new BTextRun(trimmed, context.Font, foreground), new BPoint(textLeft, textTop));
         }
 
         if (context.State.IsFocused && context.State.IsSelected)

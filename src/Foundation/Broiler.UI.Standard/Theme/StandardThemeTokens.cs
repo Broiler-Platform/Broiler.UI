@@ -12,7 +12,9 @@ namespace Broiler.UI.Standard;
 /// <see cref="StandardControlPaint"/> rather than hardcoding colors, so an entire
 /// theme (light, dark, high-contrast) can be swapped by changing the active token
 /// set. Every role is <c>required</c>, so a preset that omits a token fails to
-/// compile rather than silently rendering a transparent value.
+/// compile rather than silently rendering a transparent value. The selection text
+/// roles (<see cref="SelectionText"/>, <see cref="SelectionTextMuted"/>) are the
+/// exception: they derive from the text roles until a theme sets them.
 /// </summary>
 public sealed record StandardThemeTokens
 {
@@ -38,6 +40,36 @@ public sealed record StandardThemeTokens
 
     /// <summary>Text/icon color drawn on top of an accent fill (e.g. a primary button label).</summary>
     public required BColor OnAccent { get; init; }
+
+    // Selection. Not required, so existing initializers keep compiling, and unset in the presets, so a
+    // copy that changes Text (`preset with { Text = ... }`) carries the new text color onto the selection.
+    private BColor? _selectionText;
+    private BColor? _selectionTextMuted;
+
+    /// <summary>
+    /// Text drawn on top of the <see cref="AccentSoft"/> selection fill: a selected list or tree row, the
+    /// highlighted item of a drop-down or menu, and selected text in an editor. Unless a theme sets it, it
+    /// is <see cref="Text"/>, which is what selected content has always been drawn in. A palette built from
+    /// a system selection color pair (Windows' Highlight and HighlightText) sets it to the pair's text.
+    /// </summary>
+    public BColor SelectionText
+    {
+        get => _selectionText ?? Text;
+        init => _selectionText = value;
+    }
+
+    /// <summary>
+    /// Secondary text drawn on the <see cref="AccentSoft"/> selection fill, such as a selected row's second
+    /// line or its date. Unless a theme sets it, it is <see cref="TextMuted"/> while
+    /// <see cref="SelectionText"/> is the ordinary <see cref="Text"/>, and <see cref="SelectionText"/> once
+    /// the theme gives selected text a color of its own: a system selection color pair has no muted variant,
+    /// and muted text in the unselected color is not guaranteed to be readable on it.
+    /// </summary>
+    public BColor SelectionTextMuted
+    {
+        get => _selectionTextMuted ?? (SelectionText == Text ? TextMuted : SelectionText);
+        init => _selectionTextMuted = value;
+    }
 
     // Focus
     public required BColor FocusRing { get; init; }
@@ -148,11 +180,21 @@ public sealed record StandardThemeTokens
     public double TextMutedContrast => StandardContrast.Ratio(TextMuted, Surface);
     public double AccentContrast => StandardContrast.Ratio(OnAccent, Accent);
     public double FocusRingContrast => StandardContrast.Ratio(FocusRing, Surface);
+    public double SelectionTextContrast => StandardContrast.Ratio(SelectionText, AccentSoft);
     public bool MeetsAaNormalText => StandardContrast.Meets(Text, Surface, StandardContrast.AaNormalText);
     public bool MeetsAaLargeOrUi => StandardContrast.Meets(BorderStrong, Surface, StandardContrast.AaLargeOrUi);
 
     // Metadata
     public bool IsDark { get; init; }
+
+    /// <summary>
+    /// Whether this is a high-contrast palette. Controls then add the cues such themes rely on instead of
+    /// hue alone, for example an outline around a selected row or a glyph for a tree row's state. True in
+    /// <see cref="HighContrastLight"/> and <see cref="HighContrastDark"/>, and in copies made from them
+    /// (<see cref="WithTextScale"/>, <see cref="Select(UiSystemSettings)"/>, <c>with</c>); false otherwise.
+    /// </summary>
+    public bool IsHighContrast { get; init; }
+
     public string Name { get; init; } = "Custom";
 
     // Back-compat aliases for the original four-token shape.
@@ -269,6 +311,7 @@ public sealed record StandardThemeTokens
         Danger = BColor.FromArgb(0xFF, 0xA4, 0x00, 0x00),
         Info = BColor.FromArgb(0xFF, 0x00, 0x00, 0xCC),
         IsDark = false,
+        IsHighContrast = true,
         Name = "HighContrastLight",
     };
 
@@ -295,6 +338,7 @@ public sealed record StandardThemeTokens
         Danger = BColor.FromArgb(0xFF, 0xFF, 0x60, 0x6A),
         Info = BColor.FromArgb(0xFF, 0x00, 0xE0, 0xFF),
         IsDark = true,
+        IsHighContrast = true,
         Name = "HighContrastDark",
     };
 

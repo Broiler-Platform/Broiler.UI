@@ -63,6 +63,9 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         }
 
         bool isUnread = !context.State.IsRead;
+        bool isSelected = context.State.IsSelected;
+        BColor foreground = isSelected ? context.SelectedForeground : context.Foreground;
+        BColor secondaryForeground = isSelected ? context.SelectedSecondaryForeground : context.SecondaryForeground;
         double primaryLineHeight = BTextMeasurer.GetLineHeight(context.Font);
         double primaryTop = bounds.Top + TopPadding(context.State.Density);
 
@@ -73,7 +76,10 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         {
             double dotSize = 6;
             double dotTop = primaryTop + Math.Max(0, (primaryLineHeight - dotSize) / 2);
-            list.FillRect(new BRect(primaryLeft, dotTop, dotSize, dotSize), context.Accent);
+            // A selection with a text color of its own can share its fill with the accent (a system
+            // highlight pair is both), so the dot takes the selected text color there to stay visible.
+            BColor dot = isSelected && context.SelectedForeground != context.Foreground ? context.SelectedForeground : context.Accent;
+            list.FillRect(new BRect(primaryLeft, dotTop, dotSize, dotSize), dot);
             primaryLeft += dotSize + 6;
         }
 
@@ -84,7 +90,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
             BFontStyle tertiaryFont = context.Font with { Size = Math.Max(9, context.Font.Size - 2) };
             tertiaryWidth = BTextMeasurer.MeasureAdvance(context.Item.TertiaryText, tertiaryFont);
             double tertiaryLeft = Math.Max(primaryLeft + 20, bounds.Right - 8 - tertiaryWidth);
-            list.DrawText(new BTextRun(context.Item.TertiaryText, tertiaryFont, context.SecondaryForeground), new BPoint(tertiaryLeft, primaryTop + 1));
+            list.DrawText(new BTextRun(context.Item.TertiaryText, tertiaryFont, secondaryForeground), new BPoint(tertiaryLeft, primaryTop + 1));
         }
 
         // Line 1: Primary text (sender / title)
@@ -93,7 +99,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         string primaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.Text, primaryFont, maxPrimaryWidth);
         if (!string.IsNullOrEmpty(primaryText))
         {
-            list.DrawText(new BTextRun(primaryText, primaryFont, context.Foreground), new BPoint(primaryLeft, primaryTop));
+            list.DrawText(new BTextRun(primaryText, primaryFont, foreground), new BPoint(primaryLeft, primaryTop));
         }
 
         // Line 2: Secondary text (subject / snippet)
@@ -106,7 +112,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
             string secondaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.SecondaryText, secondaryFont, maxSecondaryWidth);
             if (!string.IsNullOrEmpty(secondaryText))
             {
-                list.DrawText(new BTextRun(secondaryText, secondaryFont, context.SecondaryForeground), new BPoint(secondaryLeft, secondaryTop));
+                list.DrawText(new BTextRun(secondaryText, secondaryFont, secondaryForeground), new BPoint(secondaryLeft, secondaryTop));
             }
         }
 

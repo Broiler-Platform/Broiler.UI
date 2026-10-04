@@ -48,12 +48,19 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         Foreground = theme.Text;
         SecondaryForeground = theme.TextMuted;
         SelectedBackground = theme.AccentSoft;
+        // Selected rows keep following Foreground and SecondaryForeground unless the theme gives the
+        // selection text colors of its own, so a preset draws exactly what it always has.
+        SetSelectedForegrounds(
+            theme.SelectionText == theme.Text ? null : theme.SelectionText,
+            theme.SelectionTextMuted == theme.TextMuted ? null : theme.SelectionTextMuted);
         FocusRing = theme.FocusRing;
         BorderColor = theme.Border;
         Accent = theme.Accent;
         ScrollbarTrack = theme.SurfaceDisabled;
         ScrollbarThumb = theme.BorderStrong;
-        _isHighContrast = Math.Abs(Luminance(theme.Surface) - Luminance(theme.Text)) > 0.9;
+        // The token says so for the presets and system palettes; the luminance test still recognizes a
+        // custom palette at the extremes that does not set it.
+        _isHighContrast = theme.IsHighContrast || Math.Abs(Luminance(theme.Surface) - Luminance(theme.Text)) > 0.9;
         if (!_itemHeightExplicit && ItemPresenter is not null)
         {
             _itemHeight = ItemPresenter.GetItemHeight(null, Density, _contentBounds.Width, Font);
@@ -67,12 +74,14 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     private BColor _foreground = StandardControlPaint.Text;
     private BColor _secondaryForeground = StandardControlPaint.TextMuted;
     private BColor _selectedBackground = StandardControlPaint.AccentSoft;
+    private BColor? _selectedForeground;
+    private BColor? _selectedSecondaryForeground;
     private BColor _focusRing = StandardControlPaint.Focus;
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _accent = StandardControlPaint.Accent;
     private BColor _scrollbarTrack = StandardControlPaint.SurfaceDisabled;
     private BColor _scrollbarThumb = StandardControlPaint.BorderStrong;
-    private BFontStyle _font = StandardControlPaint.Theme.FontBody;
+    private BFontStyle _font = StandardControlPaint.Theme.FontBody;
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
     private double _itemHeight = 28;
     private double _cornerRadius = StandardControlPaint.ControlRadius;
@@ -135,6 +144,38 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
             _selectedBackground = value;
             Invalidate(UiInvalidationKind.Render);
         }
+    }
+
+    /// <summary>
+    /// The color of a selected row's text, drawn on <see cref="SelectedBackground"/>. Until it is set it
+    /// is <see cref="Foreground"/>. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.SelectionText"/> when that differs from the theme's text color, and
+    /// otherwise lets it follow <see cref="Foreground"/> again.
+    /// </summary>
+    public BColor SelectedForeground
+    {
+        get => _selectedForeground ?? Foreground;
+        set => SetSelectedForegrounds(value, _selectedSecondaryForeground);
+    }
+
+    /// <summary>
+    /// The color of a selected row's secondary text, drawn on <see cref="SelectedBackground"/>. Until it is
+    /// set it is <see cref="SecondaryForeground"/>; <see cref="ApplyTheme"/> treats it as it does
+    /// <see cref="SelectedForeground"/>, with the theme's <see cref="StandardThemeTokens.SelectionTextMuted"/>.
+    /// </summary>
+    public BColor SelectedSecondaryForeground
+    {
+        get => _selectedSecondaryForeground ?? SecondaryForeground;
+        set => SetSelectedForegrounds(_selectedForeground, value);
+    }
+
+    private void SetSelectedForegrounds(BColor? selected, BColor? selectedSecondary)
+    {
+        if (_selectedForeground == selected && _selectedSecondaryForeground == selectedSecondary)
+            return;
+        _selectedForeground = selected;
+        _selectedSecondaryForeground = selectedSecondary;
+        Invalidate(UiInvalidationKind.Render);
     }
 
     public BColor FocusRing
@@ -327,6 +368,8 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
                 SecondaryForeground = SecondaryForeground,
                 Background = Background,
                 SelectedBackground = SelectedBackground,
+                SelectedForeground = SelectedForeground,
+                SelectedSecondaryForeground = SelectedSecondaryForeground,
                 FocusRing = FocusRing,
                 Accent = Accent,
                 IsHighContrast = _isHighContrast,
