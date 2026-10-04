@@ -35,6 +35,18 @@ public sealed class FocusRingOnFillTests
         HostingPalette("SameSelectedTextDimHighlight", 0x000000, 0xFFFFFF, 0x0000A0, 0xFFFFFF),
     };
 
+    /// <summary>
+    /// The four Windows 11 contrast themes as Broiler.Hosting's main branch builds them, before its contrast palette
+    /// set the state pair: the state fill is the highlight, and the text on it the window text.
+    /// </summary>
+    public static TheoryData<StandardThemeTokens> HostingPalettesWithoutTheStatePair() => new()
+    {
+        HostingPalette("Aquatic", 0x202020, 0xFFFFFF, 0x8EE3F0, 0x263B50, statePair: false),
+        HostingPalette("Desert", 0xFFFAEF, 0x3D3D3D, 0x903909, 0xFFF5E3, statePair: false),
+        HostingPalette("Dusk", 0x2D3236, 0xFFFFFF, 0xA1BFDE, 0x212D3B, statePair: false),
+        HostingPalette("NightSky", 0x000000, 0xFFFFFF, 0xD6B4FD, 0x2B2B2B, statePair: false),
+    };
+
     public static TheoryData<StandardThemeTokens> EveryPalette()
     {
         var palettes = new TheoryData<StandardThemeTokens>();
@@ -51,13 +63,14 @@ public sealed class FocusRingOnFillTests
     /// The mapping Broiler.Hosting's <c>WindowsTheme.CreateHighContrastTheme</c> makes from the system colors: the
     /// window pair on the surfaces, the borders and every text role; the highlight pair on the accent, the selection
     /// and the state fill; and the highlight as the focus ring where it stands out from the window color (3:1), the
-    /// window text otherwise.
+    /// window text otherwise. Without <paramref name="statePair"/>, the mapping before Hosting set the selection and
+    /// state text: those derive from the window text.
     /// </summary>
-    internal static StandardThemeTokens HostingPalette(string name, uint window, uint windowText, uint highlight, uint highlightText)
+    internal static StandardThemeTokens HostingPalette(string name, uint window, uint windowText, uint highlight, uint highlightText, bool statePair = true)
     {
         BColor surface = Rgb(window), text = Rgb(windowText), fill = Rgb(highlight), onFill = Rgb(highlightText);
         bool dark = StandardContrast.RelativeLuminance(surface) < StandardContrast.RelativeLuminance(text);
-        return (dark ? StandardThemeTokens.HighContrastDark : StandardThemeTokens.HighContrastLight) with
+        StandardThemeTokens palette = (dark ? StandardThemeTokens.HighContrastDark : StandardThemeTokens.HighContrastLight) with
         {
             Name = name,
             IsDark = dark,
@@ -73,13 +86,19 @@ public sealed class FocusRingOnFillTests
             AccentPressed = fill,
             AccentSoft = fill,
             OnAccent = onFill,
-            SelectionText = onFill,
-            SelectionTextMuted = onFill,
-            StateFill = fill,
-            StateText = onFill,
             FocusRing = StandardContrast.Ratio(fill, surface) >= StandardContrast.AaLargeOrUi ? fill : text,
             IsHighContrast = true,
         };
+
+        return statePair
+            ? palette with
+            {
+                SelectionText = onFill,
+                SelectionTextMuted = onFill,
+                StateFill = fill,
+                StateText = onFill,
+            }
+            : palette;
 
         static BColor Rgb(uint rgb) => BColor.FromArgb(0xFF, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
     }
@@ -174,6 +193,28 @@ public sealed class FocusRingOnFillTests
         // On the window color the ring is the theme's.
         Assert.Equal(theme.FocusRing, secondary["at rest"].Ring);
         Assert.Equal(theme.FocusRing, toggle["off"].Ring);
+    }
+
+    [Theory]
+    [MemberData(nameof(HostingPalettesWithoutTheStatePair))]
+    public void Without_The_State_Pair_Only_The_Default_Button_Ring_Is_Restored_And_The_State_Fill_Ring_Is_Its_Label(StandardThemeTokens theme)
+    {
+        // The default button's label is OnAccent, the highlight text, whichever Hosting mapping built the palette.
+        Dictionary<string, Drawn> primary = DefaultButtonStates(theme).ToDictionary(state => state.State, state => state.Look);
+        foreach ((string state, Drawn look) in primary)
+        {
+            Assert.Equal(theme.OnAccent, look.Ring);
+            AssertVisible(theme, state, look);
+        }
+
+        // On the state fill the label is the window text, which the palette left there and which reads at 1.4 to
+        // 1.9:1 on the highlight. The ring follows that label: the hovered ring shows only once the palette sets the
+        // state text to the highlight text (ADR 0032).
+        Drawn hovered = SecondaryButtonStates(theme).Single(state => state.State == "hovered").Look;
+        Assert.Equal(theme.StateFill, hovered.Fill);
+        Assert.Equal(theme.Text, hovered.Text);
+        Assert.Equal(theme.Text, hovered.Ring);
+        Assert.True(StandardContrast.Ratio(theme.Text, theme.StateFill) < StandardContrast.AaLargeOrUi, theme.Name);
     }
 
     // --- Spin box ----------------------------------------------------------
