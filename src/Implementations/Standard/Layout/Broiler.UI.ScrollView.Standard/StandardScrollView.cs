@@ -414,6 +414,10 @@ public sealed class StandardScrollView : UiScrollView
     protected override bool ShouldHitTestChildren(BPoint point) =>
         ContentBounds.IsEmpty ? Bounds.Contains(point) : ContentBounds.Contains(point);
 
+    // The same area children are drawn and hit-tested in: the content bounds, beside the scrollbars.
+    protected override BRect? GetClipBoundsForChild(UiElement child) =>
+        ContentBounds.IsEmpty ? Bounds : ContentBounds;
+
     private bool HandleWheel(UiInputEvent input)
     {
         bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);

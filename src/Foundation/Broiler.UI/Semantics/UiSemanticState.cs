@@ -30,6 +30,12 @@ public enum UiSemanticState
     /// <summary>A value must be given before the form can be submitted. See <see cref="UiElement.IsRequired"/>.</summary>
     Required = 1024,
 
+    /// <summary>
+    /// Not on screen. A container hid the element from assistive technology (see
+    /// <see cref="UiElement.IsHiddenFromAccessibility"/>), which also clears <see cref="Visible"/>, or
+    /// the element is laid out but scrolled or clipped entirely out of view (see
+    /// <see cref="UiElement.GetVisibleBounds"/>), which keeps <see cref="Visible"/>.
+    /// </summary>
     Offscreen = 2048,
 
     /// <summary>

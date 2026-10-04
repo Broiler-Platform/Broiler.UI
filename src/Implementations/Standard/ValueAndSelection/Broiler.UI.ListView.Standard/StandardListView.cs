@@ -370,15 +370,16 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
                 index,
                 Density);
 
+            BRect bounds = GetItemBounds(index);
             var semanticContext = new UiListItemSemanticContext
             {
                 Item = item,
                 State = itemState,
-                Bounds = GetItemBounds(index),
+                Bounds = bounds,
                 Index = index,
             };
 
-            nodes.Add(presenter.CreateSemanticNode(semanticContext));
+            nodes.Add(ClipItemSemanticNode(presenter.CreateSemanticNode(semanticContext), bounds));
         }
 
         return nodes;

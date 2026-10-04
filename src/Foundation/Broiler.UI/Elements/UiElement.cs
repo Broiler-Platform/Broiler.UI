@@ -462,9 +462,42 @@ public abstract class UiElement : IDisposable, IUiFocusable
             node = node with { Description = description };
         if (_hiddenFromAccessibility)
             state = (state | UiSemanticState.Offscreen) & ~UiSemanticState.Visible;
+        else if (!Bounds.IsEmpty && Visibility == UiVisibility.Visible && GetVisibleBounds().IsEmpty)
+            state |= UiSemanticState.Offscreen; // Laid out, but scrolled or clipped entirely out of view.
         if (state != node.State)
             node = node with { State = state };
         return node;
+    }
+
+    /// <summary>
+    /// The part of <see cref="Bounds"/> that can be seen: the bounds intersected with the clip that
+    /// every ancestor applies to its children, such as a scroll view's viewport. Empty when this
+    /// element or an ancestor is not visible, or when the element is scrolled or clipped entirely out
+    /// of view; <see cref="GetSemanticNode"/> then reports <see cref="UiSemanticState.Offscreen"/>.
+    /// </summary>
+    /// <remarks>
+    /// A host uses this as the element's on-screen rectangle for assistive technology, so a field
+    /// scrolled half out of a form is not reported over the buttons below it. The host window itself
+    /// is not a clip here; the host clips to its own surface. An element drawn as an overlay outside
+    /// its parent (see <see cref="OverlayBounds"/>) answers for that area separately.
+    /// </remarks>
+    public BRect GetVisibleBounds()
+    {
+        if (_isDisposed || Visibility != UiVisibility.Visible)
+            return BRect.Empty;
+
+        BRect visible = Bounds;
+        UiElement child = this;
+        for (UiElement? ancestor = Parent; ancestor is not null; ancestor = ancestor.Parent)
+        {
+            if (visible.IsEmpty || ancestor.Visibility != UiVisibility.Visible)
+                return BRect.Empty;
+            if (ancestor.GetClipBoundsForChild(child) is { } clip)
+                visible = visible.Intersect(clip);
+            child = ancestor;
+        }
+
+        return visible.IsEmpty ? BRect.Empty : visible;
     }
 
     /// <summary>
@@ -586,6 +619,14 @@ public abstract class UiElement : IDisposable, IUiFocusable
     {
         return true;
     }
+
+    /// <summary>
+    /// The rectangle this element clips <paramref name="child"/> to when it draws it, or null when
+    /// it does not clip it. <see cref="GetVisibleBounds"/> intersects an element's bounds with the
+    /// clip of every ancestor. A container that scrolls or crops its children, such as a scroll
+    /// view's viewport, overrides this so what it hides is not reported as on screen.
+    /// </summary>
+    protected virtual BRect? GetClipBoundsForChild(UiElement child) => null;
 
     // Layout-only elements have no name of their own; the type name is available to providers as a
     // class name and must not be read out as if it were content.
