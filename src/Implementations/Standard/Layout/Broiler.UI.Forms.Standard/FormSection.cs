@@ -6,7 +6,12 @@ using Broiler.UI.Panel.Standard;
 namespace Broiler.UI.Forms.Standard;
 
 /// <summary>Named field group with an optional keyboard-operable disclosure.</summary>
-public sealed class FormSection : UiElement, IFormSection
+/// <remarks>
+/// A collapsible section follows the disclosure pattern: its <see cref="Toggle"/> discloses the section
+/// (<see cref="UiElement.Discloses"/>), so the focused button reports Expanded or Collapsed and a host
+/// can expand and collapse it there. The group itself reports neither state. See Broiler.UI ADR 0028.
+/// </remarks>
+public sealed class FormSection : UiElement, IFormSection, IUiExpandable
 {
     private readonly StandardPanel _layout = new() { Spacing = 8 };
     private readonly string _title;
@@ -24,6 +29,7 @@ public sealed class FormSection : UiElement, IFormSection
         {
             Toggle = new StandardButton();
             Toggle.Clicked += (_, _) => IsExpanded = !IsExpanded;
+            Toggle.Discloses = this;
             _layout.AddChild(Toggle);
         }
         _summary.Visibility = UiVisibility.Collapsed;
@@ -54,13 +60,36 @@ public sealed class FormSection : UiElement, IFormSection
                 for (var parent = focused; parent is not null; parent = parent.Parent)
                     if (parent == Content) { Session.SetFocus(Toggle); break; }
             Content.Visibility = value ? UiVisibility.Visible : UiVisibility.Collapsed;
-            if (Toggle is not null) Toggle.Text = $"{(value ? "Hide" : "Show")} {_title}";
+            if (Toggle is not null)
+            {
+                Toggle.Text = $"{(value ? "Hide" : "Show")} {_title}";
+                // The toggle reports this section's state, so its semantics change with it.
+                Toggle.Invalidate(UiInvalidationKind.Semantic);
+            }
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
     }
+
+    /// <summary>Shows the content.</summary>
+    /// <returns>False when it was already shown.</returns>
+    public bool Expand()
+    {
+        if (IsExpanded) return false;
+        IsExpanded = true;
+        return true;
+    }
+
+    /// <summary>Hides the content, moving focus inside it to the toggle.</summary>
+    /// <returns>False when it was already hidden or the section is not collapsible.</returns>
+    public bool Collapse()
+    {
+        if (!IsExpanded || Toggle is null) return false;
+        IsExpanded = false;
+        return true;
+    }
     protected override BSize MeasureCore(BSize availableSize) => _layout.Measure(availableSize);
     protected override void ArrangeCore(BRect finalRect) => _layout.Arrange(finalRect);
+    // The expand state belongs to the toggle that discloses the section, not to the group.
     protected override UiSemanticNode GetSemanticNodeCore() => new(UiSemanticRole.Group, _title,
-        Bounds, UiSemanticState.Visible | (IsExpanded ? UiSemanticState.Expanded : UiSemanticState.None),
-        Children.Select(c => c.GetSemanticNode()).ToArray(), Id: SemanticId);
+        Bounds, UiSemanticState.Visible, Children.Select(c => c.GetSemanticNode()).ToArray(), Id: SemanticId);
 }

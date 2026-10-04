@@ -22,7 +22,10 @@ surface.Reveal(field);
 Use `FormSection(..., collapsible: true, expanded: false)` for optional fields. Its
 `Summary` remains visible when collapsed. Collapsing retains values and returns focus
 to the disclosure when necessary. Applications should populate a useful summary when
-hidden values affect the operation.
+hidden values affect the operation. The disclosure button reports Expanded or Collapsed
+and points at the section through `UiElement.Discloses`, so a host can offer its
+expand/collapse pattern where the focus is; the section group reports neither state.
+`FormSection` implements `IUiExpandable` (`Expand`, `Collapse`). See ADR 0028.
 
 `InlineFeedback.Set` updates literal text, semantic status, theme-colored decoration,
 and session announcements. Native hosts still need to map semantic events into their

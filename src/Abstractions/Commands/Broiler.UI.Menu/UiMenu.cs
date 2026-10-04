@@ -9,7 +9,7 @@ namespace Broiler.UI.Menu;
 // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
 // Broiler-Falsified-If: InvokeSelected raises ItemInvoked for a selected item that is a separator, is disabled, or has children
 // Broiler-Human:        PENDING
-public abstract class UiMenu : UiElement
+public abstract class UiMenu : UiElement, IUiExpandable
 {
     private IReadOnlyList<UiMenuItem> _items = [];
     private IReadOnlyList<int> _selectedPath = [];
@@ -203,8 +203,13 @@ public abstract class UiMenu : UiElement
         UiSemanticState state = Visibility == UiVisibility.Visible ? UiSemanticState.Visible | UiSemanticState.Enabled : UiSemanticState.None;
         if (Session?.FocusedElement == this)
             state |= UiSemanticState.Focused;
-        if (IsOpen)
-            state |= UiSemanticState.Expanded;
+        state |= IsOpen ? UiSemanticState.Expanded : UiSemanticState.Collapsed;
         return state;
     }
+
+    bool IUiExpandable.IsExpanded => IsOpen;
+
+    bool IUiExpandable.Expand() => Open();
+
+    bool IUiExpandable.Collapse() => Close();
 }

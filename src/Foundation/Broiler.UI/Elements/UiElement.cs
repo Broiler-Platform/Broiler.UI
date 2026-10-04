@@ -15,6 +15,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
     private bool _isDisposed;
     private string? _accessibleName;
     private UiElement? _labeledBy;
+    private IUiExpandable? _discloses;
     private bool _hiddenFromAccessibility;
     private bool _isMeasureValid;
     private bool _isArrangeValid;
@@ -81,6 +82,32 @@ public abstract class UiElement : IDisposable, IUiFocusable
                 return;
 
             _labeledBy = ReferenceEquals(value, this) ? null : value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// What this element shows and hides when it is operated, such as the section a "Show details"
+    /// button opens. The element then reports the target's <see cref="UiSemanticState.Expanded"/> or
+    /// <see cref="UiSemanticState.Collapsed"/> state as its own, so a disclosure button carries the
+    /// state where the focus is. A host offers its expand/collapse pattern on this element, acts
+    /// through the target, and, when the target is itself an element, exposes it as the element this
+    /// one controls.
+    /// </summary>
+    /// <remarks>
+    /// The target does not know who discloses it. When its state changes it must invalidate the
+    /// semantics of the disclosing element, as <c>FormSection</c> does for its toggle.
+    /// </remarks>
+    public IUiExpandable? Discloses
+    {
+        get => _discloses;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_discloses, value))
+                return;
+
+            _discloses = value;
             Invalidate(UiInvalidationKind.Semantic);
         }
     }
@@ -341,8 +368,16 @@ public abstract class UiElement : IDisposable, IUiFocusable
             node = node with { Id = SemanticId };
         if (ResolveAccessibleName() is { Length: > 0 } name)
             node = node with { Name = name };
+        UiSemanticState state = node.State;
+        if (_discloses is { } target && target is not UiElement { IsDisposed: true })
+        {
+            state = (state & ~(UiSemanticState.Expanded | UiSemanticState.Collapsed)) |
+                (target.IsExpanded ? UiSemanticState.Expanded : UiSemanticState.Collapsed);
+        }
         if (_hiddenFromAccessibility)
-            node = node with { State = (node.State | UiSemanticState.Offscreen) & ~UiSemanticState.Visible };
+            state = (state | UiSemanticState.Offscreen) & ~UiSemanticState.Visible;
+        if (state != node.State)
+            node = node with { State = state };
         return node;
     }
 
