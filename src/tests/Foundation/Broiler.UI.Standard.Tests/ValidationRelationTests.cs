@@ -4,6 +4,7 @@ using Broiler.UI;
 using Broiler.UI.Edit.Standard;
 using Broiler.UI.Forms.Standard;
 using Broiler.UI.Label.Standard;
+using Broiler.UI.Panel.Standard;
 using Broiler.UI.Standard;
 
 namespace Broiler.UI.Standard.Tests;
@@ -149,6 +150,71 @@ public sealed class ValidationRelationTests
         Assert.Equal("Second", first.GetSemanticNode().Description);
         Assert.Equal("First", second.GetSemanticNode().Description);
         Assert.True(second.GetSemanticNode().State.HasFlag(UiSemanticState.Invalid));
+    }
+
+    [Fact]
+    public void AMessageInsideAHiddenContainerIsNotShown()
+    {
+        var panel = new StandardPanel();
+        var message = new StandardLabel { Text = "Server is required." };
+        panel.AddChild(message);
+        var hint = new StandardLabel { Text = "For example imap.example.test." };
+        var hints = new StandardPanel();
+        hints.AddChild(hint);
+        var edit = new StandardEdit { ErrorMessage = message, DescribedBy = hint };
+        Assert.True(edit.GetSemanticNode().State.HasFlag(UiSemanticState.Invalid));
+
+        panel.Visibility = UiVisibility.Collapsed;
+        hints.Visibility = UiVisibility.Hidden;
+        UiSemanticNode node = edit.GetSemanticNode();
+        Assert.False(node.State.HasFlag(UiSemanticState.Invalid));
+        Assert.Null(node.Description);
+
+        panel.Visibility = UiVisibility.Visible;
+        Assert.True(edit.GetSemanticNode().State.HasFlag(UiSemanticState.Invalid));
+        Assert.Equal("Server is required.", edit.GetSemanticNode().Description);
+    }
+
+    [Fact]
+    public void RelationsThatLeadBackToTheElementEndInsteadOfRecursing()
+    {
+        // An ancestor contains the control, so it neither describes it nor makes it invalid.
+        var group = new StandardPanel();
+        var edit = new StandardEdit();
+        group.AddChild(edit);
+        group.AddChild(new StandardLabel { Text = "Fix the errors below." });
+        edit.DescribedBy = group;
+        edit.ErrorMessage = group;
+        UiSemanticNode node = edit.GetSemanticNode();
+        Assert.Null(node.Description);
+        Assert.False(node.State.HasFlag(UiSemanticState.Invalid));
+        Assert.Equal(2, group.GetSemanticNode().Children.Count);
+
+        // An ancestor can still label an element, by its own name.
+        using var section = new FormSection("Advanced", collapsible: true);
+        section.Toggle!.LabeledBy = section;
+        Assert.Equal("Advanced", section.Toggle.GetSemanticNode().Name);
+        Assert.Equal("Advanced", section.GetSemanticNode().Name);
+
+        // Relations that lead back through each other's containers stop after one step.
+        using var left = new FormSection("Left");
+        using var right = new FormSection("Right");
+        var first = new StandardEdit();
+        var second = new StandardEdit();
+        left.Content.AddChild(first);
+        right.Content.AddChild(second);
+        first.LabeledBy = right;
+        first.DescribedBy = right;
+        second.LabeledBy = left;
+        second.ErrorMessage = left;
+
+        Assert.Equal("Right", first.GetSemanticNode().Name);
+        Assert.Equal("Right", first.GetSemanticNode().Description);
+        Assert.Equal("Left", second.GetSemanticNode().Name);
+        Assert.True(second.GetSemanticNode().State.HasFlag(UiSemanticState.Invalid));
+        Assert.Equal("Left", second.GetSemanticNode().Description);
+        Assert.Equal("Left", left.GetSemanticNode().Name);
+        Assert.Equal("Right", right.GetSemanticNode().Name);
     }
 
     private sealed class Host : IUiHost

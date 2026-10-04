@@ -9,6 +9,9 @@ namespace Broiler.UI;
 public abstract class UiElement : IDisposable, IUiFocusable
 {
     private static long _nextSemanticId;
+    // Above zero while a related element's name is read (see RelatedName).
+    [ThreadStatic]
+    private static int _relationDepth;
     public long SemanticId { get; } = Interlocked.Increment(ref _nextSemanticId);
     private readonly List<UiElement> _children = [];
     private UiVisibility _visibility = UiVisibility.Visible;
@@ -124,6 +127,9 @@ public abstract class UiElement : IDisposable, IUiFocusable
     /// text becomes part of <see cref="UiSemanticNode.Description"/> while it is shown, and a host
     /// exposes the element itself as a described-by relation.
     /// </summary>
+    /// <remarks>
+    /// An ancestor of this element is ignored: it contains this element and cannot describe it.
+    /// </remarks>
     public UiElement? DescribedBy
     {
         get => _describedBy;
@@ -140,17 +146,18 @@ public abstract class UiElement : IDisposable, IUiFocusable
 
     /// <summary>
     /// The element that says what is wrong with this one's value, such as a field's error text. While
-    /// it is shown (visible, not hidden from accessibility, not disposed) and has text, this element
-    /// reports <see cref="UiSemanticState.Invalid"/> and its <see cref="UiSemanticNode.Description"/>
-    /// begins with that text, so a client that never follows relations still reads the error. A host
-    /// lists it first among the described-by relations. Hide the message, or set this to null, when
-    /// the value is valid again.
+    /// it is shown (it and every ancestor visible, none hidden from accessibility, not disposed) and
+    /// has text, this element reports <see cref="UiSemanticState.Invalid"/> and its
+    /// <see cref="UiSemanticNode.Description"/> begins with that text, so a client that never follows
+    /// relations still reads the error. A host lists it first among the described-by relations. Hide
+    /// the message, or set this to null, when the value is valid again.
     /// </summary>
     /// <remarks>
     /// Nothing is announced when it is set: the form that validated usually announces its own status,
     /// and a second announcement would repeat it. The message text is read from the element's own
-    /// node, as for <see cref="LabeledBy"/>, so a message element that changes its text invalidates
-    /// only itself; whoever changes it should invalidate this element's semantics as well.
+    /// node, as for <see cref="LabeledBy"/>, so a message element that changes its text, or is shown
+    /// or hidden, invalidates only itself; whoever changes it should invalidate this element's
+    /// semantics as well. An ancestor of this element is ignored, as for <see cref="DescribedBy"/>.
     /// </remarks>
     public UiElement? ErrorMessage
     {
@@ -545,22 +552,46 @@ public abstract class UiElement : IDisposable, IUiFocusable
         // The label's own core node gives its text; going through GetSemanticNode could recurse
         // when two elements label each other.
         if (_labeledBy is { IsDisposed: false } label)
-            return label.GetSemanticNodeCore().Name.Trim();
+            return RelatedName(label);
         return null;
     }
 
-    // The text of a related element while the user can see it: a hidden error message no longer says
-    // anything about the value. Read from the core node, like a label, so relations cannot recurse.
-    private static string? RelationText(UiElement? related)
+    // The text of a related element while the user can see it: a hidden error message, or one in a
+    // collapsed panel, no longer says anything about the value. An ancestor is not a description of
+    // what it contains, and reading its node would build this element's node again.
+    private string? RelationText(UiElement? related)
     {
-        if (related is null || related.IsDisposed || related.Visibility != UiVisibility.Visible ||
-            related.IsHiddenFromAccessibility)
-        {
+        if (related is null || related.IsDisposed || IsDescendantOf(related))
             return null;
+
+        for (UiElement? current = related; current is not null; current = current.Parent)
+        {
+            if (current.Visibility != UiVisibility.Visible || current._hiddenFromAccessibility)
+                return null;
         }
 
-        string text = related.GetSemanticNodeCore().Name.Trim();
-        return text.Length == 0 ? null : text;
+        string? text = RelatedName(related);
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
+    // A related element's name comes from its core node. That node can contain the asking element
+    // again, through a container or a relation that leads back, so the nodes built meanwhile resolve
+    // no relations of their own and a cycle ends after one step. Their relation text would be
+    // discarded anyway: only the related element's own name is used.
+    private static string? RelatedName(UiElement related)
+    {
+        if (_relationDepth > 0)
+            return null;
+
+        _relationDepth++;
+        try
+        {
+            return related.GetSemanticNodeCore().Name.Trim();
+        }
+        finally
+        {
+            _relationDepth--;
+        }
     }
 
     private static string? JoinSentences(params string?[] parts)
