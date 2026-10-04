@@ -21,8 +21,15 @@ public enum UiSemanticState
     Expanded = 128,
     Modal = 256,
 
+    /// <summary>
+    /// The value is not acceptable. An element reports it on itself while its
+    /// <see cref="UiElement.ErrorMessage"/> is shown.
+    /// </summary>
     Invalid = 512,
+
+    /// <summary>A value must be given before the form can be submitted. See <see cref="UiElement.IsRequired"/>.</summary>
     Required = 1024,
+
     Offscreen = 2048,
 
     /// <summary>

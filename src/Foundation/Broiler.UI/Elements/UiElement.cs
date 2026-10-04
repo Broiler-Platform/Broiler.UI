@@ -16,6 +16,9 @@ public abstract class UiElement : IDisposable, IUiFocusable
     private string? _accessibleName;
     private UiElement? _labeledBy;
     private IUiExpandable? _discloses;
+    private UiElement? _describedBy;
+    private UiElement? _errorMessage;
+    private bool _isRequired;
     private bool _hiddenFromAccessibility;
     private bool _isMeasureValid;
     private bool _isArrangeValid;
@@ -108,6 +111,75 @@ public abstract class UiElement : IDisposable, IUiFocusable
                 return;
 
             _discloses = value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// The element whose text describes this one beyond its name, usually a hint below a field. Its
+    /// text becomes part of <see cref="UiSemanticNode.Description"/> while it is shown, and a host
+    /// exposes the element itself as a described-by relation.
+    /// </summary>
+    public UiElement? DescribedBy
+    {
+        get => _describedBy;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_describedBy, value))
+                return;
+
+            _describedBy = ReferenceEquals(value, this) ? null : value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// The element that says what is wrong with this one's value, such as a field's error text. While
+    /// it is shown (visible, not hidden from accessibility, not disposed) and has text, this element
+    /// reports <see cref="UiSemanticState.Invalid"/> and its <see cref="UiSemanticNode.Description"/>
+    /// begins with that text, so a client that never follows relations still reads the error. A host
+    /// lists it first among the described-by relations. Hide the message, or set this to null, when
+    /// the value is valid again.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is announced when it is set: the form that validated usually announces its own status,
+    /// and a second announcement would repeat it. The message text is read from the element's own
+    /// node, as for <see cref="LabeledBy"/>, so a message element that changes its text invalidates
+    /// only itself; whoever changes it should invalidate this element's semantics as well.
+    /// </remarks>
+    public UiElement? ErrorMessage
+    {
+        get => _errorMessage;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_errorMessage, value))
+                return;
+
+            _errorMessage = ReferenceEquals(value, this) ? null : value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// Whether a value must be given before the form this element belongs to can be submitted. The
+    /// element reports <see cref="UiSemanticState.Required"/>; nothing is enforced here.
+    /// </summary>
+    /// <remarks>
+    /// A composite may override this to forward the state to the control that carries it, as
+    /// <c>FormField</c> does; the composite itself then does not report the state.
+    /// </remarks>
+    public virtual bool IsRequired
+    {
+        get => _isRequired;
+        set
+        {
+            ThrowIfDisposed();
+            if (_isRequired == value)
+                return;
+
+            _isRequired = value;
             Invalidate(UiInvalidationKind.Semantic);
         }
     }
@@ -374,6 +446,13 @@ public abstract class UiElement : IDisposable, IUiFocusable
             state = (state & ~(UiSemanticState.Expanded | UiSemanticState.Collapsed)) |
                 (target.IsExpanded ? UiSemanticState.Expanded : UiSemanticState.Collapsed);
         }
+        string? error = RelationText(_errorMessage);
+        if (error is not null)
+            state |= UiSemanticState.Invalid;
+        if (_isRequired)
+            state |= UiSemanticState.Required;
+        if (JoinSentences(error, RelationText(_describedBy), node.Description) is { } description)
+            node = node with { Description = description };
         if (_hiddenFromAccessibility)
             state = (state | UiSemanticState.Offscreen) & ~UiSemanticState.Visible;
         if (state != node.State)
@@ -406,6 +485,37 @@ public abstract class UiElement : IDisposable, IUiFocusable
         if (_labeledBy is { IsDisposed: false } label)
             return label.GetSemanticNodeCore().Name.Trim();
         return null;
+    }
+
+    // The text of a related element while the user can see it: a hidden error message no longer says
+    // anything about the value. Read from the core node, like a label, so relations cannot recurse.
+    private static string? RelationText(UiElement? related)
+    {
+        if (related is null || related.IsDisposed || related.Visibility != UiVisibility.Visible ||
+            related.IsHiddenFromAccessibility)
+        {
+            return null;
+        }
+
+        string text = related.GetSemanticNodeCore().Name.Trim();
+        return text.Length == 0 ? null : text;
+    }
+
+    private static string? JoinSentences(params string?[] parts)
+    {
+        string? joined = null;
+        foreach (string? part in parts)
+        {
+            if (string.IsNullOrWhiteSpace(part))
+                continue;
+
+            if (joined is null)
+                joined = part;
+            else
+                joined += (joined[^1] is '.' or '!' or '?' or ':' ? " " : ". ") + part;
+        }
+
+        return joined;
     }
 
     public void Dispose()

@@ -19,6 +19,12 @@ feedback.Set("Review the highlighted field.", FeedbackKind.Error);
 surface.Reveal(field);
 ```
 
+The control, not the field group, carries the field's semantics because it is what takes
+focus: the label names it, the description is its `DescribedBy`, and while `SetError`
+shows a message that message is its `ErrorMessage`, so the control reports Invalid and
+its semantic `Description` starts with the error. `FormField.IsRequired` sets the
+control's Required state. A field error is not announced; the form's status is.
+
 Use `FormSection(..., collapsible: true, expanded: false)` for optional fields. Its
 `Summary` remains visible when collapsed. Collapsing retains values and returns focus
 to the disclosure when necessary. Applications should populate a useful summary when
