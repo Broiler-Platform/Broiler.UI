@@ -132,6 +132,64 @@ public sealed class ScrollViewControlTests
     }
 
     [Fact]
+    public void Standard_ScrollView_Keeps_The_Room_At_Both_Ends_Of_Content_That_Scrolls_Up_And_Down()
+    {
+        var scrollView = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            Constraint = UiScrollConstraint.ConstrainWidth,
+            VerticalContentInset = 2,
+        };
+        var content = new WidthFillingElement(300);
+        scrollView.AddChild(content);
+
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out BRenderList renderList);
+
+        // The viewport, the bar and the clip stay where they are; the content starts 2 DIP down, at its full
+        // width, and the extent takes in the room at both ends.
+        Assert.Equal(new BRect(0, 0, 90, 100), scrollView.ContentBounds);
+        Assert.Contains(renderList.Commands.OfType<BRenderCommand.PushClip>(), clip => clip.Rect == scrollView.ContentBounds);
+        Assert.Equal(90, content.MeasuredWidth);
+        Assert.Equal(new BRect(0, 2, 90, 300), content.Bounds);
+        Assert.Equal(304, scrollView.ExtentSize.Height);
+
+        scrollView.SetOffset(new BPoint(0, scrollView.ExtentSize.Height - scrollView.ViewportSize.Height));
+        scrollView.Arrange(new BRect(0, 0, 100, 100));
+        Assert.Equal(scrollView.ContentBounds.Bottom - 2, content.Bounds.Bottom, 6);
+
+        // Brought into view from above or below, a rectangle keeps the room between it and the edge it meets.
+        scrollView.SetOffset(new BPoint(0, 100));
+        scrollView.Arrange(new BRect(0, 0, 100, 100));
+        Assert.True(scrollView.MakeVisible(new BRect(0, 150, 20, 20)));
+        scrollView.Arrange(new BRect(0, 0, 100, 100));
+        Assert.Equal(scrollView.ContentBounds.Bottom - 2, 150 - (scrollView.VerticalOffset - 100) + 20, 6);
+        double offset = scrollView.VerticalOffset;
+        Assert.True(scrollView.MakeVisible(new BRect(0, -10, 20, 20)));
+        Assert.Equal(offset - 12, scrollView.VerticalOffset, 6);
+    }
+
+    [Fact]
+    public void Standard_ScrollView_Leaves_Room_Above_And_Below_Height_Constrained_Content()
+    {
+        var scrollView = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            Constraint = UiScrollConstraint.ConstrainHeight,
+            VerticalScrollBarVisibility = UiScrollBarVisibility.Hidden,
+            VerticalContentInset = 3,
+        };
+        var content = new HeightFillingElement(80);
+        scrollView.AddChild(content);
+
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out _);
+
+        // Measured and arranged 3 DIP short of each end of the viewport.
+        Assert.Equal(new BRect(0, 0, 100, 100), scrollView.ContentBounds);
+        Assert.Equal(94, content.MeasuredHeight);
+        Assert.Equal(new BRect(0, 3, 100, 94), content.Bounds);
+    }
+
+    [Fact]
     public void Standard_ScrollView_Content_Inset_Is_Zero_Unless_Set_And_Never_Negative()
     {
         var scrollView = new StandardScrollView();
@@ -140,6 +198,10 @@ public sealed class ScrollViewControlTests
         Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.HorizontalContentInset = -1);
         Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.HorizontalContentInset = double.NaN);
         Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.HorizontalContentInset = double.PositiveInfinity);
+        Assert.Equal(0, scrollView.VerticalContentInset);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.VerticalContentInset = -1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.VerticalContentInset = double.NaN);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.VerticalContentInset = double.PositiveInfinity);
     }
 
     [Fact]
@@ -334,6 +396,18 @@ public sealed class ScrollViewControlTests
             InputDeviceId.FromOpaqueValue("mouse"),
             new InputTimestamp(sequence, TimeSpan.TicksPerSecond, "scrollview-test"),
             sequence);
+
+    /// <summary>As tall as it is offered, and records the height.</summary>
+    private sealed class HeightFillingElement(double width) : UiElement
+    {
+        public double MeasuredHeight { get; private set; }
+
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            MeasuredHeight = availableSize.Height;
+            return new BSize(width, availableSize.Height);
+        }
+    }
 
     /// <summary>As wide as it is offered, and records the width.</summary>
     private sealed class WidthFillingElement(double height) : UiElement

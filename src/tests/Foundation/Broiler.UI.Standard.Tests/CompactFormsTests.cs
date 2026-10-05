@@ -133,6 +133,32 @@ public sealed class CompactFormsTests
     }
 
     [Fact]
+    public void RevealLeavesRoomForTheRingOfTheControlItBringsIntoView()
+    {
+        var fields = new StandardPanel { Spacing = 8 };
+        FormField? last = null;
+        for (int index = 1; index <= 12; index++)
+            fields.AddChild(last = new FormField($"Field {index}", new StandardEdit()));
+        using var surface = new FormSurface(fields, FormSurface.ActionBar(new StandardButton { Text = "Save" }), new InlineFeedback());
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+
+        // The last field has no error below its control, so the control is what meets the bottom of the viewport.
+        surface.Reveal(last!);
+        BRenderList renderList = session.RenderFrame();
+        (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(renderList, stroke => stroke.Rect == last!.Control.Bounds && stroke.Thickness == 2);
+        Assert.True(clip.Bottom >= ring.Rect.Bottom + (ring.Thickness / 2), $"The ring around {ring.Rect} is clipped to {clip}.");
+
+        // From below, a field comes in at the top with the same room above its label.
+        var middle = (FormField)fields.Children[5];
+        surface.Reveal(middle);
+        session.RenderFrame();
+        Assert.True(surface.Content.Scroll.VerticalOffset > 0);
+        Assert.Equal(surface.Content.Scroll.ContentBounds.Top + surface.Content.Scroll.VerticalContentInset, middle.Bounds.Top, 6);
+    }
+
+    [Fact]
     public void FeedbackThatShrinksTheFormKeepsTheFocusedControlInView()
     {
         using var form = new FeedbackForm();
@@ -150,6 +176,10 @@ public sealed class CompactFormsTests
         Assert.True(edit.Bounds.Top >= shrunk.Top - 0.5 && edit.Bounds.Bottom <= shrunk.Bottom + 0.5,
             $"The focused control is at {edit.Bounds}, outside the form's {shrunk}.");
         Assert.Same(edit, form.Session.FocusedElement);
+
+        // With room for its ring: the outer half of the ring's bottom line is not cut off by the clip.
+        (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(form.Session.RenderFrame(), stroke => stroke.Rect == edit.Bounds && stroke.Thickness == 2);
+        Assert.True(clip.Bottom >= ring.Rect.Bottom + (ring.Thickness / 2), $"The ring around {ring.Rect} is clipped to {clip}.");
     }
 
     [Fact]
@@ -206,6 +236,44 @@ public sealed class CompactFormsTests
         Assert.Equal(surface.Actions.Bounds.Left, edits[0].Bounds.Left, 6);
         double right = surface.Actions.Bounds.Right - (surface.Content.Scroll.HasVerticalScrollbar ? surface.Content.Scroll.ScrollbarThickness : 0);
         Assert.Equal(right, edits[0].Bounds.Right, 6);
+    }
+
+    [Fact]
+    public void AFieldTheKeyboardBringsIntoViewShowsItsWholeFocusRing()
+    {
+        var fields = new StandardPanel { Spacing = 8 };
+        StandardEdit[] edits = Enumerable.Range(0, 12).Select(_ => new StandardEdit()).ToArray();
+        foreach (var edit in edits)
+            fields.AddChild(new FormField("Email address", edit));
+        using var surface = new FormSurface(fields, FormSurface.ActionBar(new StandardButton { Text = "Save" }), new InlineFeedback());
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+        BRect first = edits[0].Bounds;
+        var focus = new StandardFocusScope(session);
+
+        // Tab down past the fold, to the last field at the very end of the form, and back up to the first: each
+        // field is scrolled to the bottom or the top of the viewport, and keeps room there for its ring.
+        foreach (int index in Enumerable.Range(0, edits.Length).Concat(Enumerable.Range(0, edits.Length).Reverse()))
+        {
+            Assert.True(focus.TryFocus(edits[index]));
+            BRenderList renderList = session.RenderFrame();
+            (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(renderList, stroke => stroke.Rect == edits[index].Bounds && stroke.Thickness == 2);
+            double outset = ring.Thickness / 2;
+            Assert.True(
+                clip.Left <= ring.Rect.Left - outset && clip.Right >= ring.Rect.Right + outset &&
+                clip.Top <= ring.Rect.Top - outset && clip.Bottom >= ring.Rect.Bottom + outset,
+                $"Field {index}: the ring around {ring.Rect} is clipped to {clip}.");
+        }
+
+        // Scrolled back to the top, the fields are where they were: the viewport reaches into the space around it
+        // by the room, rather than the fields moving down.
+        surface.Content.Scroll.ScrollBy(0, -1000);
+        session.RenderFrame();
+        Assert.Equal(first, edits[0].Bounds);
+        Assert.Equal(surface.Bounds.Top + 12, fields.Bounds.Top, 6);
+        Assert.Equal(surface.Bounds.Top + 12 - surface.Content.Scroll.VerticalContentInset, surface.Content.Bounds.Top, 6);
+        Assert.Equal(surface.Actions.Bounds.Top - 8 + surface.Content.Scroll.VerticalContentInset, surface.Content.Bounds.Bottom, 6);
     }
 
     [Fact]

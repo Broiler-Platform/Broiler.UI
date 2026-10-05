@@ -8,6 +8,7 @@ using Broiler.UI.Forms;
 using Broiler.UI.Forms.Standard;
 using Broiler.UI.Panel.Standard;
 using Broiler.UI.ScrollView;
+using Broiler.UI.ScrollView.Standard;
 using Broiler.UI.TabView;
 using Broiler.UI.TabView.Standard;
 
@@ -151,8 +152,10 @@ public sealed class TabViewHiddenContentLayoutTests
     /// </summary>
     private static void AssertLaidOutAtItsRectangle(FormSurface form, BRect area)
     {
-        UiElement feedback = Descendants(form).OfType<UiScrollView>().Last();
-        Assert.Equal(area.Bottom - 12, feedback.Bounds.Bottom, 0.5);
+        // The feedback's viewport reaches into the bottom margin by the room it leaves below its content for a
+        // focus ring, so what it shows ends 12 DIP above the bottom.
+        StandardScrollView feedback = Descendants(form).OfType<StandardScrollView>().Last();
+        Assert.Equal(area.Bottom - 12 + feedback.VerticalContentInset, feedback.Bounds.Bottom, 0.5);
         // The actions keep the 12 DIP margins; the form's viewport reaches into them by the room it leaves
         // beside its fields for their focus rings.
         Assert.Equal(area.Width - 24, form.Actions.Bounds.Width, 0.5);
