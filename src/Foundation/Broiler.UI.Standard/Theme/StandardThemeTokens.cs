@@ -14,8 +14,9 @@ namespace Broiler.UI.Standard;
 /// set. Every role is <c>required</c>, so a preset that omits a token fails to
 /// compile rather than silently rendering a transparent value. The accent text role
 /// (<see cref="AccentText"/>), the selection text roles (<see cref="SelectionText"/>,
-/// <see cref="SelectionTextMuted"/>) and the state roles (<see cref="StateFill"/>,
-/// <see cref="StateText"/>) are the exception: they derive from other roles until a
+/// <see cref="SelectionTextMuted"/>), the state roles (<see cref="StateFill"/>,
+/// <see cref="StateText"/>) and the scrollbar roles (<see cref="ScrollbarTrack"/>,
+/// <see cref="ScrollbarThumb"/>) are the exception: they derive from other roles until a
 /// theme sets them.
 /// </summary>
 public sealed record StandardThemeTokens
@@ -145,6 +146,46 @@ public sealed record StandardThemeTokens
         init => _stateText = value;
     }
 
+    // Scrollbars. Not required and unset in the presets, like the selection and state roles, so a copy that changes
+    // SurfaceDisabled or BorderStrong carries the change onto the bars, as it did before the roles existed.
+    private BColor? _scrollbarTrack;
+    private BColor? _scrollbarThumb;
+
+    /// <summary>
+    /// The track of a scrollbar, and the corner where a vertical and a horizontal bar meet. Unless a theme sets it,
+    /// it is <see cref="SurfaceDisabled"/>, the track the list, tree and code editor have always drawn: the window
+    /// color in the high-contrast presets and in a palette a host builds from system colors.
+    /// </summary>
+    /// <remarks>
+    /// Not every bar draws it. A scroll view, rich edit or formatting code view keeps its own translucent bars until
+    /// the theme gives scrollbars colors of their own (<see cref="StandardControlPaint.ScrollbarColors"/>), so under
+    /// the Light and Dark presets those three draw a different pair from this one (ADR 0033).
+    /// </remarks>
+    public BColor ScrollbarTrack
+    {
+        get => _scrollbarTrack ?? SurfaceDisabled;
+        init => _scrollbarTrack = value;
+    }
+
+    /// <summary>
+    /// The thumb of a scrollbar, drawn on <see cref="ScrollbarTrack"/>. Unless a theme sets it, it is
+    /// <see cref="BorderStrong"/>, the thumb the list, tree and code editor have always drawn: the window text color
+    /// in the high-contrast presets and in a palette a host builds from system colors.
+    /// </summary>
+    /// <remarks>Like <see cref="ScrollbarTrack"/>, not drawn by every bar under the Light and Dark presets.</remarks>
+    public BColor ScrollbarThumb
+    {
+        get => _scrollbarThumb ?? BorderStrong;
+        init => _scrollbarThumb = value;
+    }
+
+    /// <summary>
+    /// Whether this theme sets <see cref="ScrollbarTrack"/> or <see cref="ScrollbarThumb"/> itself, even to the
+    /// value it would follow, rather than leaving both to follow <see cref="SurfaceDisabled"/> and
+    /// <see cref="BorderStrong"/>. A copy keeps what its source set.
+    /// </summary>
+    internal bool SetsScrollbarRoles => _scrollbarTrack is not null || _scrollbarThumb is not null;
+
     // Focus
     public required BColor FocusRing { get; init; }
     public double FocusRingThickness { get; init; } = 1;
@@ -257,6 +298,21 @@ public sealed record StandardThemeTokens
     public double FocusRingContrast => StandardContrast.Ratio(FocusRing, Surface);
     public double SelectionTextContrast => StandardContrast.Ratio(SelectionText, AccentSoft);
     public double StateTextContrast => StandardContrast.Ratio(StateText, StateFill);
+
+    /// <summary>
+    /// The lesser of the ratios of <see cref="ScrollbarThumb"/> on <see cref="ScrollbarTrack"/> and on
+    /// <see cref="Surface"/>. The thumb has to stand out from both: it is as wide as its track, so its sides meet
+    /// the surface beside the bar, and a track can be the surface itself, as in high contrast.
+    /// </summary>
+    /// <remarks>
+    /// The contrast of the roles, which every bar draws under a theme that gives scrollbars colors of their own
+    /// (<see cref="StandardControlPaint.ScrollbarColors"/>). Under a theme that does not, as the Light and Dark
+    /// presets, the scroll view, rich edit and formatting code view draw their own translucent pair instead, whose
+    /// contrast this does not measure (ADR 0033).
+    /// </remarks>
+    public double ScrollbarThumbContrast =>
+        Math.Min(StandardContrast.Ratio(ScrollbarThumb, ScrollbarTrack), StandardContrast.Ratio(ScrollbarThumb, Surface));
+
     public bool MeetsAaNormalText => StandardContrast.Meets(Text, Surface, StandardContrast.AaNormalText);
     public bool MeetsAaLargeOrUi => StandardContrast.Meets(BorderStrong, Surface, StandardContrast.AaLargeOrUi);
 

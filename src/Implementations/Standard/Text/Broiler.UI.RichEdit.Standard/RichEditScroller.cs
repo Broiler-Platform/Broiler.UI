@@ -17,14 +17,18 @@ namespace Broiler.UI.RichEdit.Standard;
 /// the text column, so showing or hiding it never rewraps the document. That is
 /// the difference from <see cref="StandardScrollbar"/>, which carves its bar out
 /// of the content; the rich edit's text would reflow every time a document grew
-/// past the window if it used it.
+/// past the window if it used it. An opaque bar, which would hide the text it
+/// overlays, is drawn beside the window instead, in the <c>Gutter</c> right of
+/// <c>Inner</c>: a strip the control keeps whether or not the bar shows, so that
+/// does not rewrap the document either. A gutter of 0 is the overlay.
 /// </remarks>
 internal readonly record struct RichEditScrollMetrics(
     RichEditScrollPolicy Policy,
     BRect Inner,
     double Extent,
     double Thickness,
-    double MinimumThumbLength)
+    double MinimumThumbLength,
+    double Gutter = 0)
 {
     /// <summary>The height of the window onto the content.</summary>
     public double Viewport => Inner.Height;
@@ -45,8 +49,8 @@ internal readonly record struct RichEditScrollMetrics(
     {
         get
         {
-            double thickness = Math.Clamp(Thickness, 0, Inner.Width);
-            return new BRect(Inner.Right - thickness, Inner.Top, thickness, Inner.Height);
+            double thickness = Math.Clamp(Thickness, 0, Inner.Width + Gutter);
+            return new BRect(Inner.Right + Gutter - thickness, Inner.Top, thickness, Inner.Height);
         }
     }
 
@@ -71,12 +75,17 @@ internal readonly record struct RichEditScrollMetrics(
     }
 }
 
+/// <summary>
+/// The horizontal counterpart of <see cref="RichEditScrollMetrics"/>; its
+/// <c>Gutter</c> is the strip below <c>Inner</c> kept for an opaque bar.
+/// </summary>
 internal readonly record struct RichEditHorizontalScrollMetrics(
     RichEditScrollPolicy Policy,
     BRect Inner,
     double Extent,
     double Thickness,
-    double MinimumThumbLength)
+    double MinimumThumbLength,
+    double Gutter = 0)
 {
     public double Viewport => Inner.Width;
 
@@ -91,8 +100,8 @@ internal readonly record struct RichEditHorizontalScrollMetrics(
     {
         get
         {
-            double thickness = Math.Clamp(Thickness, 0, Inner.Height);
-            return new BRect(Inner.Left, Inner.Bottom - thickness, Inner.Width, thickness);
+            double thickness = Math.Clamp(Thickness, 0, Inner.Height + Gutter);
+            return new BRect(Inner.Left, Inner.Bottom + Gutter - thickness, Inner.Width, thickness);
         }
     }
 

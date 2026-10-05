@@ -56,8 +56,8 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         FocusRing = theme.FocusRing;
         BorderColor = theme.Border;
         Accent = theme.Accent;
-        ScrollbarTrack = theme.SurfaceDisabled;
-        ScrollbarThumb = theme.BorderStrong;
+        ScrollbarTrack = theme.ScrollbarTrack;
+        ScrollbarThumb = theme.ScrollbarThumb;
         // The token says so for the presets and system palettes; the luminance test still recognizes a
         // custom palette at the extremes that does not set it.
         _isHighContrast = theme.IsHighContrast || Math.Abs(Luminance(theme.Surface) - Luminance(theme.Text)) > 0.9;
@@ -79,8 +79,8 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     private BColor _focusRing = StandardControlPaint.Focus;
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _accent = StandardControlPaint.Accent;
-    private BColor _scrollbarTrack = StandardControlPaint.SurfaceDisabled;
-    private BColor _scrollbarThumb = StandardControlPaint.BorderStrong;
+    private BColor _scrollbarTrack = StandardControlPaint.ScrollbarTrack;
+    private BColor _scrollbarThumb = StandardControlPaint.ScrollbarThumb;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
     private double _itemHeight = 28;

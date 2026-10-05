@@ -52,9 +52,9 @@ public sealed class StandardScrollbar
     /// The paint of the track and of the thumb. Set from a theme by the
     /// control, like every other colour it owns.
     /// </summary>
-    public BColor Track { get; set; } = StandardControlPaint.SurfaceDisabled;
+    public BColor Track { get; set; } = StandardControlPaint.ScrollbarTrack;
 
-    public BColor Thumb { get; set; } = StandardControlPaint.BorderStrong;
+    public BColor Thumb { get; set; } = StandardControlPaint.ScrollbarThumb;
 
     /// <summary>
     /// Whether the bar may appear at all. False is a host saying this control
