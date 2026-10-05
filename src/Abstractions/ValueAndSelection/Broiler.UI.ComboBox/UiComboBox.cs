@@ -9,13 +9,14 @@ namespace Broiler.UI.ComboBox;
 // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
 // Broiler-Falsified-If: SelectIndex stores an index below -1 or at least Items.Count as SelectedIndex
 // Broiler-Human:        PENDING
-public abstract class UiComboBox : UiElement
+public abstract class UiComboBox : UiElement, IUiExpandable
 {
     private IReadOnlyList<UiComboBoxItem> _items = [];
     private int _selectedIndex = -1;
     private bool _isDropDownOpen;
     private bool _isEnabled = true;
     private BSize _preferredSize = new(180, 32);
+    private bool _isPreferredSizeSet;
     private int _maxDropDownItems = 8;
 
     protected UiComboBox()
@@ -95,6 +96,11 @@ public abstract class UiComboBox : UiElement
             ThrowIfDisposed();
             if (value.Width < 0 || value.Height < 0)
                 throw new ArgumentOutOfRangeException(nameof(value), "Preferred combo box size must be non-negative.");
+            if (!_isPreferredSizeSet)
+            {
+                _isPreferredSizeSet = true;
+                Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+            }
             if (_preferredSize == value)
                 return;
 
@@ -102,6 +108,13 @@ public abstract class UiComboBox : UiElement
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
         }
     }
+
+    /// <summary>
+    /// Whether the application has assigned <see cref="PreferredSize"/>, even to its default value. Until it
+    /// has, an implementation may make the control taller than <see cref="PreferredSize"/> when its font
+    /// needs more room, so text at a larger size is not clipped by a size chosen for the default font.
+    /// </summary>
+    protected bool IsPreferredSizeSet => _isPreferredSizeSet;
 
     // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=1; Fingerprint=TBF
     // Broiler-Falsified-If: a zero or negative value is stored as the maximum drop-down item count
@@ -203,8 +216,14 @@ public abstract class UiComboBox : UiElement
             state |= UiSemanticState.Enabled;
         if (Session?.FocusedElement == this)
             state |= UiSemanticState.Focused;
-        if (IsDropDownOpen)
-            state |= UiSemanticState.Expanded;
+        state |= IsDropDownOpen ? UiSemanticState.Expanded : UiSemanticState.Collapsed;
         return state;
     }
+
+    // The drop-down is the content a combo box shows and hides.
+    bool IUiExpandable.IsExpanded => IsDropDownOpen;
+
+    bool IUiExpandable.Expand() => OpenDropDown();
+
+    bool IUiExpandable.Collapse() => CloseDropDown();
 }

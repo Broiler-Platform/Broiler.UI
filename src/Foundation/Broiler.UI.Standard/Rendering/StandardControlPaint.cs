@@ -85,6 +85,14 @@ public static class StandardControlPaint
     public static BColor AccentSoft => _theme.AccentSoft;
     public static BColor OnAccent => _theme.OnAccent;
 
+    // Selection
+    public static BColor SelectionText => _theme.SelectionText;
+    public static BColor SelectionTextMuted => _theme.SelectionTextMuted;
+
+    // State
+    public static BColor StateFill => _theme.StateFill;
+    public static BColor StateText => _theme.StateText;
+
     // Focus
     public static BColor Focus => _theme.FocusRing;
     public static double FocusRingThickness => _theme.FocusRingThickness;

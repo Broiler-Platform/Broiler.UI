@@ -79,14 +79,20 @@ public sealed class CompactFormsTests
         Assert.Equal("Show Cc & Bcc", section.Toggle.Text);
         Assert.Same(section.Toggle, session.FocusedElement);
         Assert.Equal("hidden@example.test", edit.Text);
+        // The toggle carries the disclosure state; the group reports none (ADR 0028).
+        Assert.True(section.Toggle.GetSemanticNode().State.HasFlag(UiSemanticState.Collapsed));
+        Assert.False(section.Toggle.GetSemanticNode().State.HasFlag(UiSemanticState.Expanded));
         Assert.False(section.GetSemanticNode().State.HasFlag(UiSemanticState.Expanded));
+        Assert.False(section.GetSemanticNode().State.HasFlag(UiSemanticState.Collapsed));
         #pragma warning disable CS0618
         var input = new StandardLegacyGraphicsInputAdapter("compact-forms");
         Assert.True(session.DispatchInput(input.FromKey(new BKeyEventArgs(13, false, false, false), KeyboardKeyTransition.Down)));
         session.DispatchInput(input.FromKey(new BKeyEventArgs(13, false, false, false), KeyboardKeyTransition.Up));
         #pragma warning restore CS0618
         Assert.True(section.IsExpanded);
-        Assert.True(section.GetSemanticNode().State.HasFlag(UiSemanticState.Expanded));
+        Assert.True(section.Toggle.GetSemanticNode().State.HasFlag(UiSemanticState.Expanded));
+        Assert.False(section.Toggle.GetSemanticNode().State.HasFlag(UiSemanticState.Collapsed));
+        Assert.False(section.GetSemanticNode().State.HasFlag(UiSemanticState.Expanded));
         Assert.Equal("hidden@example.test", edit.Text);
     }
 

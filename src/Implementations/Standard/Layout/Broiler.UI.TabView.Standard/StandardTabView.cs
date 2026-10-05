@@ -245,6 +245,22 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
         return SelectIndex(index);
     }
 
+    /// <summary>
+    /// The header as it is drawn and hit-tested: as wide as its text plus <see cref="HeaderPaddingX"/>
+    /// on each side (at least 48 DIP), laid out left to right from the view's left edge, and
+    /// <see cref="EffectiveHeaderHeight"/> tall.
+    /// </summary>
+    public override BRect GetTabHeaderBounds(int index)
+    {
+        if ((uint)index >= (uint)Tabs.Count || Visibility != UiVisibility.Visible || Bounds.IsEmpty)
+            return BRect.Empty;
+
+        double x = Bounds.Left;
+        for (int previous = 0; previous < index; previous++)
+            x = GetHeaderBounds(previous, x).Right;
+        return GetHeaderBounds(index, x);
+    }
+
     private BRect GetHeaderBounds(int index, double left)
     {
         double width = BTextMeasurer.MeasureAdvance(Tabs[index].Header, Font) + HeaderPaddingX * 2;

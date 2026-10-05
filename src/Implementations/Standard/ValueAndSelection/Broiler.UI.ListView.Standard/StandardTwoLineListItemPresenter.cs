@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Broiler.Graphics;
 using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
@@ -15,6 +16,12 @@ namespace Broiler.UI.ListView.Standard;
 public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
 {
     public static readonly StandardTwoLineListItemPresenter Instance = new();
+
+    /// <summary>How many characters of the primary text, before its ellipsis, the tertiary text leaves room for.</summary>
+    private const int MinimumPrimaryCharacters = 3;
+
+    /// <summary>The gap between the primary text and the tertiary text.</summary>
+    private const double TertiaryGap = 10;
 
     public double GetItemHeight(UiListItem? item, UiDensity density, double availableWidth) =>
         density switch
@@ -63,6 +70,9 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         }
 
         bool isUnread = !context.State.IsRead;
+        bool isSelected = context.State.IsSelected;
+        BColor foreground = isSelected ? context.SelectedForeground : context.Foreground;
+        BColor secondaryForeground = isSelected ? context.SelectedSecondaryForeground : context.SecondaryForeground;
         double primaryLineHeight = BTextMeasurer.GetLineHeight(context.Font);
         double primaryTop = bounds.Top + TopPadding(context.State.Density);
 
@@ -73,27 +83,41 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         {
             double dotSize = 6;
             double dotTop = primaryTop + Math.Max(0, (primaryLineHeight - dotSize) / 2);
-            list.FillRect(new BRect(primaryLeft, dotTop, dotSize, dotSize), context.Accent);
+            // A selection with a text color of its own can share its fill with the accent (a system
+            // highlight pair is both), so the dot takes the selected text color there to stay visible.
+            BColor dot = isSelected && context.SelectedForeground != context.Foreground ? context.SelectedForeground : context.Accent;
+            list.FillRect(new BRect(primaryLeft, dotTop, dotSize, dotSize), dot);
             primaryLeft += dotSize + 6;
         }
 
-        // Line 1: Tertiary text (right aligned)
+        BFontStyle primaryFont = isUnread ? context.Font with { Weight = BFontWeight.Bold } : context.Font;
+        double primaryRoom = Math.Max(0, bounds.Right - 8 - primaryLeft);
+
+        // Line 1: Tertiary text (right aligned, 8 DIP before the edge). It is drawn whole or not at all, since a
+        // shortened date or time reads as a different one ("10:..." for "10:42"). It is drawn only when it fits
+        // beside the gap and the least of the primary text that is still readable: its first few characters and
+        // an ellipsis, or all of it when that is shorter, and never less than 10 DIP, the least a date that fit
+        // left it before. In a narrower row it is left out and the primary text gets the line; the semantic
+        // node keeps it either way.
         double tertiaryWidth = 0;
         if (!string.IsNullOrEmpty(context.Item.TertiaryText))
         {
             BFontStyle tertiaryFont = context.Font with { Size = Math.Max(9, context.Font.Size - 2) };
-            tertiaryWidth = BTextMeasurer.MeasureAdvance(context.Item.TertiaryText, tertiaryFont);
-            double tertiaryLeft = Math.Max(primaryLeft + 20, bounds.Right - 8 - tertiaryWidth);
-            list.DrawText(new BTextRun(context.Item.TertiaryText, tertiaryFont, context.SecondaryForeground), new BPoint(tertiaryLeft, primaryTop + 1));
+            double width = BTextMeasurer.MeasureAdvance(context.Item.TertiaryText, tertiaryFont);
+            double primaryMinimum = Math.Max(TertiaryGap, MinimumPrimaryWidth(context.Item.Text, primaryFont));
+            if (width + TertiaryGap + primaryMinimum <= primaryRoom)
+            {
+                tertiaryWidth = width;
+                list.DrawText(new BTextRun(context.Item.TertiaryText, tertiaryFont, secondaryForeground), new BPoint(bounds.Right - 8 - width, primaryTop + 1));
+            }
         }
 
         // Line 1: Primary text (sender / title)
-        double maxPrimaryWidth = Math.Max(0, bounds.Right - 8 - (tertiaryWidth > 0 ? tertiaryWidth + 10 : 0) - primaryLeft);
-        BFontStyle primaryFont = isUnread ? context.Font with { Weight = BFontWeight.Bold } : context.Font;
+        double maxPrimaryWidth = Math.Max(0, primaryRoom - (tertiaryWidth > 0 ? tertiaryWidth + TertiaryGap : 0));
         string primaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.Text, primaryFont, maxPrimaryWidth);
         if (!string.IsNullOrEmpty(primaryText))
         {
-            list.DrawText(new BTextRun(primaryText, primaryFont, context.Foreground), new BPoint(primaryLeft, primaryTop));
+            list.DrawText(new BTextRun(primaryText, primaryFont, foreground), new BPoint(primaryLeft, primaryTop));
         }
 
         // Line 2: Secondary text (subject / snippet)
@@ -106,14 +130,37 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
             string secondaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.SecondaryText, secondaryFont, maxSecondaryWidth);
             if (!string.IsNullOrEmpty(secondaryText))
             {
-                list.DrawText(new BTextRun(secondaryText, secondaryFont, context.SecondaryForeground), new BPoint(secondaryLeft, secondaryTop));
+                list.DrawText(new BTextRun(secondaryText, secondaryFont, secondaryForeground), new BPoint(secondaryLeft, secondaryTop));
             }
         }
 
         if (context.State.IsFocused && context.State.IsSelected)
         {
-            list.StrokeRect(StandardControlPaint.Inset(bounds, 2), context.FocusRing, 1);
+            DefaultListItemPresenter.StrokeFocusRing(context);
         }
+    }
+
+    /// <summary>
+    /// The narrowest the primary text is made to give the tertiary text room: its first
+    /// <see cref="MinimumPrimaryCharacters"/> characters and an ellipsis, measured the way
+    /// <see cref="DefaultListItemPresenter.TruncateWithEllipsis"/> measures them so that it keeps them, or the
+    /// whole text when that is no wider.
+    /// </summary>
+    private static double MinimumPrimaryWidth(string text, BFontStyle font)
+    {
+        if (string.IsNullOrEmpty(text))
+            return 0;
+
+        int length = 0;
+        for (int count = 0; count < MinimumPrimaryCharacters && length < text.Length; count++)
+            length += StringInfo.GetNextTextElementLength(text.AsSpan(length));
+
+        double whole = BTextMeasurer.MeasureAdvance(text, font);
+        if (length >= text.Length)
+            return whole;
+
+        double shortened = BTextMeasurer.MeasureAdvance(text[..length], font) + BTextMeasurer.MeasureAdvance(DefaultListItemPresenter.Ellipsis, font);
+        return Math.Min(whole, shortened);
     }
 
     public UiSemanticNode CreateSemanticNode(UiListItemSemanticContext context)

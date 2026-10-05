@@ -65,8 +65,8 @@ public sealed class ListViewPresenterAndVirtualizationTests
         };
         listView.SetItems(items);
 
-        // Render at a narrow width of 140 DIP
-        using UiSession session = AttachAndRender(listView, new BSize(140, 200), out BRenderList renderList);
+        // Render at a narrow width of 160 DIP: just enough for each date beside the start of its subject.
+        using UiSession session = AttachAndRender(listView, new BSize(160, 200), out BRenderList renderList);
 
         // Verify that DrawText commands were emitted for primary, preview, and tertiary
         var texts = renderList.Commands.OfType<BRenderCommand.DrawText>().Select(t => t.Text.Text).ToList();
@@ -74,10 +74,90 @@ public sealed class ListViewPresenterAndVirtualizationTests
         Assert.Contains(texts, t => t.Contains("10:30 AM", StringComparison.Ordinal));
         Assert.Contains(texts, t => t.Contains("Yesterday", StringComparison.Ordinal));
 
+        // Each subject keeps its first characters and ends at least 10 DIP before its date.
+        List<BRenderCommand.DrawText> draws = DrawnTexts(renderList);
+        foreach ((string subject, string date) in new[] { ("Subject 1", "10:30 AM"), ("Subject 2", "Yesterday") })
+        {
+            BRenderCommand.DrawText tertiary = Assert.Single(draws, t => t.Text.Text == date);
+            BRenderCommand.DrawText primary = Assert.Single(draws, t => t.Text.Text.StartsWith("Sub", StringComparison.Ordinal) && Math.Abs(t.Origin.Y - tertiary.Origin.Y) < 4);
+            Assert.StartsWith(primary.Text.Text.Replace("...", string.Empty, StringComparison.Ordinal), subject, StringComparison.Ordinal);
+            Assert.True(RightEdge(primary) <= tertiary.Origin.X - 10 + 0.001, $"'{primary.Text.Text}' runs into '{date}'.");
+        }
+
         // For unread item, unread accent indicator dot is drawn (6x6 fill)
         var fills = renderList.Commands.OfType<BRenderCommand.FillRect>().ToList();
         Assert.NotEmpty(fills);
         Assert.Contains(fills, f => f.Rect.Width == 6.0 && f.Rect.Height == 6.0);
+    }
+
+    [Fact]
+    public void TwoLinePresenter_Draws_The_Tertiary_Text_Whole_Only_Beside_The_Start_Of_The_Primary_Text()
+    {
+        const string date = "September 27, 2026";
+        var item = new UiListItem("m", "Ada Lovelace", "Re: analytical engines", date, isRead: false);
+        BFontStyle senderFont = BFontStyle.Default with { Weight = BFontWeight.Bold };
+        BFontStyle dateFont = BFontStyle.Default with { Size = BFontStyle.Default.Size - 2 };
+        double dateWidth = BTextMeasurer.MeasureAdvance(date, dateFont);
+
+        // The narrowest row that holds the whole date beside the sender's first three characters and an
+        // ellipsis: the left margin and the unread dot, that much of the sender, the gap, the date, and the
+        // right margin. Derived from the measurer, so each half below takes its branch whatever the fonts.
+        double senderMinimum = BTextMeasurer.MeasureAdvance("Ada", senderFont) + BTextMeasurer.MeasureAdvance("...", senderFont);
+        double threshold = 10 + 12 + senderMinimum + 10 + dateWidth + 8;
+
+        // Wide enough: the date is drawn whole, right-aligned 8 DIP from the edge, and the sender keeps at least
+        // its first three characters before the gap.
+        var bounds = new BRect(0, 0, threshold + 0.5, 52);
+        List<BRenderCommand.DrawText> texts = DrawnTexts(RenderTwoLineRow(bounds, item));
+        BRenderCommand.DrawText tertiary = Assert.Single(texts, text => text.Text.Font == dateFont);
+        Assert.Equal(date, tertiary.Text.Text);
+        Assert.Equal(bounds.Right - 8 - dateWidth, tertiary.Origin.X, 6);
+        BRenderCommand.DrawText sender = Assert.Single(texts, text => text.Text.Font == senderFont);
+        Assert.StartsWith("Ada", sender.Text.Text, StringComparison.Ordinal);
+        Assert.True(RightEdge(sender) <= tertiary.Origin.X - 10 + 0.001, $"'{sender.Text.Text}' runs into the date.");
+        double senderWidthBesideDate = RightEdge(sender) - sender.Origin.X;
+
+        // Narrower: the date is left out rather than shortened, and the sender gets the line.
+        bounds = new BRect(0, 0, threshold - 0.5, 52);
+        texts = DrawnTexts(RenderTwoLineRow(bounds, item));
+        Assert.DoesNotContain(texts, text => text.Text.Font == dateFont);
+        sender = Assert.Single(texts, text => text.Text.Font == senderFont);
+        Assert.StartsWith("Ada", sender.Text.Text, StringComparison.Ordinal);
+        Assert.True(RightEdge(sender) - sender.Origin.X > senderWidthBesideDate, "The sender gains the date's room.");
+    }
+
+    [Fact]
+    public void TwoLinePresenter_Keeps_Every_Line_Inside_The_Row_At_Any_Width()
+    {
+        const string date = "September 27, 2026";
+        var item = new UiListItem("m", "Ada Lovelace", "Re: analytical engines", date, isRead: false);
+        BFontStyle dateFont = BFontStyle.Default with { Size = BFontStyle.Default.Size - 2 };
+
+        for (double width = 40; width <= 400; width += 4)
+        {
+            var bounds = new BRect(0, 0, width, 52);
+            List<BRenderCommand.DrawText> texts = DrawnTexts(RenderTwoLineRow(bounds, item));
+            foreach (BRenderCommand.DrawText text in texts)
+                Assert.True(RightEdge(text) <= bounds.Right - 8 + 0.001, $"At {width}: '{text.Text.Text}' ends at {RightEdge(text)}, inside the row's 8 DIP margin.");
+
+            // The date is whole or absent, and when it is drawn the sender is still more than an ellipsis.
+            BRenderCommand.DrawText? tertiary = texts.SingleOrDefault(text => text.Text.Font == dateFont);
+            if (tertiary is not null)
+            {
+                Assert.Equal(date, tertiary.Text.Text);
+                Assert.Contains(texts, text => text.Text.Text.StartsWith("Ada", StringComparison.Ordinal));
+            }
+        }
+    }
+
+    [Fact]
+    public void TwoLinePresenter_Keeps_The_Full_Tertiary_Text_In_Its_Semantic_Name()
+    {
+        var item = new UiListItem("m", "Ada", "Engines", "September 27, 2026", isRead: true);
+        UiSemanticNode node = StandardTwoLineListItemPresenter.Instance.CreateSemanticNode(
+            new UiListItemSemanticContext { Item = item, State = new UiListItemState(false, false, true, 0), Bounds = new BRect(0, 0, 60, 52), Index = 0 });
+
+        Assert.Contains("September 27, 2026", node.Name, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -146,6 +226,78 @@ public sealed class ListViewPresenterAndVirtualizationTests
         Assert.Equal(300, listView.VerticalOffset);
         Assert.Equal(12, listView.FirstVisibleIndex);
         Assert.Equal("item-10", listView.Items[listView.FirstVisibleIndex].Id);
+    }
+
+    [Fact]
+    public void Scroll_Anchoring_Keeps_The_Nearest_Surviving_Row_In_Place_When_The_Anchor_Row_Is_Removed()
+    {
+        var listView = new StandardListView { ItemHeight = 25, EnableScrollAnchoring = true };
+        List<UiListItem> items = Enumerable.Range(0, 50).Select(i => new UiListItem($"item-{i}", $"Item {i}")).ToList();
+        listView.SetItems(items);
+        using UiSession session = AttachAndRender(listView, new BSize(200, 250), out _);
+
+        // item-10 at the top, scrolled 10 DIP into it, so item-11 is 15 DIP down the view.
+        listView.ScrollIntoView("item-19");
+        Assert.True(listView.MakeVisible(new BRect(0, 255, 10, 5)));
+        Assert.Equal(260, listView.VerticalOffset);
+        double item11Top = (11 * 25) - listView.VerticalOffset;
+
+        listView.SetItems(items.Where(item => item.Id != "item-10"));
+        listView.Arrange(new BRect(0, 0, 200, 250));
+
+        // item-11 did not move; the row before the removed one slides in above it.
+        Assert.Equal(235, listView.VerticalOffset);
+        Assert.Equal(item11Top, (IndexOf(listView, "item-11") * 25) - listView.VerticalOffset);
+        Assert.Equal("item-9", listView.Items[listView.FirstVisibleIndex].Id);
+
+        // Now item-9 is the anchor. When it and every row after it that was on screen go, and rows above go
+        // too, the nearest survivor is the row before it, item-8, and that row keeps its place.
+        Assert.Equal(-35, (IndexOf(listView, "item-8") * 25) - listView.VerticalOffset);
+        var removed = new HashSet<string>(StringComparer.Ordinal) { "item-0", "item-1", "item-2", "item-9" };
+        for (int i = 11; i <= 20; i++)
+            removed.Add($"item-{i}");
+        listView.SetItems(listView.Items.Where(item => !removed.Contains(item.Id)).ToList());
+        listView.Arrange(new BRect(0, 0, 200, 250));
+
+        Assert.Equal(5, IndexOf(listView, "item-8"));
+        Assert.Equal(160, listView.VerticalOffset);
+        Assert.Equal(-35, (IndexOf(listView, "item-8") * 25) - listView.VerticalOffset);
+    }
+
+    [Fact]
+    public void Scroll_Anchoring_Keeps_The_Nearest_Row_When_The_Anchor_Falls_Off_A_Newer_Page()
+    {
+        // A mail list shows the newest 50 messages. 25 new ones push the row at the top of the view, and
+        // every row below it, off the page.
+        var listView = new StandardListView { ItemHeight = 25, EnableScrollAnchoring = true };
+        List<UiListItem> page = Enumerable.Range(0, 50).Select(i => new UiListItem($"item-{i}", $"Item {i}")).ToList();
+        listView.SetItems(page);
+        using UiSession session = AttachAndRender(listView, new BSize(200, 250), out _);
+        listView.ScrollIntoView("item-39");
+        Assert.Equal(750, listView.VerticalOffset);
+        Assert.Equal("item-30", listView.Items[listView.FirstVisibleIndex].Id);
+
+        List<UiListItem> newer = Enumerable.Range(0, 25).Select(i => new UiListItem($"new-{i}", $"New {i}")).Concat(page.Take(25)).ToList();
+        listView.SetItems(newer);
+        listView.Arrange(new BRect(0, 0, 200, 250));
+
+        // item-24, the nearest survivor, is pulled as close to where it was as the list allows: the view
+        // ends with it instead of showing unrelated rows from the middle of the new page.
+        Assert.Equal(1000, listView.VerticalOffset);
+        Assert.Equal("item-24", listView.Items[listView.FirstVisibleIndex + listView.VisibleItemCount - 1].Id);
+    }
+
+    [Fact]
+    public void Scroll_Anchoring_Keeps_The_Offset_When_No_Row_Survives()
+    {
+        var listView = new StandardListView { ItemHeight = 25, EnableScrollAnchoring = true };
+        listView.SetItems(Enumerable.Range(0, 50).Select(i => new UiListItem($"item-{i}", $"Item {i}")));
+        using UiSession session = AttachAndRender(listView, new BSize(200, 250), out _);
+        listView.ScrollIntoView("item-19");
+
+        listView.SetItems(Enumerable.Range(0, 50).Select(i => new UiListItem($"other-{i}", $"Other {i}")));
+
+        Assert.Equal(250, listView.VerticalOffset);
     }
 
     [Fact]
@@ -387,26 +539,73 @@ public sealed class ListViewPresenterAndVirtualizationTests
     [Fact]
     public void HighContrast_And_200Percent_Scale_Rendering()
     {
-        var listView = new StandardListView
+        static StandardListView Create()
         {
-            ItemPresenter = StandardTwoLineListItemPresenter.Instance,
-            Font = new BFontStyle("sans-serif", 32, BFontWeight.Normal, BFontSlant.Normal), // 200% scale
-        };
+            var listView = new StandardListView
+            {
+                ItemPresenter = StandardTwoLineListItemPresenter.Instance,
+                Font = new BFontStyle("sans-serif", 32, BFontWeight.Normal, BFontSlant.Normal), // 200% scale
+            };
 
-        listView.SetItems(
-        [
-            new UiListItem("hc-1", "High Contrast Subject", "Preview description", "12:00 PM", isRead: false),
-        ]);
+            listView.SetItems(
+            [
+                new UiListItem("hc-1", "High Contrast Subject", "Preview description", "12:00 PM", isRead: false),
+            ]);
 
-        listView.ApplyTheme(StandardThemeTokens.HighContrastDark);
+            listView.ApplyTheme(StandardThemeTokens.HighContrastDark);
+            return listView;
+        }
 
-        using UiSession session = AttachAndRender(listView, new BSize(200, 200), out BRenderList renderList);
+        using UiSession session = AttachAndRender(Create(), new BSize(320, 200), out BRenderList renderList);
 
         // Renders without errors and emits DrawText commands
         var texts = renderList.Commands.OfType<BRenderCommand.DrawText>().ToList();
         Assert.NotEmpty(texts);
         Assert.Contains(texts, t => t.Text.Text.Contains("12:00 PM", StringComparison.Ordinal));
-        Assert.Contains(texts, t => t.Text.Text.Contains("...", StringComparison.Ordinal));
+        Assert.Contains(texts, t => t.Text.Text.StartsWith("Hig", StringComparison.Ordinal) && t.Text.Text.EndsWith("...", StringComparison.Ordinal));
+
+        // In a narrower list the subject keeps its first characters, whether or not the time still fits beside it.
+        using UiSession narrow = AttachAndRender(Create(), new BSize(200, 200), out renderList);
+        texts = renderList.Commands.OfType<BRenderCommand.DrawText>().ToList();
+        Assert.Contains(texts, t => t.Text.Text.StartsWith("Hig", StringComparison.Ordinal));
+        Assert.DoesNotContain(texts, t => t.Text.Text.StartsWith("12:", StringComparison.Ordinal) && t.Text.Text != "12:00 PM");
+    }
+
+    private static BRenderList RenderTwoLineRow(BRect bounds, UiListItem item)
+    {
+        var renderList = new BRenderList();
+        StandardTwoLineListItemPresenter.Instance.Render(new UiListItemRenderContext
+        {
+            RenderList = renderList,
+            Bounds = bounds,
+            Item = item,
+            State = new UiListItemState(false, false, item.IsRead, 0),
+            Font = BFontStyle.Default,
+            Foreground = StandardThemeTokens.Light.Text,
+            SecondaryForeground = StandardThemeTokens.Light.TextMuted,
+            Background = StandardThemeTokens.Light.Surface,
+            SelectedBackground = StandardThemeTokens.Light.AccentSoft,
+            FocusRing = StandardThemeTokens.Light.FocusRing,
+            Accent = StandardThemeTokens.Light.Accent,
+        });
+        return renderList;
+    }
+
+    private static List<BRenderCommand.DrawText> DrawnTexts(BRenderList renderList) =>
+        renderList.Commands.OfType<BRenderCommand.DrawText>().ToList();
+
+    private static double RightEdge(BRenderCommand.DrawText text) =>
+        text.Origin.X + BTextMeasurer.MeasureAdvance(text.Text.Text, text.Text.Font);
+
+    private static int IndexOf(UiListView listView, string id)
+    {
+        for (int index = 0; index < listView.Items.Count; index++)
+        {
+            if (listView.Items[index].Id == id)
+                return index;
+        }
+
+        return -1;
     }
 
     private static UiSession AttachAndRender(UiElement element, BSize size, out BRenderList renderList)

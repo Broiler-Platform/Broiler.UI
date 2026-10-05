@@ -12,6 +12,10 @@ public sealed class UiSession : IDisposable
     private readonly List<UiInvalidation> _invalidations = [];
     private readonly List<UiElement> _modalElements = [];
     private readonly Dictionary<long, TouchRoute> _touchRoutes = [];
+    // Elements whose StructureChanged waits for the end of the input dispatch or frame under way, in
+    // the order they first changed.
+    private readonly List<UiElement> _structureChanges = [];
+    private int _structureBatchDepth;
     private UiElement? _lastPointerTarget;
     private int _externalModalDepth;
     private bool _isDisposed;
@@ -235,6 +239,47 @@ public sealed class UiSession : IDisposable
         RaiseSemanticChanged(source, UiSemanticChangeKind.StatusAnnounced, message);
     }
 
+    /// <summary>
+    /// Raises <see cref="UiSemanticChangeKind.StructureChanged"/> for an element whose children, as
+    /// assistive technology sees them, changed.
+    /// </summary>
+    /// <remarks>
+    /// Outside <see cref="DispatchInput"/> and <see cref="RenderFrame"/> it is raised at once, one per
+    /// change. During them it is raised once per changed element when the call returns: a click that
+    /// adds a form's fields or switches a tab reaches a host as one event per container, after the
+    /// handler has finished, and a layout that shows or collapses feedback is reported after the frame
+    /// rather than while elements are being measured.
+    /// </remarks>
+    internal void NotifyStructureChanged(UiElement element)
+    {
+        if (_isDisposed)
+            return;
+
+        if (_structureBatchDepth == 0)
+            RaiseSemanticChanged(element, UiSemanticChangeKind.StructureChanged);
+        else if (!_structureChanges.Contains(element))
+            _structureChanges.Add(element);
+    }
+
+    private void BeginStructureBatch() => _structureBatchDepth++;
+
+    private void EndStructureBatch()
+    {
+        if (--_structureBatchDepth > 0)
+            return;
+
+        // One at a time, in the order they first changed: a handler that changes the tree again is told
+        // at once, and one that throws leaves the rest for the next batch.
+        while (!_isDisposed && _structureChanges.Count > 0)
+        {
+            UiElement element = _structureChanges[0];
+            _structureChanges.RemoveAt(0);
+            // An element that has left the session since was reported by the parent it left.
+            if (element.Session == this && !element.IsDisposed)
+                RaiseSemanticChanged(element, UiSemanticChangeKind.StructureChanged);
+        }
+    }
+
     private void RaiseSemanticChanged(UiElement element, UiSemanticChangeKind change, string? message = null)
     {
         if (Host is IUiAccessibilityHost a11yHost)
@@ -245,23 +290,31 @@ public sealed class UiSession : IDisposable
     public BRenderList RenderFrame()
     {
         ThrowIfDisposed();
-        int initialInvalidationCount = _invalidations.Count;
-        BRenderList renderList = Host.CreateRenderList();
-        var context = new UiRenderContext(renderList, this, Host);
-
-        foreach (UiElement root in _roots)
+        BeginStructureBatch();
+        try
         {
-            root.Measure(Host.ViewportSize);
-            root.Arrange(new BRect(0, 0, Host.ViewportSize.Width, Host.ViewportSize.Height));
-            root.Render(context);
-        }
-        context.FlushDeferred();
+            int initialInvalidationCount = _invalidations.Count;
+            BRenderList renderList = Host.CreateRenderList();
+            var context = new UiRenderContext(renderList, this, Host);
 
-        renderList.Validate();
-        Host.Present(renderList);
-        if (initialInvalidationCount > 0)
-            _invalidations.RemoveRange(0, Math.Min(initialInvalidationCount, _invalidations.Count));
-        return renderList;
+            foreach (UiElement root in _roots)
+            {
+                root.Measure(Host.ViewportSize);
+                root.Arrange(new BRect(0, 0, Host.ViewportSize.Width, Host.ViewportSize.Height));
+                root.Render(context);
+            }
+            context.FlushDeferred();
+
+            renderList.Validate();
+            Host.Present(renderList);
+            if (initialInvalidationCount > 0)
+                _invalidations.RemoveRange(0, Math.Min(initialInvalidationCount, _invalidations.Count));
+            return renderList;
+        }
+        finally
+        {
+            EndStructureBatch();
+        }
     }
 
     /// <summary>
@@ -292,17 +345,25 @@ public sealed class UiSession : IDisposable
         if (_externalModalDepth > 0)
             return false;
 
-        if (input.Kind == UiInputEventKind.TouchContact)
-            return DispatchTouchContact(input);
+        BeginStructureBatch();
+        try
+        {
+            if (input.Kind == UiInputEventKind.TouchContact)
+                return DispatchTouchContact(input);
 
-        if (input.Kind == UiInputEventKind.PointerMove)
-            return DispatchPointerMove(input);
+            if (input.Kind == UiInputEventKind.PointerMove)
+                return DispatchPointerMove(input);
 
-        UiElement? target = ResolveDispatchTarget(input);
-        if (input.Kind == UiInputEventKind.PointerButton)
-            _lastPointerTarget = target;
+            UiElement? target = ResolveDispatchTarget(input);
+            if (input.Kind == UiInputEventKind.PointerButton)
+                _lastPointerTarget = target;
 
-        return DispatchToTarget(input, target);
+            return DispatchToTarget(input, target);
+        }
+        finally
+        {
+            EndStructureBatch();
+        }
     }
 
     /// <summary>
@@ -396,6 +457,7 @@ public sealed class UiSession : IDisposable
             root.Dispose();
         _roots.Clear();
         _invalidations.Clear();
+        _structureChanges.Clear();
         FocusedElement = null;
         CapturedElement = null;
         _modalElements.Clear();

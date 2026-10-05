@@ -9,12 +9,21 @@ namespace Broiler.UI;
 public abstract class UiElement : IDisposable, IUiFocusable
 {
     private static long _nextSemanticId;
+    // Above zero while a related element's name is read (see RelatedName).
+    [ThreadStatic]
+    private static int _relationDepth;
     public long SemanticId { get; } = Interlocked.Increment(ref _nextSemanticId);
     private readonly List<UiElement> _children = [];
     private UiVisibility _visibility = UiVisibility.Visible;
     private bool _isDisposed;
+    private bool _isDisposing;
     private string? _accessibleName;
     private UiElement? _labeledBy;
+    private IUiExpandable? _discloses;
+    private UiElement? _controls;
+    private UiElement? _describedBy;
+    private UiElement? _errorMessage;
+    private bool _isRequired;
     private bool _hiddenFromAccessibility;
     private bool _isMeasureValid;
     private bool _isArrangeValid;
@@ -45,6 +54,9 @@ public abstract class UiElement : IDisposable, IUiFocusable
 
             _visibility = value;
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+            // Showing or collapsing an element adds it to or removes it from its parent's children as
+            // assistive technology sees them.
+            (Parent ?? this).RaiseStructureChanged();
         }
     }
 
@@ -81,6 +93,131 @@ public abstract class UiElement : IDisposable, IUiFocusable
                 return;
 
             _labeledBy = ReferenceEquals(value, this) ? null : value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// What this element shows and hides when it is operated, such as the section a "Show details"
+    /// button opens. The element then reports the target's <see cref="UiSemanticState.Expanded"/> or
+    /// <see cref="UiSemanticState.Collapsed"/> state as its own, so a disclosure button carries the
+    /// state where the focus is. A host offers its expand/collapse pattern on this element and acts
+    /// through the target.
+    /// </summary>
+    /// <remarks>
+    /// The target does not know who discloses it. When its state changes it must invalidate the
+    /// semantics of the disclosing element, as <c>FormSection</c> does for its toggle. The target is
+    /// what acts, and can be a container the element sits in; the content a reader should be sent to
+    /// is named separately by <see cref="Controls"/>.
+    /// </remarks>
+    public IUiExpandable? Discloses
+    {
+        get => _discloses;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_discloses, value))
+                return;
+
+            _discloses = value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// The element whose content this one shows, hides or changes, such as the fields a "Show
+    /// details" button opens. A host exposes it as the element this one controls (UI Automation's
+    /// ControllerFor, ARIA's <c>aria-controls</c>) while it is shown, so a screen reader can move
+    /// from the button to what it opened.
+    /// </summary>
+    /// <remarks>
+    /// Only the relation: <see cref="Discloses"/> carries the expand and collapse state and action.
+    /// An element cannot control itself, and an ancestor, which already contains the element, is no
+    /// place to send a reader; a host leaves it out.
+    /// </remarks>
+    public UiElement? Controls
+    {
+        get => _controls;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_controls, value))
+                return;
+
+            _controls = ReferenceEquals(value, this) ? null : value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// The element whose text describes this one beyond its name, usually a hint below a field. Its
+    /// text becomes part of <see cref="UiSemanticNode.Description"/> while it is shown, and a host
+    /// exposes the element itself as a described-by relation.
+    /// </summary>
+    /// <remarks>
+    /// An ancestor of this element is ignored: it contains this element and cannot describe it.
+    /// </remarks>
+    public UiElement? DescribedBy
+    {
+        get => _describedBy;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_describedBy, value))
+                return;
+
+            _describedBy = ReferenceEquals(value, this) ? null : value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// The element that says what is wrong with this one's value, such as a field's error text. While
+    /// it is shown (it and every ancestor visible, none hidden from accessibility, not disposed) and
+    /// has text, this element reports <see cref="UiSemanticState.Invalid"/> and its
+    /// <see cref="UiSemanticNode.Description"/> begins with that text, so a client that never follows
+    /// relations still reads the error. A host lists it first among the described-by relations. Hide
+    /// the message, or set this to null, when the value is valid again.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is announced when it is set: the form that validated usually announces its own status,
+    /// and a second announcement would repeat it. The message text is read from the element's own
+    /// node, as for <see cref="LabeledBy"/>, so a message element that changes its text, or is shown
+    /// or hidden, invalidates only itself; whoever changes it should invalidate this element's
+    /// semantics as well. An ancestor of this element is ignored, as for <see cref="DescribedBy"/>.
+    /// </remarks>
+    public UiElement? ErrorMessage
+    {
+        get => _errorMessage;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_errorMessage, value))
+                return;
+
+            _errorMessage = ReferenceEquals(value, this) ? null : value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>
+    /// Whether a value must be given before the form this element belongs to can be submitted. The
+    /// element reports <see cref="UiSemanticState.Required"/>; nothing is enforced here.
+    /// </summary>
+    /// <remarks>
+    /// A composite may override this to forward the state to the control that carries it, as
+    /// <c>FormField</c> does; the composite itself then does not report the state.
+    /// </remarks>
+    public virtual bool IsRequired
+    {
+        get => _isRequired;
+        set
+        {
+            ThrowIfDisposed();
+            if (_isRequired == value)
+                return;
+
+            _isRequired = value;
             Invalidate(UiInvalidationKind.Semantic);
         }
     }
@@ -192,6 +329,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
 
         OnChildAdded(child);
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        RaiseStructureChanged();
     }
 
     public bool MoveChildToFront(UiElement child) => MoveChild(child, _children.Count - 1);
@@ -214,6 +352,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
         _children.RemoveAt(oldIndex);
         _children.Insert(newIndex, child);
         Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        RaiseStructureChanged();
         return true;
     }
 
@@ -234,6 +373,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
         child._isArrangeValid = false;
         OnChildRemoved(child);
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        RaiseStructureChanged();
         return true;
     }
 
@@ -349,9 +489,57 @@ public abstract class UiElement : IDisposable, IUiFocusable
             node = node with { Id = SemanticId };
         if (ResolveAccessibleName() is { Length: > 0 } name)
             node = node with { Name = name };
+        UiSemanticState state = node.State;
+        if (_discloses is { } target && target is not UiElement { IsDisposed: true })
+        {
+            state = (state & ~(UiSemanticState.Expanded | UiSemanticState.Collapsed)) |
+                (target.IsExpanded ? UiSemanticState.Expanded : UiSemanticState.Collapsed);
+        }
+        string? error = RelationText(_errorMessage);
+        if (error is not null)
+            state |= UiSemanticState.Invalid;
+        if (_isRequired)
+            state |= UiSemanticState.Required;
+        if (JoinSentences(error, RelationText(_describedBy), node.Description) is { } description)
+            node = node with { Description = description };
         if (_hiddenFromAccessibility)
-            node = node with { State = (node.State | UiSemanticState.Offscreen) & ~UiSemanticState.Visible };
+            state = (state | UiSemanticState.Offscreen) & ~UiSemanticState.Visible;
+        else if (!Bounds.IsEmpty && Visibility == UiVisibility.Visible && GetVisibleBounds().IsEmpty)
+            state |= UiSemanticState.Offscreen; // Laid out, but scrolled or clipped entirely out of view.
+        if (state != node.State)
+            node = node with { State = state };
         return node;
+    }
+
+    /// <summary>
+    /// The part of <see cref="Bounds"/> that can be seen: the bounds intersected with the clip that
+    /// every ancestor applies to its children, such as a scroll view's viewport. Empty when this
+    /// element or an ancestor is not visible, or when the element is scrolled or clipped entirely out
+    /// of view; <see cref="GetSemanticNode"/> then reports <see cref="UiSemanticState.Offscreen"/>.
+    /// </summary>
+    /// <remarks>
+    /// A host uses this as the element's on-screen rectangle for assistive technology, so a field
+    /// scrolled half out of a form is not reported over the buttons below it. The host window itself
+    /// is not a clip here; the host clips to its own surface. An element drawn as an overlay outside
+    /// its parent (see <see cref="OverlayBounds"/>) answers for that area separately.
+    /// </remarks>
+    public BRect GetVisibleBounds()
+    {
+        if (_isDisposed || Visibility != UiVisibility.Visible)
+            return BRect.Empty;
+
+        BRect visible = Bounds;
+        UiElement child = this;
+        for (UiElement? ancestor = Parent; ancestor is not null; ancestor = ancestor.Parent)
+        {
+            if (visible.IsEmpty || ancestor.Visibility != UiVisibility.Visible)
+                return BRect.Empty;
+            if (ancestor.GetClipBoundsForChild(child) is { } clip)
+                visible = visible.Intersect(clip);
+            child = ancestor;
+        }
+
+        return visible.IsEmpty ? BRect.Empty : visible;
     }
 
     /// <summary>
@@ -370,6 +558,29 @@ public abstract class UiElement : IDisposable, IUiFocusable
         element._hiddenFromAccessibility = hidden;
         element.Invalidate(UiInvalidationKind.Semantic);
         element.Parent?.Invalidate(UiInvalidationKind.Semantic);
+        (element.Parent ?? element).RaiseStructureChanged();
+    }
+
+    /// <summary>
+    /// Tells assistive technology that the children of this element changed in a way the element tree
+    /// does not show, such as the items of a list or the tabs of a tab view. Adding, removing or moving
+    /// a child element, changing a child's <see cref="Visibility"/> and
+    /// <see cref="SetHiddenFromAccessibility"/> already raise it.
+    /// </summary>
+    /// <remarks>
+    /// Raises <see cref="UiSemanticChangeKind.StructureChanged"/> for this element on its session: once
+    /// per element when the input dispatch or frame under way returns, and at once, per call, outside
+    /// them. A host that rebuilds its view of the children should still coalesce per frame, since
+    /// changes an application makes between frames are reported one by one.
+    /// </remarks>
+    protected void NotifyStructureChanged() => RaiseStructureChanged();
+
+    // A disposing element's own children are removed one by one; its parent is told once, when the
+    // element itself is removed.
+    private void RaiseStructureChanged()
+    {
+        if (!_isDisposing && !_isDisposed)
+            Session?.NotifyStructureChanged(this);
     }
 
     private string? ResolveAccessibleName()
@@ -379,8 +590,63 @@ public abstract class UiElement : IDisposable, IUiFocusable
         // The label's own core node gives its text; going through GetSemanticNode could recurse
         // when two elements label each other.
         if (_labeledBy is { IsDisposed: false } label)
-            return label.GetSemanticNodeCore().Name.Trim();
+            return RelatedName(label);
         return null;
+    }
+
+    // The text of a related element while the user can see it: a hidden error message, or one in a
+    // collapsed panel, no longer says anything about the value. An ancestor is not a description of
+    // what it contains, and reading its node would build this element's node again.
+    private string? RelationText(UiElement? related)
+    {
+        if (related is null || related.IsDisposed || IsDescendantOf(related))
+            return null;
+
+        for (UiElement? current = related; current is not null; current = current.Parent)
+        {
+            if (current.Visibility != UiVisibility.Visible || current._hiddenFromAccessibility)
+                return null;
+        }
+
+        string? text = RelatedName(related);
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
+    // A related element's name comes from its core node. That node can contain the asking element
+    // again, through a container or a relation that leads back, so the nodes built meanwhile resolve
+    // no relations of their own and a cycle ends after one step. Their relation text would be
+    // discarded anyway: only the related element's own name is used.
+    private static string? RelatedName(UiElement related)
+    {
+        if (_relationDepth > 0)
+            return null;
+
+        _relationDepth++;
+        try
+        {
+            return related.GetSemanticNodeCore().Name.Trim();
+        }
+        finally
+        {
+            _relationDepth--;
+        }
+    }
+
+    private static string? JoinSentences(params string?[] parts)
+    {
+        string? joined = null;
+        foreach (string? part in parts)
+        {
+            if (string.IsNullOrWhiteSpace(part))
+                continue;
+
+            if (joined is null)
+                joined = part;
+            else
+                joined += (joined[^1] is '.' or '!' or '?' or ':' ? " " : ". ") + part;
+        }
+
+        return joined;
     }
 
     public void Dispose()
@@ -388,6 +654,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
         if (_isDisposed)
             return;
 
+        _isDisposing = true;
         Dispose(disposing: true);
         _isDisposed = true;
         GC.SuppressFinalize(this);
@@ -421,6 +688,14 @@ public abstract class UiElement : IDisposable, IUiFocusable
     {
         return true;
     }
+
+    /// <summary>
+    /// The rectangle this element clips <paramref name="child"/> to when it draws it, or null when
+    /// it does not clip it. <see cref="GetVisibleBounds"/> intersects an element's bounds with the
+    /// clip of every ancestor. A container that scrolls or crops its children, such as a scroll
+    /// view's viewport, overrides this so what it hides is not reported as on screen.
+    /// </summary>
+    protected virtual BRect? GetClipBoundsForChild(UiElement child) => null;
 
     // Layout-only elements have no name of their own; the type name is available to providers as a
     // class name and must not be read out as if it were content.

@@ -2,6 +2,7 @@ using Broiler.Graphics;
 using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
 using Broiler.UI.ComboBox;
 using Broiler.UI.ComboBox.Standard;
 
@@ -42,6 +43,62 @@ public sealed class ComboBoxControlTests
         Assert.True(
             popupIndex > siblingIndex,
             $"Expected ComboBox popup command at {popupIndex} to render after overlapping sibling command at {siblingIndex}.");
+    }
+
+    [Fact]
+    public void The_Default_Size_Is_Unchanged_At_The_Default_Font_And_Grows_With_Larger_Text()
+    {
+        var comboBox = new StandardComboBox();
+        comboBox.ApplyTheme(StandardThemeTokens.Light);
+        Assert.Equal(32, Measure(comboBox).Height);
+        Assert.Equal(28, comboBox.ItemHeight);
+
+        comboBox.ApplyTheme(StandardThemeTokens.Light.WithTextScale(2));
+        double line = BTextMeasurer.GetLineHeight(comboBox.Font);
+        double defaultLine = BTextMeasurer.GetLineHeight(BFontStyle.Default);
+        // The margin the default size leaves around a default line is kept around the larger one.
+        Assert.Equal(Math.Ceiling(line + (32 - defaultLine)), Measure(comboBox).Height);
+        Assert.Equal(Math.Ceiling(line + (28 - defaultLine)), comboBox.ItemHeight);
+        Assert.True(comboBox.ItemHeight > line, "A drop-down row must hold a line of its font.");
+
+        comboBox.ApplyTheme(StandardThemeTokens.Light);
+        Assert.Equal(32, Measure(comboBox).Height);
+        Assert.Equal(28, comboBox.ItemHeight);
+    }
+
+    [Fact]
+    public void Sizes_The_Application_Sets_Are_Kept_At_Any_Font()
+    {
+        var comboBox = new StandardComboBox { PreferredSize = new BSize(120, 32), ItemHeight = 28 };
+        comboBox.ApplyTheme(StandardThemeTokens.Light.WithTextScale(2));
+
+        Assert.Equal(32, Measure(comboBox).Height);
+        Assert.Equal(28, comboBox.ItemHeight);
+    }
+
+    [Fact]
+    public void Drop_Down_Rows_Are_Laid_Out_At_The_Font_Height()
+    {
+        var host = new TestHost(new BSize(400, 400));
+        using UiSession session = new StandardUiSessionBuilder().WithDispatcher(new ImmediateUiDispatcher()).Build(host);
+        var comboBox = new StandardComboBox();
+        comboBox.ApplyTheme(StandardThemeTokens.Light.WithTextScale(2));
+        comboBox.SetItems([new UiComboBoxItem("one", "One"), new UiComboBoxItem("two", "Two")]);
+        Assert.True(comboBox.OpenDropDown());
+        session.AddRoot(new PopupOverlapRoot(comboBox, new PaintElement(BColor.Transparent)));
+
+        BRenderList renderList = session.RenderFrame();
+
+        Assert.Equal(comboBox.ItemHeight * 2, comboBox.PopupBounds.Height);
+        BRenderCommand.DrawText second = Assert.Single(renderList.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == "Two");
+        Assert.True(second.Origin.Y >= comboBox.PopupBounds.Top + comboBox.ItemHeight, "The second row starts below the first.");
+        Assert.True(second.Origin.Y + BTextMeasurer.GetLineHeight(comboBox.Font) <= comboBox.PopupBounds.Bottom, "The second row's text fits its row.");
+    }
+
+    private static BSize Measure(UiElement element)
+    {
+        element.Measure(new BSize(double.PositiveInfinity, double.PositiveInfinity));
+        return element.DesiredSize;
     }
 
     private static int FindFillRect(BRenderList renderList, BColor color)

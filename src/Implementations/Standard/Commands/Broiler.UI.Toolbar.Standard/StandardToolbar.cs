@@ -30,6 +30,8 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
         SeparatorColor = theme.BorderStrong;
         Foreground = theme.Text;
         PopupBackground = theme.Surface;
+        _overflowOpenBackground = theme.StateFill;
+        _overflowOpenForeground = OpenLabel(theme);
     }
 
     /// <summary>The items that did not fit, in bar order, and the boxes they are reached through.</summary>
@@ -38,6 +40,8 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
     private BRect _overflowButtonBounds = BRect.Empty;
     private BRect _overflowPopupBounds = BRect.Empty;
     private UiElement? _pressedOverflowItem;
+    private BColor? _overflowOpenBackground;
+    private BColor? _overflowOpenForeground;
 
     /// <summary>The chevron a bar with overflow ends in, and how wide it is drawn.</summary>
     private const string OverflowGlyph = "»";
@@ -52,6 +56,44 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
 
     /// <summary>The surface the overflow drop-down is drawn on.</summary>
     public BColor PopupBackground { get; set; } = StandardControlPaint.Surface;
+
+    /// <summary>
+    /// The fill behind the chevron while the drop-down is open. Until it is set, or a theme is applied, it is
+    /// the shared palette's <see cref="StandardControlPaint.StateFill"/>; <see cref="ApplyTheme"/> sets it to
+    /// the theme's <see cref="StandardThemeTokens.StateFill"/>.
+    /// </summary>
+    public BColor OverflowOpenBackground
+    {
+        get => _overflowOpenBackground ?? StandardControlPaint.StateFill;
+        set => _overflowOpenBackground = value;
+    }
+
+    /// <summary>
+    /// The chevron's color while the drop-down is open, drawn on <see cref="OverflowOpenBackground"/>. Until it
+    /// is set it is <see cref="Foreground"/>. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.StateText"/> when that differs from the theme's text color, and otherwise
+    /// lets it follow <see cref="Foreground"/> again. While neither it nor <see cref="OverflowOpenBackground"/>
+    /// has been set or themed, the fill is the shared palette's, and the chevron takes the shared palette's
+    /// <see cref="StandardControlPaint.StateText"/> by the same rule.
+    /// </summary>
+    public BColor OverflowOpenForeground
+    {
+        get
+        {
+            if (_overflowOpenForeground is { } color)
+                return color;
+            if (_overflowOpenBackground is null && OpenLabel(StandardControlPaint.Theme) is { } shared)
+                return shared;
+            return Foreground;
+        }
+        set => _overflowOpenForeground = value;
+    }
+
+    /// <summary>
+    /// The open chevron's color a theme gives: its state text, or null to follow <see cref="Foreground"/>, the
+    /// theme's text color, while the state text is that color.
+    /// </summary>
+    private static BColor? OpenLabel(StandardThemeTokens theme) => theme.StateText == theme.Text ? null : theme.StateText;
 
     /// <summary>The font the overflow chevron is drawn in.</summary>
     public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;
@@ -504,9 +546,9 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
 
     private void DrawOverflowButton(BRenderList renderList)
     {
-        BColor foreground = IsEnabled ? Foreground : StandardControlPaint.TextDisabled;
+        BColor foreground = !IsEnabled ? StandardControlPaint.TextDisabled : IsOverflowOpen ? OverflowOpenForeground : Foreground;
         if (IsOverflowOpen)
-            StandardControlPaint.FillRounded(renderList, _overflowButtonBounds, StandardControlPaint.AccentSoft, CornerRadius);
+            StandardControlPaint.FillRounded(renderList, _overflowButtonBounds, OverflowOpenBackground, CornerRadius);
 
         BSize glyph = BTextMeasurer.Measure(OverflowGlyph, Font).Size;
         renderList.DrawText(

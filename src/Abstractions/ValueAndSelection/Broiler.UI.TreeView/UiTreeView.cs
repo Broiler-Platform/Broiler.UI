@@ -480,6 +480,8 @@ public abstract class UiTreeView : UiElement
                 state |= UiSemanticState.Selected;
             if (row.IsExpanded)
                 state |= UiSemanticState.Expanded;
+            else if (row.HasChildren)
+                state |= UiSemanticState.Collapsed;
             if (_focused == row.Id)
                 state |= UiSemanticState.Focused;
 
