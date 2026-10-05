@@ -105,13 +105,67 @@ public sealed class UnreadDotContrastTests
         Assert.DoesNotContain(Render(list).Commands.OfType<BRenderCommand.FillRect>(), static fill => fill.Rect.Width == 6 && fill.Rect.Height == 6);
     }
 
+    [Fact]
+    public void An_Accent_Set_After_The_Theme_Does_Not_Take_The_Themes_Accent_Text()
+    {
+        // A brand purple, lost on Dark's navy selection fill as Dark's own accent is. Dark's accent text is a shade
+        // of Dark's blue, chosen for that accent, not for this one.
+        StandardThemeTokens dark = StandardThemeTokens.Dark;
+        BColor brand = BColor.FromArgb(0xFF, 0x6A, 0x1B, 0x9A);
+        Assert.True(StandardContrast.Ratio(brand, dark.AccentSoft) < StandardContrast.AaLargeOrUi);
+
+        (BColor unselected, BColor selected) = RenderDots(dark, list =>
+        {
+            list.Accent = brand;
+            Assert.Equal(brand, list.AccentText);
+        });
+
+        // So the selected row's dot is the row's text color, as for a context that gives no accent text.
+        Assert.NotEqual(dark.AccentText, selected);
+        Assert.Equal(dark.Text, selected);
+        AssertStandsOut(selected, dark.AccentSoft, dark, "selected row");
+        Assert.NotEqual(dark.AccentText, unselected);
+    }
+
+    [Fact]
+    public void The_Lists_Accent_Text_Belongs_To_The_Accent_It_Was_Chosen_For()
+    {
+        BColor brand = BColor.FromArgb(0xFF, 0x6A, 0x1B, 0x9A);
+        BColor brandText = BColor.FromArgb(0xFF, 0xD3, 0xA6, 0xF0);
+        StandardControlPaint.ApplyTheme(StandardThemeTokens.Dark);
+        try
+        {
+            // Unthemed, the list takes the shared palette's pair, and a new accent brings no shade of the old one.
+            var list = new StandardListView();
+            Assert.Equal(StandardThemeTokens.Dark.AccentText, list.AccentText);
+            list.Accent = brand;
+            Assert.Equal(brand, list.AccentText);
+            list.Accent = StandardThemeTokens.Dark.Accent;
+            Assert.Equal(StandardThemeTokens.Dark.AccentText, list.AccentText);
+
+            // A shade the application sets is its own, whatever the accent, until the next theme.
+            list.AccentText = brandText;
+            list.Accent = brand;
+            Assert.Equal(brandText, list.AccentText);
+            list.ApplyTheme(StandardThemeTokens.Light);
+            Assert.Equal(StandardThemeTokens.Light.AccentText, list.AccentText);
+            list.Accent = brand;
+            Assert.Equal(brand, list.AccentText);
+        }
+        finally
+        {
+            StandardControlPaint.ApplyTheme(StandardThemeTokens.Light);
+        }
+    }
+
     public static TheoryData<string> HostingPaletteNames => HostingShapedPalettes.Names;
 
     /// <summary>The dots of an unread row and an unread selected row in a themed list.</summary>
-    private static (BColor Unselected, BColor Selected) RenderDots(StandardThemeTokens theme)
+    private static (BColor Unselected, BColor Selected) RenderDots(StandardThemeTokens theme, Action<StandardListView>? adjust = null)
     {
         var list = new StandardListView { ItemPresenter = StandardTwoLineListItemPresenter.Instance };
         list.ApplyTheme(theme);
+        adjust?.Invoke(list);
         list.SetItems(
         [
             new UiListItem("a", "Ann", "Agenda", "09:00", isRead: false),

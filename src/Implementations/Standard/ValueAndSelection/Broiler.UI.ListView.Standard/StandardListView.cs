@@ -56,7 +56,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         FocusRing = theme.FocusRing;
         BorderColor = theme.Border;
         Accent = theme.Accent;
-        AccentText = theme.AccentText;
+        SetAccentText(theme.AccentText, chosenFor: theme.Accent);
         ScrollbarTrack = theme.ScrollbarTrack;
         ScrollbarThumb = theme.ScrollbarThumb;
         // The token says so for the presets and system palettes; the luminance test still recognizes a
@@ -80,7 +80,10 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     private BColor _focusRing = StandardControlPaint.Focus;
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _accent = StandardControlPaint.Accent;
-    private BColor _accentText = StandardControlPaint.AccentText;
+    // The accent text a theme gave (or the shared palette's, until a theme is applied) belongs to the accent it
+    // was chosen for, as StandardThemeTokens.AccentText does: once the accent is changed, it follows the new one.
+    private BColor? _accentText = StandardControlPaint.AccentText;
+    private BColor? _accentTextChosenFor = StandardControlPaint.Accent;
     private BColor _scrollbarTrack = StandardControlPaint.ScrollbarTrack;
     private BColor _scrollbarThumb = StandardControlPaint.ScrollbarThumb;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
@@ -114,17 +117,24 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     /// The shade of <see cref="Accent"/> a row presenter draws an accent mark in where the accent does not stand
     /// out from the row's fill (<see cref="UiListItemRenderContext.AccentText"/>), as the two-line presenter's
     /// unread dot on a selected row in Dark. <see cref="ApplyTheme"/> sets it to the theme's
-    /// <see cref="StandardThemeTokens.AccentText"/>, which reads on the surface and on the selection fill.
+    /// <see cref="StandardThemeTokens.AccentText"/>, which reads on the surface and on the selection fill; until
+    /// then it is the shared palette's. Either belongs to the accent it was chosen for: once <see cref="Accent"/>
+    /// is set to another color, it is that accent, so a brand accent is not paired with the theme's shade of blue.
+    /// A value set here is kept until the next theme.
     /// </summary>
     public BColor AccentText
     {
-        get => _accentText;
-        set
-        {
-            if (_accentText == value) return;
-            _accentText = value;
-            Invalidate(UiInvalidationKind.Render);
-        }
+        get => _accentText is { } text && (_accentTextChosenFor is not { } chosenFor || chosenFor == Accent) ? text : Accent;
+        set => SetAccentText(value, chosenFor: null);
+    }
+
+    private void SetAccentText(BColor text, BColor? chosenFor)
+    {
+        if (_accentText == text && _accentTextChosenFor == chosenFor)
+            return;
+        _accentText = text;
+        _accentTextChosenFor = chosenFor;
+        Invalidate(UiInvalidationKind.Render);
     }
 
     public double EffectiveItemHeight =>
