@@ -135,7 +135,7 @@ that start in Broiler.UI, not in the host bridge (ADR 0008):
   deliberately unchanged, so themed sessions draw scrollbars as before. That includes the
   high-contrast themes, where the semi-transparent default thumb has not been checked for contrast.
   The theme tokens have no scrollbar roles yet; mapping them, at least under a high-contrast theme
-  (ADR 0029 adds the flag), is left to the high-contrast pass.
+  (ADR 0029 adds the flag), is left to the high-contrast pass. ADR 0033 adds the roles and maps them.
 - While it has focus and is a keyboard stop (`CanFocus`, through `Focusable` or
   `FocusWhenScrollable`), it strokes the ring after the scrollbars, inset by the theme offset,
   whatever the last input was, as an editor does: the ring shows where the arrow keys go. A view
