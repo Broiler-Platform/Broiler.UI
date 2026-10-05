@@ -8,11 +8,19 @@ namespace Broiler.UI.Forms.Standard;
 /// <summary>
 /// Wraps scroll content to the viewport width using standard viewport-constrained scrolling. When the
 /// viewport shrinks, for example because feedback appeared below a form's actions, a focused control
-/// that was on screen is kept on screen.
+/// that was on screen is kept on screen. The content is laid out 1 DIP short of each side of the
+/// viewport (<see cref="StandardScrollView.HorizontalContentInset"/>), so a field as wide as the form
+/// shows its whole focus ring rather than losing the outer half to the clip.
 /// </summary>
 public sealed class FormViewport : UiElement
 {
-    public StandardScrollView Scroll { get; } = new() { Constraint = UiScrollConstraint.ConstrainWidth };
+    /// <summary>
+    /// The outer half of the 2 DIP frame an edit, spin box or rich edit strokes on its edge while it has
+    /// focus, the widest stroke a standard field draws outside itself.
+    /// </summary>
+    private const double FocusRingRoom = 1;
+
+    public StandardScrollView Scroll { get; } = new() { Constraint = UiScrollConstraint.ConstrainWidth, HorizontalContentInset = FocusRingRoom };
 
     public FormViewport(UiElement content)
     {

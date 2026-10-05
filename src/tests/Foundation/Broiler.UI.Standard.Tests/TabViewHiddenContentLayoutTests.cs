@@ -153,7 +153,10 @@ public sealed class TabViewHiddenContentLayoutTests
     {
         UiElement feedback = Descendants(form).OfType<UiScrollView>().Last();
         Assert.Equal(area.Bottom - 12, feedback.Bounds.Bottom, 0.5);
-        Assert.Equal(area.Width - 24, form.Content.Bounds.Width, 0.5);
+        // The actions keep the 12 DIP margins; the form's viewport reaches into them by the room it leaves
+        // beside its fields for their focus rings.
+        Assert.Equal(area.Width - 24, form.Actions.Bounds.Width, 0.5);
+        Assert.Equal(area.Width - 24 + (2 * form.Content.Scroll.HorizontalContentInset), form.Content.Bounds.Width, 0.5);
 
         (UiElement Element, BRect Bounds)[] layout = Layout(form);
         form.InvalidateMeasure();

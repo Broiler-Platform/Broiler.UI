@@ -31,8 +31,8 @@ public sealed class FormSurface : UiElement, IFormSurface
         Actions.Measure(new BSize(width, double.PositiveInfinity));
         double feedbackHeight = _feedbackContent.Measure(new BSize(width, double.PositiveInfinity)).Height;
         _feedback.Visibility = feedbackHeight > 0 ? UiVisibility.Visible : UiVisibility.Collapsed;
-        _feedback.Measure(new BSize(width, Math.Min(feedbackHeight, Math.Min(112, availableSize.Height / 4))));
-        Content.Measure(new BSize(width, Math.Max(0, availableSize.Height - Actions.DesiredSize.Height - _feedback.DesiredSize.Height - 32)));
+        _feedback.Measure(new BSize(width + (2 * Room(_feedback)), Math.Min(feedbackHeight, Math.Min(112, availableSize.Height / 4))));
+        Content.Measure(new BSize(width + (2 * Room(Content)), Math.Max(0, availableSize.Height - Actions.DesiredSize.Height - _feedback.DesiredSize.Height - 32)));
         return availableSize;
     }
     protected override void ArrangeCore(BRect finalRect)
@@ -41,9 +41,19 @@ public sealed class FormSurface : UiElement, IFormSurface
         double feedbackHeight = Math.Min(_feedback.DesiredSize.Height, finalRect.Height / 4);
         double actionHeight = Math.Min(Actions.DesiredSize.Height, Math.Max(0, finalRect.Height - feedbackHeight - 24));
         double contentHeight = Math.Max(0, finalRect.Height - actionHeight - feedbackHeight - 32);
-        Content.Arrange(new BRect(finalRect.X + 12, finalRect.Y + 12, width, contentHeight));
+        Content.Arrange(Widen(new BRect(finalRect.X + 12, finalRect.Y + 12, width, contentHeight), Content));
         Actions.Arrange(new BRect(finalRect.X + 12, finalRect.Y + 20 + contentHeight, width, actionHeight));
-        _feedback.Arrange(new BRect(finalRect.X + 12, finalRect.Y + 20 + contentHeight + actionHeight, width, feedbackHeight));
+        _feedback.Arrange(Widen(new BRect(finalRect.X + 12, finalRect.Y + 20 + contentHeight + actionHeight, width, feedbackHeight), _feedback));
+    }
+
+    // A viewport reaches out into the 12 DIP margin by the room it leaves beside its content for focus rings, so
+    // the fields and banners inside it keep the edges of the action strip.
+    private static double Room(FormViewport viewport) => Math.Min(12, viewport.Scroll.HorizontalContentInset);
+
+    private static BRect Widen(BRect rect, FormViewport viewport)
+    {
+        double room = Room(viewport);
+        return new BRect(rect.X - room, rect.Y, rect.Width + (2 * room), rect.Height);
     }
     public static StandardToolbar ActionBar(params StandardButton[] buttons)
     {

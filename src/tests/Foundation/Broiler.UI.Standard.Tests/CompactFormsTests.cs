@@ -175,6 +175,71 @@ public sealed class CompactFormsTests
         }
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(12)]
+    public void AFocusedFieldAsWideAsTheFormShowsItsWholeFocusRing(int count)
+    {
+        // One field fits; twelve scroll, with the bar beside the fields.
+        var fields = new StandardPanel { Spacing = 8 };
+        StandardEdit[] edits = Enumerable.Range(0, count).Select(_ => new StandardEdit()).ToArray();
+        foreach (var edit in edits)
+            fields.AddChild(new FormField("Email address", edit));
+        using var surface = new FormSurface(fields, FormSurface.ActionBar(new StandardButton { Text = "Save" }), new InlineFeedback());
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+        session.SetFocus(edits[0]);
+        BRenderList renderList = session.RenderFrame();
+        Assert.Equal(count > 1, surface.Content.Scroll.HasVerticalScrollbar);
+
+        // The edit strokes its 2 DIP ring centered on its edge, so 1 DIP of it lies outside the edit, and the
+        // form's viewport clips its content. The clip leaves room for that 1 DIP on both sides.
+        (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(renderList, stroke => stroke.Rect == edits[0].Bounds && stroke.Thickness == 2);
+        double outset = ring.Thickness / 2;
+        Assert.True(clip.Left <= ring.Rect.Left - outset && clip.Right >= ring.Rect.Right + outset,
+            $"The ring around {ring.Rect} is clipped to {clip}.");
+        if (surface.Content.Scroll.HasVerticalScrollbar)
+            Assert.True(ring.Rect.Right + outset <= surface.Content.Scroll.ContentBounds.Right, "The ring reaches into the bar.");
+
+        // The fields keep the edges of the action strip, as before: the viewport reaches 1 DIP into the margins.
+        Assert.Equal(surface.Actions.Bounds.Left, edits[0].Bounds.Left, 6);
+        double right = surface.Actions.Bounds.Right - (surface.Content.Scroll.HasVerticalScrollbar ? surface.Content.Scroll.ScrollbarThickness : 0);
+        Assert.Equal(right, edits[0].Bounds.Right, 6);
+    }
+
+    /// <summary>The first stroke that matches, and the clip it is drawn in.</summary>
+    private static (BRenderCommand.StrokeRoundedRect Stroke, BRect Clip) StrokeAndClip(BRenderList renderList, Func<BRenderCommand.StrokeRoundedRect, bool> match)
+    {
+        var clips = new Stack<BRect>();
+        clips.Push(new BRect(-1e9, -1e9, 2e9, 2e9));
+        foreach (BRenderCommand command in renderList.Commands)
+        {
+            switch (command)
+            {
+                case BRenderCommand.PushClip push:
+                    clips.Push(Intersect(clips.Peek(), push.Rect));
+                    break;
+                case BRenderCommand.PopClip:
+                    clips.Pop();
+                    break;
+                case BRenderCommand.StrokeRoundedRect stroke when match(stroke):
+                    return (stroke, clips.Peek());
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException("No stroke matched.");
+    }
+
+    private static BRect Intersect(BRect a, BRect b)
+    {
+        double left = Math.Max(a.Left, b.Left);
+        double top = Math.Max(a.Top, b.Top);
+        double right = Math.Min(a.Right, b.Right);
+        double bottom = Math.Min(a.Bottom, b.Bottom);
+        return new BRect(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
+    }
+
     /// <summary>Twelve fields, more than fit at 640x480, with no feedback yet.</summary>
     private sealed class FeedbackForm : IDisposable
     {
