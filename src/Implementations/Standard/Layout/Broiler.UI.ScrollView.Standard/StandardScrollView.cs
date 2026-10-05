@@ -17,9 +17,12 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     // Whether the view was a FocusWhenScrollable stop when it was last drawn. Kept while it is hidden, so a view
     // shown again as no stop still hands on the focus it kept.
     private bool _wasScrollStop;
-    // Whether the content overflowed the viewport when the view was last arranged, as its bars were laid out.
-    // Measure records the viewport and the extent for the size it was offered, which need not be the one the view
-    // is given, and a measure that changes no desired size is followed by no arrange to correct them.
+    // Whether the view has been arranged. From then on the viewport and the extent it records are those of its last
+    // arrange: a measure works them out for the size it is offered, which need not be the one the view is given, and
+    // a measure that changes no desired size is followed by no arrange to correct them.
+    private bool _arranged;
+    // Whether the content overflowed the viewport by more than the tolerance when the view was last arranged, as a
+    // bar set to Auto shows.
     private bool _arrangedScrolls;
     private BSize _contentDesiredExtent;
     private BRect _verticalTrackBounds = BRect.Empty;
@@ -334,8 +337,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             }
 
             _contentDesiredExtent = new BSize(extentWidth, extentHeight);
-            ScrollbarLayout layout = CalculateLayout(new BRect(0, 0, outerSize.Width, outerSize.Height), _contentDesiredExtent);
-            SetViewportAndExtent(layout.ContentBounds.Size, layout.ExtentSize);
+            RecordMeasuredScroll(outerSize);
             return outerSize;
         }
         else if (Constraint == UiScrollConstraint.ConstrainHeight && (double.IsFinite(availableSize.Height) || double.IsFinite(PreferredSize.Height)))
@@ -376,8 +378,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             }
 
             _contentDesiredExtent = new BSize(extentWidth, extentHeight);
-            ScrollbarLayout layout = CalculateLayout(new BRect(0, 0, outerSize.Width, outerSize.Height), _contentDesiredExtent);
-            SetViewportAndExtent(layout.ContentBounds.Size, layout.ExtentSize);
+            RecordMeasuredScroll(outerSize);
             return outerSize;
         }
         else
@@ -395,10 +396,25 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             }
 
             _contentDesiredExtent = new BSize(extentWidth, extentHeight);
-            ScrollbarLayout layout = CalculateLayout(new BRect(0, 0, outerSize.Width, outerSize.Height), _contentDesiredExtent);
-            SetViewportAndExtent(layout.ContentBounds.Size, layout.ExtentSize);
+            RecordMeasuredScroll(outerSize);
             return outerSize;
         }
+    }
+
+    /// <summary>
+    /// Records the viewport and the extent a measure at <paramref name="outerSize"/> finds, until the view is first
+    /// arranged. From then on they are the last arrange's, for the rectangle the view was given: what it scrolls and
+    /// how far, what its bars show and what its keys do all follow that rectangle, and a measure at another size, which
+    /// may be followed by no arrange at all, does not move them or clamp the offset to them. An arrange that follows a
+    /// measure at a new size records the new ones.
+    /// </summary>
+    private void RecordMeasuredScroll(BSize outerSize)
+    {
+        if (_arranged)
+            return;
+
+        ScrollbarLayout layout = CalculateLayout(new BRect(0, 0, outerSize.Width, outerSize.Height), _contentDesiredExtent);
+        SetViewportAndExtent(layout.ContentBounds.Size, layout.ExtentSize);
     }
 
     protected override void ArrangeCore(BRect finalRect)
@@ -485,16 +501,16 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         _verticalTrackBounds = layout.VerticalTrackBounds;
         _horizontalTrackBounds = layout.HorizontalTrackBounds;
         _scrollbarCornerBounds = layout.ScrollbarCornerBounds;
+        _arranged = true;
+        // Decided before the sizes are recorded, so a host told of a change in them reads the stop that goes with them.
+        bool scrollsChanged = layout.Scrolls != _arrangedScrolls;
+        _arrangedScrolls = layout.Scrolls;
         SetViewportAndExtent(ContentBounds.Size, layout.ExtentSize);
 
-        // The extent exceeds the viewport only past the tolerance (CalculateLayout), as for a bar set to Auto.
-        bool scrolls = layout.ExtentSize.Width > ContentBounds.Width || layout.ExtentSize.Height > ContentBounds.Height;
-        if (scrolls != _arrangedScrolls)
-        {
-            _arrangedScrolls = scrolls;
-            // CanFocus follows it, and with it the ring and the keyboard focusability a host reads.
+        // CanFocus follows it, and with it the ring and the keyboard focusability a host reads, even where the sizes,
+        // as a measure already recorded them, do not change.
+        if (scrollsChanged)
             Invalidate(UiInvalidationKind.Semantic | UiInvalidationKind.Render);
-        }
 
         foreach (UiElement child in Children)
         {
@@ -901,6 +917,8 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         BSize contentSize = GetViewportSize(outerBounds.Size, hasVertical, hasHorizontal, thickness);
         BRect contentBounds = new(outerBounds.Left, outerBounds.Top, contentSize.Width, contentSize.Height);
         BSize extentSize = new(Fit(desiredExtent.Width, contentSize.Width), Fit(desiredExtent.Height, contentSize.Height));
+        // Past the tolerance, as for a bar set to Auto, whether or not a bar can show.
+        bool scrolls = desiredExtent.Width > contentSize.Width + OverflowTolerance || desiredExtent.Height > contentSize.Height + OverflowTolerance;
         // A shown bar keeps its place at the view's edge; the gap beside it comes out of the content, and a bar
         // runs on past the gap beside the other bar to the corner.
         double verticalGap = hasVertical ? Gap(outerBounds.Width, thickness) : 0;
@@ -915,7 +933,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             ? new BRect(contentBounds.Right + verticalGap, contentBounds.Bottom + horizontalGap, thickness, thickness)
             : BRect.Empty;
 
-        return new ScrollbarLayout(contentBounds, extentSize, hasVertical, hasHorizontal, verticalTrack, horizontalTrack, corner);
+        return new ScrollbarLayout(contentBounds, extentSize, scrolls, hasVertical, hasHorizontal, verticalTrack, horizontalTrack, corner);
     }
 
     private BSize GetViewportSize(BSize outerSize, bool hasVertical, bool hasHorizontal, double thickness) =>
@@ -1004,6 +1022,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     private readonly record struct ScrollbarLayout(
         BRect ContentBounds,
         BSize ExtentSize,
+        bool Scrolls,
         bool HasVerticalScrollbar,
         bool HasHorizontalScrollbar,
         BRect VerticalTrackBounds,

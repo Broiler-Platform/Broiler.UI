@@ -293,33 +293,100 @@ public sealed class ScrollViewFocusTests
 
         Assert.False(scroll.HasVerticalScrollbar);
         Assert.False(scroll.CanFocus);
+        // What it records says the same, for code that decides on the sizes: nothing to scroll in 200 x 200 DIP.
+        Assert.Equal(new BSize(200, 200), scroll.ViewportSize);
+        Assert.Equal(new BSize(200, 200), scroll.ExtentSize);
         Assert.False(new StandardFocusScope(session).MoveFocus(1));
         session.SetFocus(scroll);
         Assert.Empty(Rings(session.RenderFrame(), scroll));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AStopMeasuredAgainAtAnotherSizeKeepsTheScrollItWasArrangedWith(bool scrolledToEnd)
+    {
+        // The reverse of a bounded area: measured at 300 DIP, where its 110 DIP of content fit, and given 100 DIP,
+        // where they scroll by 10 beside the bar.
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
+        scroll.AddChild(new Fixed(new BSize(80, 110)));
+        var area = new Sized(scroll, measureHeight: 300, arrangeHeight: 100);
+        using UiSession session = Attach(area, 160, 600);
+        Assert.True(scroll.CanFocus);
+        if (scrolledToEnd)
+        {
+            Assert.True(scroll.ScrollToEnd());
+            session.RenderFrame();
+        }
+
+        BSize viewport = scroll.ViewportSize;
+        BSize extent = scroll.ExtentSize;
+        double offset = scroll.VerticalOffset;
+
+        // Measured again, and not arranged again: the size it is measured to does not change, and neither does the
+        // rectangle it is given. What it scrolls, and how far it is scrolled, stay those of that rectangle.
+        area.MeasureHeight = 301;
+        session.RenderFrame();
+
+        Assert.True(scroll.HasVerticalScrollbar);
+        Assert.Equal(viewport, scroll.ViewportSize);
+        Assert.Equal(extent, scroll.ExtentSize);
+        Assert.Equal(offset, scroll.VerticalOffset);
+
+        // A stop whose keys scroll it.
+        Assert.True(scroll.CanFocus);
+        session.SetFocus(scroll);
+        Assert.Equal(!scrolledToEnd, session.DispatchInput(Key(BVirtualKey.End)));
+        Assert.Equal(10, scroll.VerticalOffset, 6);
+        Assert.True(session.DispatchInput(Key(BVirtualKey.Home)));
+        Assert.Equal(0, scroll.VerticalOffset);
+    }
+
     [Fact]
     public void BecomingAStopIsReportedWhenItsScrollSizesAreThoseAMeasureAlreadyRecorded()
     {
-        // With no preferred size of its own the view measures to 160 x 120 DIP at any height, and records the
-        // 150 x 120 DIP viewport beside a bar in that. Given 300 DIP, its 200 DIP of content fit.
+        // Measured at the size it is then given, as on its first frame: the measure records the viewport and the
+        // extent, and the arrange that makes it a stop finds them unchanged.
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
+        scroll.AddChild(new Fixed(new BSize(80, 200)));
+        using UiSession session = new StandardUiSessionBuilder().Build(new Host(new BSize(100, 100)));
+        var reported = new List<bool>();
+        session.SemanticChanged += (_, e) =>
+        {
+            if (e.Element == scroll && e.Change == UiSemanticChangeKind.StateChanged)
+                reported.Add(scroll.CanFocus);
+        };
+        session.AddRoot(scroll);
+        session.RenderFrame();
+
+        // A host that reads the stop when it is told of a change learns of it.
+        Assert.True(scroll.CanFocus);
+        Assert.True(reported.LastOrDefault(), $"No change reported a stop ({string.Join(", ", reported)}).");
+    }
+
+    [Fact]
+    public void AHostToldOfNewScrollSizesReadsTheStopThatGoesWithThem()
+    {
+        // Given 300 DIP, its 200 DIP of content fit; given 120, they scroll, with a new viewport and extent.
         var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
         scroll.AddChild(new Fixed(new BSize(80, 200)));
         var area = new Sized(scroll, measureHeight: 300, arrangeHeight: 300);
         using UiSession session = Attach(area, 160, 600);
-        area.MeasureHeight = 301;
-        session.RenderFrame();
         Assert.False(scroll.CanFocus);
 
-        // Given 120 DIP, it scrolls with the very viewport and extent that measure recorded, so neither changes.
-        var changes = new List<UiSemanticChangeKind>();
-        session.SemanticChanged += (_, e) => { if (e.Element == scroll) changes.Add(e.Change); };
+        var reported = new List<bool>();
+        session.SemanticChanged += (_, e) =>
+        {
+            if (e.Element == scroll && e.Change == UiSemanticChangeKind.StateChanged)
+                reported.Add(scroll.CanFocus);
+        };
         area.ArrangeHeight = 120;
         session.RenderFrame();
 
-        Assert.True(scroll.HasVerticalScrollbar);
+        // Every change reported for it says it is a stop now, none that it is still none.
         Assert.True(scroll.CanFocus);
-        Assert.Contains(UiSemanticChangeKind.StateChanged, changes);
+        Assert.NotEmpty(reported);
+        Assert.All(reported, Assert.True);
     }
 
     [Fact]
