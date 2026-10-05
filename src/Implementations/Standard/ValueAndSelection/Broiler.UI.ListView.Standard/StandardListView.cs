@@ -360,7 +360,6 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     {
         UpdateVisibleRange();
         StandardControlPaint.FillRounded(context.RenderList, Bounds, Background, CornerRadius);
-        StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, CornerRadius, 1);
         context.RenderList.PushClip(_contentBounds);
 
         IUiListItemPresenter presenter = ItemPresenter ?? DefaultListItemPresenter.Instance;
@@ -400,6 +399,10 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
 
         context.RenderList.PopClip();
         RenderScrollbar(context);
+
+        // The frame goes on after the bar, which runs down the right edge and would otherwise cover that side of
+        // it, leaving only the rounded corners.
+        StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, CornerRadius, 1);
 
         if (Session?.FocusedElement == this)
             StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
