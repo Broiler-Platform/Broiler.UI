@@ -86,6 +86,9 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
     private double _cornerRadius = StandardControlPaint.ControlRadius;
     private double _arrowWidth = 18;
 
+    // The frame's width while the box has focus, when it is the focus ring.
+    private const double FocusedFrameThickness = 2;
+
     public BColor Background
     {
         get => _background;
@@ -190,6 +193,11 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         }
     }
 
+    /// <summary>
+    /// The color of the frame, 2 DIP wide, while the box has focus. Where it does not stand out from the field's fill
+    /// (3:1), the frame is drawn in the field's text color instead (<see cref="StandardControlPaint.FocusRingColor"/>),
+    /// and a hovered or pressed arrow whose fill it does not stand out from is filled inside it rather than up to it.
+    /// </summary>
     public BColor FocusRing
     {
         get => _focusRing;
@@ -265,20 +273,27 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         BColor background = IsEnabled ? Background : StandardControlPaint.SurfaceDisabled;
         StandardControlPaint.FillRounded(context.RenderList, Bounds, background, CornerRadius);
 
-        // The edit paints over this, so it has to know the fill it is sitting on.
+        // The edit paints over this, so it has to know the fill it is sitting on. Its frame and ring are stripped
+        // here too: a theme applied to the whole tree reaches the edit after the box, and gives them back.
+        _edit.BorderColor = BColor.Empty;
+        _edit.FocusRing = BColor.Empty;
         _edit.Background = background;
         base.RenderCore(context);
 
-        DrawArrow(context, SpinArrow.Up);
-        DrawArrow(context, SpinArrow.Down);
-
+        // While focused the frame is the focus ring. It is drawn on the field, so it takes the field's text color
+        // where its own would not show there (ADR 0032).
         bool focused = Session?.FocusedElement == _edit || Session?.FocusedElement == this;
+        BColor ring = StandardControlPaint.FocusRingColor(FocusRing, background, _edit.Foreground);
+
+        DrawArrow(context, SpinArrow.Up, focused ? ring : null);
+        DrawArrow(context, SpinArrow.Down, focused ? ring : null);
+
         StandardControlPaint.StrokeRounded(
             context.RenderList,
             Bounds,
-            focused ? FocusRing : BorderColor,
+            focused ? ring : BorderColor,
             CornerRadius,
-            focused ? 2 : 1);
+            focused ? FocusedFrameThickness : 1);
     }
 
     protected override bool OnInput(UiInputEvent input)
@@ -438,7 +453,11 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         }
     }
 
-    private void DrawArrow(UiRenderContext context, SpinArrow arrow)
+    /// <summary>
+    /// Draws an arrow, on its pressed or hover fill when it has one. <paramref name="ring"/> is the color the frame
+    /// is drawn in while the box has focus, or null while it has none.
+    /// </summary>
+    private void DrawArrow(UiRenderContext context, SpinArrow arrow, BColor? ring)
     {
         BRect bounds = GetArrowBounds(arrow);
         if (bounds.IsEmpty)
@@ -447,11 +466,11 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
         BColor color = IsEnabled ? ArrowColor : DisabledForeground;
         if (IsEnabled && _pressed == arrow)
         {
-            context.RenderList.FillRect(bounds, ArrowPressedBackground);
+            FillArrow(context, bounds, ArrowPressedBackground, ring);
         }
         else if (IsEnabled && _hovered == arrow)
         {
-            context.RenderList.FillRect(bounds, ArrowHoverBackground);
+            FillArrow(context, bounds, ArrowHoverBackground, ring);
             color = ArrowHoverColor;
         }
 
@@ -476,6 +495,24 @@ public sealed class StandardSpinBox : UiSpinBox, IStandardThemedControl
                 new BPoint(centerX + (width / 2), centerY - (height / 2)),
                 color);
         }
+    }
+
+    /// <summary>
+    /// Fills an arrow's cell, which meets the frame. While the box has focus the frame is the focus ring, and a fill
+    /// the ring does not stand out from (3:1) would swallow it along that edge, as when a palette built from a system
+    /// highlight pair uses the highlight for both. That fill is drawn inside the ring instead: inset by the ring's
+    /// width and rounded with the frame, so the field shows between them.
+    /// </summary>
+    private void FillArrow(UiRenderContext context, BRect bounds, BColor fill, BColor? ring)
+    {
+        if (ring is { } color && fill.A == 255 && StandardContrast.Ratio(color, fill) < StandardContrast.AaLargeOrUi)
+        {
+            BRect inside = StandardControlPaint.Inset(bounds, FocusedFrameThickness);
+            StandardControlPaint.FillRounded(context.RenderList, inside, fill, Math.Max(0, CornerRadius - FocusedFrameThickness));
+            return;
+        }
+
+        context.RenderList.FillRect(bounds, fill);
     }
 
     private BRect GetArrowBounds(SpinArrow arrow)

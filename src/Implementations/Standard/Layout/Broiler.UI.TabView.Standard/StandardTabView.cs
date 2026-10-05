@@ -320,10 +320,9 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
         // The ring is drawn on the selected header's fill. A focus color that does not stand out from it
         // (3:1, as a focus indicator needs) would hide the ring, which then takes the selected label's
         // color, chosen to be read there.
-        BColor color = FocusRing;
-        BColor fill = SelectedHeaderBackground;
-        if (ringsHeader && fill.A == 255 && StandardContrast.Ratio(FocusRing, fill) < StandardContrast.AaLargeOrUi)
-            color = SelectedHeaderForeground;
+        BColor color = ringsHeader
+            ? StandardControlPaint.FocusRingColor(FocusRing, SelectedHeaderBackground, SelectedHeaderForeground)
+            : FocusRing;
 
         StandardControlPaint.StrokeRounded(context.RenderList, ring, color, radius, thickness);
     }

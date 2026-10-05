@@ -2,6 +2,7 @@ using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.UI.ListView.Standard;
+using Broiler.UI.SpinBox.Standard;
 
 namespace Broiler.UI.Standard.Tests;
 
@@ -32,6 +33,39 @@ public sealed class StandardThemeControllerTests
             Assert.Equal(StandardThemeTokens.Dark.Text, list.Foreground);
             Assert.Equal(StandardThemeTokens.Dark.AccentSoft, list.SelectedBackground);
             Assert.NotEmpty(host.Invalidations);
+        }
+        finally
+        {
+            StandardControlPaint.ApplyTheme(original);
+        }
+    }
+
+    [Fact]
+    public void Apply_Leaves_A_Spin_Box_One_Frame_Around_Both_Halves()
+    {
+        StandardThemeTokens original = StandardControlPaint.Theme;
+        try
+        {
+            using UiSession session = CreateSession(out _);
+            var spin = new StandardSpinBox { Minimum = 0, Maximum = 10, Value = 5 };
+            session.AddRoot(spin);
+
+            // The tree is themed parent first, so the edit inside the box is themed after the box stripped its
+            // frame and ring, and the theme gives them back.
+            Assert.Equal(2, StandardThemeController.Apply(session, StandardThemeTokens.Dark));
+            Assert.Equal(StandardThemeTokens.Dark.FocusRing, spin.Edit.FocusRing);
+
+            // The edit draws no frame of its own: its square border or ring would run across the box.
+            BRenderList rest = session.RenderFrame();
+            Assert.DoesNotContain(rest.Commands.OfType<BRenderCommand.StrokeRect>(), stroke => stroke.Rect == spin.Edit.Bounds);
+            BRenderCommand.StrokeRoundedRect border = Assert.Single(rest.Commands.OfType<BRenderCommand.StrokeRoundedRect>());
+            Assert.Equal((spin.Bounds, StandardThemeTokens.Dark.Border, 1d), (border.Rect, border.Color, border.Thickness));
+
+            session.SetFocus(spin.Edit);
+            BRenderList focused = session.RenderFrame();
+            Assert.DoesNotContain(focused.Commands.OfType<BRenderCommand.StrokeRect>(), stroke => stroke.Rect == spin.Edit.Bounds);
+            BRenderCommand.StrokeRoundedRect ring = Assert.Single(focused.Commands.OfType<BRenderCommand.StrokeRoundedRect>());
+            Assert.Equal((spin.Bounds, StandardThemeTokens.Dark.FocusRing, 2d), (ring.Rect, ring.Color, ring.Thickness));
         }
         finally
         {

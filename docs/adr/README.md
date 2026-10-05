@@ -44,3 +44,4 @@ Broiler.UI decisions, not product decisions: the product context is in
 | [0029](0029-selection-text-high-contrast-and-text-fit.md) | Selection text, state fills, the high-contrast flag, and controls that fit larger text |
 | [0030](0030-layout-invalidation-hidden-tabs-and-input-direction.md) | Layout invalidation, hidden tab layout, input direction, keyboard scope, and tree row semantics |
 | [0031](0031-tab-view-page-clip-header-marks-accent-text-and-toggle-text.md) | Tab view page clip, header focus and selection marks, accent text, and disclosure toggle text |
+| [0032](0032-focus-rings-on-the-drawn-fill-and-focus-hand-off-from-scroll-stops.md) | Focus rings on the fill they are drawn on, and focus hand-off from a scroll stop |

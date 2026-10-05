@@ -131,6 +131,12 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
         }
     }
 
+    /// <summary>
+    /// The color of the keyboard focus ring, drawn inside the button's fill. Where it does not stand out from the
+    /// fill the button draws in its current state (3:1), the ring is drawn in that state's label color instead
+    /// (<see cref="StandardControlPaint.FocusRingColor"/>): on a default button's accent fill, and on a hovered
+    /// secondary button's state fill, when the palette uses one color for both.
+    /// </summary>
     public BColor FocusRing
     {
         get => _focusRing;
@@ -335,9 +341,10 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
         }
 
         // Only under keyboard navigation: a bar whose buttons ring themselves on click reads as
-        // a page of boxes, and the user already knows which one they clicked.
+        // a page of boxes, and the user already knows which one they clicked. The ring is drawn on the
+        // fill, so it takes the label's color where the ring's own would not show on it (ADR 0032).
         if (Session?.FocusedElement == this && Session.IsFocusVisible)
-            StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
+            StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), StandardControlPaint.FocusRingColor(FocusRing, background, foreground), Math.Max(0, CornerRadius - 2), 1);
     }
 
     protected override bool OnInput(UiInputEvent input)

@@ -171,6 +171,22 @@ public static class StandardControlPaint
             StrokeRounded(renderList, focus, theme.FocusRing, Math.Max(0, radius - offset), thickness);
     }
 
+    /// <summary>
+    /// The color to stroke a focus ring in when it is drawn on <paramref name="fill"/>: <paramref name="ring"/>
+    /// where it stands out from the fill (3:1, as a focus indicator needs), and otherwise <paramref name="label"/>,
+    /// the color the control draws its label in on that fill, which the theme chose to be read there. A palette
+    /// built from a system highlight pair can use the highlight for the ring and for the fill, and a preset's ring
+    /// can be its accent, the fill of a default button; the ring would not show. A fill that is not opaque keeps the
+    /// ring: what shows through it is not known.
+    /// </summary>
+    /// <remarks>
+    /// The rule every standard control that draws its ring on a fill of its own follows (ADR 0032): a button or
+    /// toggle button on the fill it draws in its current state, a spin box on its field, a tab view on its selected
+    /// header.
+    /// </remarks>
+    public static BColor FocusRingColor(BColor ring, BColor fill, BColor label) =>
+        fill.A == 255 && StandardContrast.Ratio(ring, fill) < StandardContrast.AaLargeOrUi ? label : ring;
+
 
     public static BRect Inset(BRect rect, double amount) =>
         new(
