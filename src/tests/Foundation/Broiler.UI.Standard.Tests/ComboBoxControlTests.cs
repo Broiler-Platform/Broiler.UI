@@ -95,6 +95,86 @@ public sealed class ComboBoxControlTests
         Assert.True(second.Origin.Y + BTextMeasurer.GetLineHeight(comboBox.Font) <= comboBox.PopupBounds.Bottom, "The second row's text fits its row.");
     }
 
+    [Fact]
+    public void The_Arrow_And_The_Text_Keep_Their_Places_At_The_Default_Font()
+    {
+        foreach (bool open in new[] { false, true })
+        {
+            ArrowFrame frame = RenderArrow(StandardThemeTokens.Light, open);
+
+            Assert.Equal(open ? "^" : "v", frame.Arrow.Text.Text);
+            Assert.Equal(frame.Bounds.Right - 18, frame.Arrow.Origin.X, 6);
+            Assert.Equal(frame.Bounds.Right - 22, frame.TextClip.Right, 6);
+        }
+    }
+
+    [Theory]
+    [InlineData(1.5)]
+    [InlineData(2)]
+    public void At_A_Larger_Text_Size_The_Arrow_Slot_Grows_With_The_Font(double textScale)
+    {
+        foreach (bool open in new[] { false, true })
+        {
+            ArrowFrame normal = RenderArrow(StandardThemeTokens.Light, open);
+            ArrowFrame large = RenderArrow(StandardThemeTokens.Light.WithTextScale(textScale), open);
+            double growth = BTextMeasurer.GetLineHeight(large.Font) / BTextMeasurer.GetLineHeight(normal.Font);
+            Assert.True(growth > 1.4, "The test needs a larger font.");
+
+            // The glyph is a glyph of the font and grows with it; the room beside it, to the frame on one side and
+            // to the clipped text on the other, grows as much. A fixed slot let a 200 % arrow run to within 3 DIP
+            // of the frame, and an open one past it.
+            double margin = large.Bounds.Right - large.ArrowRight;
+            double normalMargin = normal.Bounds.Right - normal.ArrowRight;
+            Assert.True(margin >= normalMargin * growth - 0.05, $"{large.Arrow.Text.Text}: {margin:F2} DIP to the frame, {normalMargin:F2} at the default font");
+            Assert.True(large.ArrowRight <= large.Bounds.Right - 8, "The arrow stays well clear of the frame and the focus ring inside it.");
+
+            double gap = large.Arrow.Origin.X - large.TextClip.Right;
+            double normalGap = normal.Arrow.Origin.X - normal.TextClip.Right;
+            Assert.True(gap >= normalGap * growth - 0.05, $"{large.Arrow.Text.Text}: the text stops {gap:F2} DIP before the arrow, {normalGap:F2} at the default font");
+        }
+    }
+
+    private sealed record ArrowFrame(BRect Bounds, BRect TextClip, BRenderCommand.DrawText Arrow, BFontStyle Font)
+    {
+        public double ArrowRight => Arrow.Origin.X + BTextMeasurer.MeasureAdvance(Arrow.Text.Text, Font);
+    }
+
+    /// <summary>
+    /// Draws a 200 DIP combo box showing a long item, closed or with its drop-down open, and returns its bounds, the
+    /// clip its text is drawn in, and the arrow.
+    /// </summary>
+    private static ArrowFrame RenderArrow(StandardThemeTokens theme, bool open)
+    {
+        const string longText = "Portable Document Format (PDF), every page";
+        var host = new TestHost(new BSize(400, 400));
+        using UiSession session = new StandardUiSessionBuilder().WithDispatcher(new ImmediateUiDispatcher()).Build(host);
+        var comboBox = new StandardComboBox();
+        comboBox.ApplyTheme(theme);
+        comboBox.SetItems([new UiComboBoxItem("pdf", longText), new UiComboBoxItem("txt", "Text")]);
+        Assert.True(comboBox.SelectIndex(0));
+        session.AddRoot(new WidthRoot(comboBox, 200));
+        session.RenderFrame();
+        if (open)
+            Assert.True(comboBox.OpenDropDown());
+
+        BRenderList renderList = session.RenderFrame();
+        BRect clip = BRect.Empty;
+        BRect? textClip = null;
+        foreach (BRenderCommand command in renderList.Commands)
+        {
+            if (command is BRenderCommand.PushClip push)
+                clip = push.Rect;
+            else if (textClip is null && command is BRenderCommand.DrawText draw && draw.Text.Text == longText)
+                textClip = clip;
+        }
+
+        Assert.NotNull(textClip);
+        BRenderCommand.DrawText arrow = Assert.Single(
+            renderList.Commands.OfType<BRenderCommand.DrawText>(),
+            command => command.Text.Text is "v" or "^");
+        return new ArrowFrame(comboBox.Bounds, textClip.Value, arrow, comboBox.Font);
+    }
+
     private static BSize Measure(UiElement element)
     {
         element.Measure(new BSize(double.PositiveInfinity, double.PositiveInfinity));
@@ -148,6 +228,29 @@ public sealed class ComboBoxControlTests
             _comboBox.Arrange(new BRect(10, 10, 80, 24));
             _overlappingSibling.Arrange(new BRect(10, 34, 80, 48));
         }
+    }
+
+    /// <summary>Lays its one child out at a fixed width and the height the child asks for.</summary>
+    private sealed class WidthRoot : UiElement
+    {
+        private readonly UiElement _child;
+        private readonly double _width;
+
+        public WidthRoot(UiElement child, double width)
+        {
+            _child = child;
+            _width = width;
+            AddChild(child);
+        }
+
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            _child.Measure(new BSize(_width, double.PositiveInfinity));
+            return availableSize;
+        }
+
+        protected override void ArrangeCore(BRect finalRect) =>
+            _child.Arrange(new BRect(10, 10, _width, _child.DesiredSize.Height));
     }
 
     private sealed class PaintElement : UiElement

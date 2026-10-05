@@ -214,23 +214,42 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         PopupBounds = new BRect(finalRect.Left, popupTop, finalRect.Width, popupHeight).Intersect(new BRect(0, 0, Session?.Host.ViewportSize.Width ?? finalRect.Right, Session?.Host.ViewportSize.Height ?? popupTop + popupHeight));
     }
 
+    /// <summary>
+    /// The width of the slot at the right edge that the drop-down arrow is drawn in, at the default font. The
+    /// arrow starts <see cref="DefaultArrowInset"/> from the edge, so the text stops 4 DIP before it.
+    /// </summary>
+    private const double DefaultArrowSlotWidth = 22;
+
+    /// <summary>How far from the right edge the arrow starts, at the default font.</summary>
+    private const double DefaultArrowInset = 18;
+
+    /// <summary>
+    /// How much the arrow's slot grows with <see cref="Font"/>: a line of it over a default line, as the box's
+    /// height grows (<see cref="HeightForFont"/>), and never less than 1. The arrow is a glyph of the font, so at
+    /// twice the text size it is twice as wide; a slot of fixed width let it run up to the frame.
+    /// </summary>
+    private double ArrowScale =>
+        Math.Max(1, BTextMeasurer.GetLineHeight(Font) / BTextMeasurer.GetLineHeight(BFontStyle.Default));
+
     protected override void RenderCore(UiRenderContext context)
     {
         StandardControlPaint.FillRounded(context.RenderList, Bounds, IsEnabled ? Background : StandardControlPaint.SurfaceDisabled, CornerRadius);
         StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, CornerRadius, 1);
+        double arrowScale = ArrowScale;
+        double textTop = Bounds.Top + Math.Max(0, (Bounds.Height - BTextMeasurer.GetLineHeight(Font)) / 2);
         string text = SelectedItem?.Text ?? string.Empty;
         if (!string.IsNullOrEmpty(text))
         {
             // Clipped short of the arrow: an item named after a file format runs long, and a
             // closed combo box is often the narrowest thing on a dialog. Without this the label
             // paints straight over the arrow and out across whatever sits beside the control.
-            BRect textBounds = new(Bounds.Left, Bounds.Top, Math.Max(0, Bounds.Width - 22), Bounds.Height);
+            BRect textBounds = new(Bounds.Left, Bounds.Top, Math.Max(0, Bounds.Width - DefaultArrowSlotWidth * arrowScale), Bounds.Height);
             context.RenderList.PushClip(textBounds);
-            context.RenderList.DrawText(new BTextRun(text, Font, Foreground), new BPoint(Bounds.Left + 8, Bounds.Top + Math.Max(0, (Bounds.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            context.RenderList.DrawText(new BTextRun(text, Font, Foreground), new BPoint(Bounds.Left + 8, textTop));
             context.RenderList.PopClip();
         }
 
-        context.RenderList.DrawText(new BTextRun(IsDropDownOpen ? "^" : "v", Font, Foreground), new BPoint(Bounds.Right - 18, Bounds.Top + Math.Max(0, (Bounds.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+        context.RenderList.DrawText(new BTextRun(IsDropDownOpen ? "^" : "v", Font, Foreground), new BPoint(Bounds.Right - DefaultArrowInset * arrowScale, textTop));
 
         if (Session?.FocusedElement == this)
             StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
