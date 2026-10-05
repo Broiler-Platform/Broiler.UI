@@ -232,10 +232,80 @@ public sealed class CompactFormsTests
         if (surface.Content.Scroll.HasVerticalScrollbar)
             Assert.True(ring.Rect.Right + outset <= surface.Content.Scroll.ContentBounds.Right, "The ring reaches into the bar.");
 
-        // The fields keep the edges of the action strip, as before: the viewport reaches 1 DIP into the margins.
+        // The fields keep the edges of the action strip, as before: the viewport reaches 1 DIP into the margins. Beside
+        // the bar they end short of it by the gap as well.
         Assert.Equal(surface.Actions.Bounds.Left, edits[0].Bounds.Left, 6);
-        double right = surface.Actions.Bounds.Right - (surface.Content.Scroll.HasVerticalScrollbar ? surface.Content.Scroll.ScrollbarThickness : 0);
+        double right = surface.Actions.Bounds.Right - (surface.Content.Scroll.HasVerticalScrollbar ? surface.Content.Scroll.ScrollbarThickness + 2 : 0);
         Assert.Equal(right, edits[0].Bounds.Right, 6);
+    }
+
+    [Fact]
+    public void AFocusedFieldBesideTheBarKeepsAGapBetweenItsRingAndTheThumb()
+    {
+        // High contrast draws the thumb in the text color, the ring's color in HighContrastLight: a ring that met the
+        // thumb would merge with it.
+        StandardControlPaint.ApplyTheme(StandardThemeTokens.HighContrastLight);
+        try
+        {
+            var fields = new StandardPanel { Spacing = 8 };
+            StandardEdit[] edits = Enumerable.Range(0, 12).Select(_ => new StandardEdit()).ToArray();
+            foreach (var edit in edits)
+                fields.AddChild(new FormField("Email address", edit));
+            var feedback = new InlineFeedback();
+            using var surface = new FormSurface(fields, FormSurface.ActionBar(new StandardButton { Text = "Save" }), feedback);
+            using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+            session.AddRoot(surface);
+            session.RenderFrame();
+            session.SetFocus(edits[0]);
+            BRenderList renderList = session.RenderFrame();
+            var scroll = surface.Content.Scroll;
+            Assert.True(scroll.HasVerticalScrollbar);
+
+            (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(renderList, stroke => stroke.Rect == edits[0].Bounds && stroke.Thickness == 2);
+            BRect thumb = renderList.Commands.OfType<BRenderCommand.FillRoundedRect>().First(fill => fill.Color == scroll.ScrollbarThumb).Rect;
+            double ringRight = ring.Rect.Right + (ring.Thickness / 2);
+
+            // The ring is whole, 2 DIP of the form lie between it and the thumb, and the bar keeps its place at the
+            // viewport's edge: at 640 DIP, the ring's outer edge at 615, the bar from 617 to 629.
+            Assert.True(clip.Right >= ringRight, $"The ring around {ring.Rect} is clipped to {clip}.");
+            Assert.Equal(2, thumb.Left - ringRight, 6);
+            Assert.Equal(surface.Content.Bounds.Right, thumb.Right, 6);
+            Assert.Equal(615, ringRight, 6);
+            Assert.Equal(617, thumb.Left, 6);
+
+            // The feedback's viewport leaves the same gap beside its own bar.
+            feedback.Set(string.Join(" ", Enumerable.Repeat("The connection check found a problem with the server.", 12)), FeedbackKind.Error);
+            renderList = session.RenderFrame();
+            var feedbackScroll = Descendants(surface).OfType<Broiler.UI.ScrollView.Standard.StandardScrollView>().Last();
+            Assert.True(feedbackScroll.HasVerticalScrollbar);
+            BRect feedbackThumb = renderList.Commands.OfType<BRenderCommand.FillRoundedRect>()
+                .Last(fill => fill.Color == feedbackScroll.ScrollbarThumb).Rect;
+            Assert.Equal(feedbackScroll.ContentBounds.Right + 2, feedbackThumb.Left, 6);
+            Assert.Equal(surface.Actions.Bounds.Right - feedbackScroll.ScrollbarThickness - 2, feedback.Bounds.Right, 6);
+        }
+        finally { StandardControlPaint.ApplyTheme(StandardThemeTokens.Light); }
+    }
+
+    [Fact]
+    public void WithoutABarTheFormLaysOutAsBefore()
+    {
+        // One field fits, and nothing of the gap beside a bar is taken from the fields or the feedback.
+        var feedback = new InlineFeedback();
+        var edit = new StandardEdit();
+        using var surface = new FormSurface(new FormField("Email address", edit), FormSurface.ActionBar(new StandardButton { Text = "Save" }), feedback);
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        feedback.Set("Settings saved.", FeedbackKind.Success);
+        session.RenderFrame();
+        var feedbackScroll = Descendants(surface).OfType<Broiler.UI.ScrollView.Standard.StandardScrollView>().Last();
+
+        Assert.False(surface.Content.Scroll.HasVerticalScrollbar);
+        Assert.False(feedbackScroll.HasVerticalScrollbar);
+        Assert.Equal(new BRect(11, 11, 618, surface.Content.Bounds.Height), surface.Content.Scroll.ContentBounds);
+        Assert.Equal(12, edit.Bounds.Left, 6);
+        Assert.Equal(628, edit.Bounds.Right, 6);
+        Assert.Equal(surface.Content.Bounds.Width, feedbackScroll.ContentBounds.Width, 6);
+        Assert.Equal(628, feedback.Bounds.Right, 6);
     }
 
     [Fact]

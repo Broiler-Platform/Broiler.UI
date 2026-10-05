@@ -29,6 +29,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     private double _minimumThumbLength = 18;
     private double _horizontalContentInset;
     private double _verticalContentInset;
+    private double _scrollbarGap;
     private bool _showScrollbars = true;
     private ScrollbarAxis _dragAxis = ScrollbarAxis.None;
     private double _dragPointerOffsetWithinThumb;
@@ -228,6 +229,30 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         }
     }
 
+    /// <summary>
+    /// Space, in DIP, left between the content and a scrollbar while that bar shows, so what is drawn at the content's
+    /// edge, such as a focus ring in the room <see cref="HorizontalContentInset"/> leaves, does not run into the bar.
+    /// A theme whose thumb is drawn in its text color would otherwise merge the two. 0 by default, where a bar sits
+    /// directly beside the content. The space comes out of the content beside a shown bar: <see cref="ContentBounds"/>,
+    /// and the clip with it, ends that much short of the bar, and content constrained to the width (or the height) is
+    /// measured and arranged that much narrower (or shorter). The bars keep their places at the view's edges, a press
+    /// in the space is no press on a bar, and with no bar the layout is unchanged.
+    /// </summary>
+    public double ScrollbarGap
+    {
+        get => _scrollbarGap;
+        set
+        {
+            ThrowIfDisposed();
+            ValidateNonNegativeFinite(value, nameof(value));
+            if (_scrollbarGap == value)
+                return;
+
+            _scrollbarGap = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
     public BRect ContentBounds { get; private set; } = BRect.Empty;
 
     public bool HasVerticalScrollbar { get; private set; }
@@ -277,7 +302,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             double thickness = ShowScrollbars ? Math.Min(ScrollbarThickness, Math.Max(0, Math.Min(availableWidth, outerSize.Height))) : 0;
 
             bool hasVertical = VerticalScrollBarVisibility == UiScrollBarVisibility.Visible;
-            double contentWidth = hasVertical ? Math.Max(1, availableWidth - thickness) : Math.Max(1, availableWidth);
+            double contentWidth = hasVertical ? Math.Max(1, availableWidth - BarRoom(availableWidth, thickness)) : Math.Max(1, availableWidth);
 
             double extentWidth = 0;
             double extentHeight = 0;
@@ -294,7 +319,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > outerSize.Height + OverflowTolerance && thickness > 0)
             {
                 hasVertical = true;
-                contentWidth = Math.Max(1, availableWidth - thickness);
+                contentWidth = Math.Max(1, availableWidth - BarRoom(availableWidth, thickness));
                 extentWidth = 0;
                 extentHeight = 0;
                 foreach (UiElement child in Children)
@@ -319,7 +344,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             double thickness = ShowScrollbars ? Math.Min(ScrollbarThickness, Math.Max(0, Math.Min(outerSize.Width, availableHeight))) : 0;
 
             bool hasHorizontal = HorizontalScrollBarVisibility == UiScrollBarVisibility.Visible;
-            double contentHeight = hasHorizontal ? Math.Max(1, availableHeight - thickness) : Math.Max(1, availableHeight);
+            double contentHeight = hasHorizontal ? Math.Max(1, availableHeight - BarRoom(availableHeight, thickness)) : Math.Max(1, availableHeight);
 
             double extentWidth = 0;
             double extentHeight = 0;
@@ -336,7 +361,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > outerSize.Width + OverflowTolerance && thickness > 0)
             {
                 hasHorizontal = true;
-                contentHeight = Math.Max(1, availableHeight - thickness);
+                contentHeight = Math.Max(1, availableHeight - BarRoom(availableHeight, thickness));
                 extentWidth = 0;
                 extentHeight = 0;
                 foreach (UiElement child in Children)
@@ -382,7 +407,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         {
             double thickness = ShowScrollbars ? Math.Min(ScrollbarThickness, Math.Max(0, Math.Min(finalRect.Width, finalRect.Height))) : 0;
             bool hasVertical = VerticalScrollBarVisibility == UiScrollBarVisibility.Visible;
-            double contentWidth = hasVertical ? Math.Max(1, finalRect.Width - thickness) : Math.Max(1, finalRect.Width);
+            double contentWidth = hasVertical ? Math.Max(1, finalRect.Width - BarRoom(finalRect.Width, thickness)) : Math.Max(1, finalRect.Width);
 
             double extentWidth = 0;
             double extentHeight = 0;
@@ -399,7 +424,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > finalRect.Height + OverflowTolerance && thickness > 0)
             {
                 hasVertical = true;
-                contentWidth = Math.Max(1, finalRect.Width - thickness);
+                contentWidth = Math.Max(1, finalRect.Width - BarRoom(finalRect.Width, thickness));
                 extentWidth = 0;
                 extentHeight = 0;
                 foreach (UiElement child in Children)
@@ -419,7 +444,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         {
             double thickness = ShowScrollbars ? Math.Min(ScrollbarThickness, Math.Max(0, Math.Min(finalRect.Width, finalRect.Height))) : 0;
             bool hasHorizontal = HorizontalScrollBarVisibility == UiScrollBarVisibility.Visible;
-            double contentHeight = hasHorizontal ? Math.Max(1, finalRect.Height - thickness) : Math.Max(1, finalRect.Height);
+            double contentHeight = hasHorizontal ? Math.Max(1, finalRect.Height - BarRoom(finalRect.Height, thickness)) : Math.Max(1, finalRect.Height);
 
             double extentWidth = 0;
             double extentHeight = 0;
@@ -436,7 +461,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > finalRect.Width + OverflowTolerance && thickness > 0)
             {
                 hasHorizontal = true;
-                contentHeight = Math.Max(1, finalRect.Height - thickness);
+                contentHeight = Math.Max(1, finalRect.Height - BarRoom(finalRect.Height, thickness));
                 extentWidth = 0;
                 extentHeight = 0;
                 foreach (UiElement child in Children)
@@ -876,23 +901,34 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         BSize contentSize = GetViewportSize(outerBounds.Size, hasVertical, hasHorizontal, thickness);
         BRect contentBounds = new(outerBounds.Left, outerBounds.Top, contentSize.Width, contentSize.Height);
         BSize extentSize = new(Fit(desiredExtent.Width, contentSize.Width), Fit(desiredExtent.Height, contentSize.Height));
+        // A shown bar keeps its place at the view's edge; the gap beside it comes out of the content, and a bar
+        // runs on past the gap beside the other bar to the corner.
+        double verticalGap = hasVertical ? Gap(outerBounds.Width, thickness) : 0;
+        double horizontalGap = hasHorizontal ? Gap(outerBounds.Height, thickness) : 0;
         BRect verticalTrack = hasVertical
-            ? new BRect(contentBounds.Right, outerBounds.Top, thickness, contentBounds.Height)
+            ? new BRect(contentBounds.Right + verticalGap, outerBounds.Top, thickness, contentBounds.Height + horizontalGap)
             : BRect.Empty;
         BRect horizontalTrack = hasHorizontal
-            ? new BRect(outerBounds.Left, contentBounds.Bottom, contentBounds.Width, thickness)
+            ? new BRect(outerBounds.Left, contentBounds.Bottom + horizontalGap, contentBounds.Width + verticalGap, thickness)
             : BRect.Empty;
         BRect corner = hasVertical && hasHorizontal
-            ? new BRect(contentBounds.Right, contentBounds.Bottom, thickness, thickness)
+            ? new BRect(contentBounds.Right + verticalGap, contentBounds.Bottom + horizontalGap, thickness, thickness)
             : BRect.Empty;
 
         return new ScrollbarLayout(contentBounds, extentSize, hasVertical, hasHorizontal, verticalTrack, horizontalTrack, corner);
     }
 
-    private static BSize GetViewportSize(BSize outerSize, bool hasVertical, bool hasHorizontal, double thickness) =>
+    private BSize GetViewportSize(BSize outerSize, bool hasVertical, bool hasHorizontal, double thickness) =>
         new(
-            Math.Max(0, outerSize.Width - (hasVertical ? thickness : 0)),
-            Math.Max(0, outerSize.Height - (hasHorizontal ? thickness : 0)));
+            Math.Max(0, outerSize.Width - (hasVertical ? BarRoom(outerSize.Width, thickness) : 0)),
+            Math.Max(0, outerSize.Height - (hasHorizontal ? BarRoom(outerSize.Height, thickness) : 0)));
+
+    // What a shown bar takes from the content across a side of the given length: the bar, and the gap beside it as
+    // far as the side has room for it.
+    private double BarRoom(double length, double thickness) => thickness + Gap(length, thickness);
+
+    private double Gap(double length, double thickness) =>
+        thickness <= 0 ? 0 : Math.Min(_scrollbarGap, Math.Max(0, length - thickness));
 
     // The extent along an axis: the content's, unless it is within the tolerance of the viewport, which it then fills.
     private static double Fit(double desiredLength, double viewportLength) =>
