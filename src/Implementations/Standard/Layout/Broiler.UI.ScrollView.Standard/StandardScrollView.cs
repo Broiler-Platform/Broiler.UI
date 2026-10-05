@@ -482,7 +482,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     /// <summary>
     /// Draws the stretch of the ring that crosses an opaque thumb of too nearly its color again, in a color that
     /// stands out on the thumb (<see cref="StandardControlPaint.FocusRingColor"/>), so the ring stays whole. A
-    /// high-contrast theme draws its thumb in the text color, which is the ring's color in HighContrastLight.
+    /// high-contrast theme draws its thumb in the text color, which is the ring's color in HighContrastLight. The
+    /// clips keep to the thumb's pill (<see cref="StandardControlPaint.PillAreasUnderRing"/>), so the ring beside its
+    /// rounded ends, over the track, keeps its own color.
     /// </summary>
     private void RenderRingAcrossThumb(UiRenderContext context, BRect ring, ScrollbarAxis axis)
     {
@@ -491,9 +493,12 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         if (across == FocusRing || thumb.IsEmpty)
             return;
 
-        context.RenderList.PushClip(thumb);
-        context.RenderList.StrokeRect(ring, across, _theme.FocusRingThickness);
-        context.RenderList.PopClip();
+        foreach (BRect area in StandardControlPaint.PillAreasUnderRing(thumb, ring, _theme.FocusRingThickness))
+        {
+            context.RenderList.PushClip(area);
+            context.RenderList.StrokeRect(ring, across, _theme.FocusRingThickness);
+            context.RenderList.PopClip();
+        }
     }
 
     protected override bool OnInput(UiInputEvent input)

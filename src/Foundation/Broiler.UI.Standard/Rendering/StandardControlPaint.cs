@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Broiler.Graphics;
 using Broiler.Graphics.Color;
@@ -235,4 +236,77 @@ public static class StandardControlPaint
 
         return Math.Clamp(radius, 0, max);
     }
+
+    /// <summary>
+    /// Rectangles inside <paramref name="pill"/>, a rectangle filled with <see cref="PillRadius"/> as a scrollbar thumb
+    /// is, that together take in the stretch of a ring stroked along <paramref name="ring"/>, <paramref name="thickness"/>
+    /// wide, that runs over it: the clips to draw that stretch again in, one after another, in a color that shows on the
+    /// pill. The pill's own rectangle would also take in the ring beside its rounded ends, over whatever is under the
+    /// pill, such as the track. Each rectangle has its corners on the pill's outline, where the outer edge or the middle
+    /// of a side of the ring crosses it, so none reaches outside the pill; where a side crosses a rounded end they leave
+    /// at most a sliver of half the stroke on the pill.
+    /// </summary>
+    public static IReadOnlyList<BRect> PillAreasUnderRing(BRect pill, BRect ring, double thickness)
+    {
+        if (pill.IsEmpty || ring.IsEmpty || thickness <= 0)
+            return [];
+
+        // Worked out for an upright pill, rounded at the top and the bottom; one lying down is turned first.
+        bool upright = pill.Height >= pill.Width;
+        BRect shape = upright ? pill : Transpose(pill);
+        BRect path = upright ? ring : Transpose(ring);
+        double radius = ResolveRadius(shape, PillRadius);
+        double half = thickness / 2;
+        double center = shape.Left + (shape.Width / 2);
+        var halfWidths = new List<double>(4);
+
+        // An upright side over the pill: the rectangle as wide as the side's outer edge takes in the whole stroke
+        // where all of it is on the pill, and the one as wide as its middle reaches further into the rounded ends.
+        if (path.Bottom > shape.Top && path.Top < shape.Bottom)
+        {
+            foreach (double x in (ReadOnlySpan<double>)[path.Left, path.Right])
+            {
+                double offset = Math.Abs(x - center);
+                if (offset < radius + half)
+                {
+                    halfWidths.Add(Math.Min(radius, offset + half));
+                    halfWidths.Add(Math.Min(radius, offset));
+                }
+            }
+        }
+
+        // A level side over a rounded end, with the pill at either end of its track: the rectangles whose end is the
+        // side's outer edge, nearer the pill's end, and its middle.
+        if (path.Right > shape.Left && path.Left < shape.Right)
+        {
+            foreach (double y in (ReadOnlySpan<double>)[path.Top, path.Bottom])
+            {
+                double depth = Math.Min(y - shape.Top, shape.Bottom - y);
+                foreach (double into in (ReadOnlySpan<double>)[depth - half, depth])
+                {
+                    if (into > 0)
+                        halfWidths.Add(into >= radius ? radius : Math.Sqrt((radius * radius) - ((radius - into) * (radius - into))));
+                }
+            }
+        }
+
+        halfWidths.Sort();
+        var areas = new List<BRect>(halfWidths.Count);
+        double previous = 0;
+        foreach (double halfWidth in halfWidths)
+        {
+            if (halfWidth - previous < 1e-9)
+                continue;
+
+            previous = halfWidth;
+            double end = radius - Math.Sqrt(Math.Max(0, (radius * radius) - (halfWidth * halfWidth)));
+            var area = new BRect(center - halfWidth, shape.Top + end, 2 * halfWidth, shape.Height - (2 * end));
+            if (area.Height > 0)
+                areas.Add(upright ? area : Transpose(area));
+        }
+
+        return areas;
+    }
+
+    private static BRect Transpose(BRect rect) => new(rect.Top, rect.Left, rect.Height, rect.Width);
 }

@@ -42,32 +42,52 @@ public sealed class ListViewFrameAndFocusRingTests
         Assert.DoesNotContain(commands.Skip(frameIndex + 1), static command => command is BRenderCommand.FillRect or BRenderCommand.FillRoundedRect);
     }
 
+    public static TheoryData<string, string?> HostingPalettesAndThumbPlaces
+    {
+        get
+        {
+            // The thumb at the top of its track (the list unscrolled), part way down, and at the bottom.
+            var data = new TheoryData<string, string?>();
+            foreach (string name in new[] { "Aquatic", "Desert", "Dusk", "Night sky" })
+            {
+                foreach (string? scrollTo in new[] { null, "item30", "item59" })
+                    data.Add(name, scrollTo);
+            }
+
+            return data;
+        }
+    }
+
     [Theory]
-    [MemberData(nameof(HostingPaletteNames))]
-    public void In_A_Windows_Contrast_Theme_The_Focus_Ring_Stays_Whole_Where_It_Crosses_The_Thumb(string name)
+    [MemberData(nameof(HostingPalettesAndThumbPlaces))]
+    public void In_A_Windows_Contrast_Theme_The_Focus_Ring_Stays_Whole_Where_It_Crosses_The_Thumb(string name, string? scrollTo)
     {
         StandardThemeTokens theme = HostingShapedPalettes.Named(name);
         StandardListView list = ScrollingList(theme);
 
-        BRenderCommand[] commands = Render(list, focused: true);
+        BRenderCommand[] commands = Render(list, focused: true, scrollTo);
 
         BRect ringRect = StandardControlPaint.Inset(ListBounds, 2);
         BRenderCommand.StrokeRoundedRect ring = Assert.Single(commands.OfType<BRenderCommand.StrokeRoundedRect>(), stroke => stroke.Rect == ringRect && stroke.Color == theme.FocusRing);
-        (_, BRenderCommand.FillRoundedRect thumb) = Bar(commands, theme);
+        (BRenderCommand.FillRoundedRect track, BRenderCommand.FillRoundedRect thumb) = Bar(commands, theme);
 
         // The ring's right side runs through the bar, and the highlight is lost on the window text thumb.
         Assert.InRange(ring.Rect.Right, thumb.Rect.Left, thumb.Rect.Right);
         Assert.InRange(StandardContrast.Ratio(ring.Color, thumb.Color), 1.4, 1.95);
+        Assert.Equal(scrollTo is null, thumb.Rect.Top == track.Rect.Top);
+        Assert.Equal(scrollTo == "item59", thumb.Rect.Bottom == track.Rect.Bottom);
 
-        // So the stretch over the thumb is drawn again after the ring, clipped to the thumb, in the window color.
-        BRenderCommand[] after = commands.Skip(Array.IndexOf(commands, ring) + 1).ToArray();
-        BRenderCommand.PushClip clip = Assert.IsType<BRenderCommand.PushClip>(after[0]);
-        BRenderCommand.StrokeRoundedRect across = Assert.IsType<BRenderCommand.StrokeRoundedRect>(after[1]);
-        Assert.IsType<BRenderCommand.PopClip>(after[2]);
-        Assert.Equal(thumb.Rect, clip.Rect);
-        Assert.Equal((ring.Rect, ring.RadiusX, ring.RadiusY, ring.Thickness), (across.Rect, across.RadiusX, across.RadiusY, across.Thickness));
-        Assert.Equal(theme.Surface, across.Color);
-        Assert.True(StandardContrast.Ratio(across.Color, thumb.Color) >= StandardContrast.AaLargeOrUi);
+        // So the stretch over the thumb is drawn again after the ring, in the window color: clipped to the thumb's
+        // pill, not its rectangle, whose corners beside the rounded ends lie over the track. The track is the window
+        // color too, so the ring drawn again there would be lost on it.
+        BRect[] clips = PillGeometry.ClipsOfRedraws<BRenderCommand.StrokeRoundedRect>(
+            commands,
+            ring,
+            across => (across.Rect, across.RadiusX, across.RadiusY, across.Thickness) == (ring.Rect, ring.RadiusX, ring.RadiusY, ring.Thickness) && across.Color == theme.Surface);
+        Assert.Equal(theme.Surface, track.Color);
+        PillGeometry.AssertRedrawnOnTheThumbAlone(thumb.Rect, clips, ring.Rect, ring.RadiusX);
+        Assert.True(StandardContrast.Ratio(theme.Surface, thumb.Color) >= StandardContrast.AaLargeOrUi);
+        Assert.DoesNotContain(commands, command => command is BRenderCommand.PushClip push && push.Rect == thumb.Rect);
     }
 
     [Theory]
@@ -81,10 +101,17 @@ public sealed class ListViewFrameAndFocusRingTests
 
         // Black on black and yellow on white: the ring would be lost on the thumb.
         Assert.True(StandardContrast.Ratio(theme.FocusRing, theme.ScrollbarThumb) < StandardContrast.AaLargeOrUi);
-        BRenderCommand.StrokeRoundedRect across = Assert.Single(
-            commands.OfType<BRenderCommand.StrokeRoundedRect>(),
-            stroke => stroke.Rect == StandardControlPaint.Inset(ListBounds, 2) && stroke.Color != theme.FocusRing);
-        Assert.Equal(theme.Surface, across.Color);
+        BRect ringRect = StandardControlPaint.Inset(ListBounds, 2);
+        BRenderCommand.StrokeRoundedRect ring = Assert.Single(commands.OfType<BRenderCommand.StrokeRoundedRect>(), stroke => stroke.Rect == ringRect && stroke.Color == theme.FocusRing);
+        BRenderCommand.StrokeRoundedRect[] across = commands.OfType<BRenderCommand.StrokeRoundedRect>().Where(stroke => stroke.Rect == ringRect && stroke.Color != theme.FocusRing).ToArray();
+        Assert.NotEmpty(across);
+        Assert.All(across, stroke => Assert.Equal(theme.Surface, stroke.Color));
+
+        // On the thumb alone: the track beside its rounded ends is the surface color as well.
+        (_, BRenderCommand.FillRoundedRect thumb) = Bar(commands, theme);
+        BRect[] clips = PillGeometry.ClipsOfRedraws<BRenderCommand.StrokeRoundedRect>(commands, ring, stroke => stroke.Rect == ringRect && stroke.Color == theme.Surface);
+        Assert.Equal(across.Length, clips.Length);
+        PillGeometry.AssertRedrawnOnTheThumbAlone(thumb.Rect, clips, ring.Rect, ring.RadiusX);
     }
 
     [Theory]
@@ -148,12 +175,14 @@ public sealed class ListViewFrameAndFocusRingTests
         return (track, thumb);
     }
 
-    private static BRenderCommand[] Render(StandardListView list, bool focused)
+    private static BRenderCommand[] Render(StandardListView list, bool focused, string? scrollTo = null)
     {
         using UiSession session = new StandardUiSessionBuilder().WithDispatcher(new ImmediateUiDispatcher()).Build(new ScrollbarThemeRoleTests.TestHost(new BSize(400, 300)));
         var root = new ScrollbarThemeRoleTests.FixedRoot((list, ListBounds));
         session.AddRoot(root);
         session.RenderFrame();
+        if (scrollTo is not null)
+            list.ScrollIntoView(scrollTo);
         if (focused)
             session.SetFocus(list);
         BRenderCommand[] commands = session.RenderFrame().Commands.ToArray();

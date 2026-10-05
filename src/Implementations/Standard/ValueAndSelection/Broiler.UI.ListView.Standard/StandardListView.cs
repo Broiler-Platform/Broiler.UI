@@ -420,7 +420,9 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     /// theme draws the ring in the highlight and the thumb in the window text, 1.4:1 to 1.9:1 apart in the
     /// Windows 11 contrast themes, and the high-contrast presets draw both in one color. Only a background that
     /// stands out from the thumb (3:1) is drawn: the Light and Dark thumbs are mid tones that neither the ring nor
-    /// the background reaches 3:1 on, and there the ring is left as it was.
+    /// the background reaches 3:1 on, and there the ring is left as it was. The clips keep to the thumb's pill
+    /// (<see cref="StandardControlPaint.PillAreasUnderRing"/>): beside its rounded ends the ring runs over the
+    /// track, which is the background's color in those palettes, and is left in its own color there.
     /// </summary>
     private void RenderRingAcrossThumb(UiRenderContext context, BRect ring, double radius)
     {
@@ -429,9 +431,12 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         if (across == FocusRing || thumb.IsEmpty || StandardContrast.Ratio(across, ScrollbarThumb) < StandardContrast.AaLargeOrUi)
             return;
 
-        context.RenderList.PushClip(thumb);
-        StandardControlPaint.StrokeRounded(context.RenderList, ring, across, radius, 1);
-        context.RenderList.PopClip();
+        foreach (BRect area in StandardControlPaint.PillAreasUnderRing(thumb, ring, 1))
+        {
+            context.RenderList.PushClip(area);
+            StandardControlPaint.StrokeRounded(context.RenderList, ring, across, radius, 1);
+            context.RenderList.PopClip();
+        }
     }
 
     protected override bool OnInput(UiInputEvent input)
