@@ -208,6 +208,47 @@ public sealed class CompactFormsTests
         Assert.Equal(right, edits[0].Bounds.Right, 6);
     }
 
+    [Fact]
+    public void TheFirstBannerSitsAsFarBelowTheActionsAsTheBannersSitFromEachOther()
+    {
+        var info = new InlineFeedback();
+        var error = new InlineFeedback();
+        var banners = new StandardPanel { Spacing = 4 };
+        banners.AddChild(info);
+        banners.AddChild(error);
+        using var surface = new FormSurface(new StandardPanel(), FormSurface.ActionBar(new StandardButton { Text = "Send" }), banners);
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+        Assert.Equal(480 - 12, surface.Actions.Bounds.Bottom, 6);
+
+        info.Set("The draft is saved.");
+        error.Set("Enter a recipient.", FeedbackKind.Error);
+        session.RenderFrame();
+
+        Assert.Equal(4, info.Bounds.Top - surface.Actions.Bounds.Bottom, 6);
+        Assert.Equal(error.Bounds.Top - info.Bounds.Bottom, info.Bounds.Top - surface.Actions.Bounds.Bottom, 6);
+        // The banners still end 12 DIP above the bottom, and line up with the strip.
+        Assert.Equal(480 - 12, error.Bounds.Bottom, 6);
+        Assert.Equal(surface.Actions.Bounds.Left, info.Bounds.Left, 6);
+        Assert.Equal(surface.Actions.Bounds.Right, info.Bounds.Right, 6);
+    }
+
+    [Fact]
+    public void TheSpaceAboveTheFeedbackIsCountedWhenTheFormIsMeasured()
+    {
+        var feedback = new InlineFeedback();
+        using var surface = new FormSurface(new StandardPanel(), FormSurface.ActionBar(new StandardButton { Text = "Save" }), feedback);
+        // A viewport that wants all it is offered reports the size the form measured it at.
+        surface.Content.Scroll.PreferredSize = new BSize(10_000, 10_000);
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        feedback.Set("Settings saved.", FeedbackKind.Success);
+        session.RenderFrame();
+
+        Assert.Equal(surface.Content.Bounds.Size, surface.Content.DesiredSize);
+    }
+
     /// <summary>The first stroke that matches, and the clip it is drawn in.</summary>
     private static (BRenderCommand.StrokeRoundedRect Stroke, BRect Clip) StrokeAndClip(BRenderList renderList, Func<BRenderCommand.StrokeRoundedRect, bool> match)
     {

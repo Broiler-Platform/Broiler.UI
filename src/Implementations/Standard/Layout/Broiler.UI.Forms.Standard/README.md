@@ -52,7 +52,8 @@ less 1 DIP on each side (`StandardScrollView.HorizontalContentInset`): an edit s
 its 2 DIP focus ring centered on its edge, and a field as wide as the form would
 otherwise lose the outer half of the ring's sides to the viewport's clip. In a
 `FormSurface` the viewports reach 1 DIP into the 12 DIP margins, so fields and banners
-keep the action strip's edges. See ADR 0034.
+keep the action strip's edges. Shown feedback starts 4 DIP below the action strip, as
+far as banners stacked in a `StandardPanel { Spacing = 4 }` sit apart. See ADR 0034.
 An unconstrained measure uses a finite 640×480 fallback. The persistent action bar is
 intended for application-sized viewports; products must choose a practical minimum
 size for their action labels and fonts.

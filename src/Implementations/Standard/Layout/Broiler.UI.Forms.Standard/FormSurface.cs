@@ -23,6 +23,10 @@ public sealed class FormSurface : UiElement, IFormSurface
     }
     public FormViewport Content { get; }
     public StandardToolbar Actions { get; }
+
+    /// <summary>The space between the action strip and the feedback below it, as between stacked banners.</summary>
+    private const double FeedbackGap = 4;
+
     protected override BSize MeasureCore(BSize availableSize)
     {
         availableSize = new BSize(double.IsFinite(availableSize.Width) ? availableSize.Width : 640,
@@ -32,18 +36,20 @@ public sealed class FormSurface : UiElement, IFormSurface
         double feedbackHeight = _feedbackContent.Measure(new BSize(width, double.PositiveInfinity)).Height;
         _feedback.Visibility = feedbackHeight > 0 ? UiVisibility.Visible : UiVisibility.Collapsed;
         _feedback.Measure(new BSize(width + (2 * Room(_feedback)), Math.Min(feedbackHeight, Math.Min(112, availableSize.Height / 4))));
-        Content.Measure(new BSize(width + (2 * Room(Content)), Math.Max(0, availableSize.Height - Actions.DesiredSize.Height - _feedback.DesiredSize.Height - 32)));
+        double gap = _feedback.DesiredSize.Height > 0 ? FeedbackGap : 0;
+        Content.Measure(new BSize(width + (2 * Room(Content)), Math.Max(0, availableSize.Height - Actions.DesiredSize.Height - _feedback.DesiredSize.Height - gap - 32)));
         return availableSize;
     }
     protected override void ArrangeCore(BRect finalRect)
     {
         double width = Math.Max(0, finalRect.Width - 24);
         double feedbackHeight = Math.Min(_feedback.DesiredSize.Height, finalRect.Height / 4);
-        double actionHeight = Math.Min(Actions.DesiredSize.Height, Math.Max(0, finalRect.Height - feedbackHeight - 24));
-        double contentHeight = Math.Max(0, finalRect.Height - actionHeight - feedbackHeight - 32);
+        double gap = feedbackHeight > 0 ? FeedbackGap : 0;
+        double actionHeight = Math.Min(Actions.DesiredSize.Height, Math.Max(0, finalRect.Height - feedbackHeight - gap - 24));
+        double contentHeight = Math.Max(0, finalRect.Height - actionHeight - feedbackHeight - gap - 32);
         Content.Arrange(Widen(new BRect(finalRect.X + 12, finalRect.Y + 12, width, contentHeight), Content));
         Actions.Arrange(new BRect(finalRect.X + 12, finalRect.Y + 20 + contentHeight, width, actionHeight));
-        _feedback.Arrange(Widen(new BRect(finalRect.X + 12, finalRect.Y + 20 + contentHeight + actionHeight, width, feedbackHeight), _feedback));
+        _feedback.Arrange(Widen(new BRect(finalRect.X + 12, finalRect.Y + 20 + contentHeight + actionHeight + gap, width, feedbackHeight), _feedback));
     }
 
     // A viewport reaches out into the 12 DIP margin by the room it leaves beside its content for focus rings, so
