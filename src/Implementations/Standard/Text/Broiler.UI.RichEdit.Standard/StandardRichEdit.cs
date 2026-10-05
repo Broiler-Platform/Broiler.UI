@@ -76,8 +76,18 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         ContextMenuHighlight = theme.AccentSoft;
         _contextMenuHighlightForeground = selectionText;
         ContextMenuBorderColor = theme.Border;
-        // The translucent bars stay unless the theme gives scrollbars colors of their own, as high contrast does.
-        (ScrollbarTrack, ScrollbarThumb) = StandardControlPaint.ScrollbarColors(theme, OwnScrollbarTrack, OwnScrollbarThumb);
+        // The translucent bars stay unless the theme gives scrollbars colors of their own, as high contrast does; a
+        // color the application set is kept.
+        bool barsHideContent = ScrollbarsHideContent;
+        (BColor track, BColor thumb) = StandardControlPaint.ScrollbarColors(theme, OwnScrollbarTrack, OwnScrollbarThumb);
+        if (ScrollbarTrack == _themeScrollbars.Track)
+            ScrollbarTrack = track;
+        if (ScrollbarThumb == _themeScrollbars.Thumb)
+            ScrollbarThumb = thumb;
+        _themeScrollbars = (track, thumb);
+        // Opaque bars move beside the text, which then wraps narrower, and a box sized to its text grows by them.
+        if (ScrollbarsHideContent != barsHideContent)
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
     }
 
     public BColor Background { get; set; } = StandardControlPaint.Surface;
@@ -124,20 +134,33 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     private static readonly BColor OwnScrollbarTrack = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
     private static readonly BColor OwnScrollbarThumb = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
 
+    // The bars the shared palette gives an editor that is not themed yet.
+    private static (BColor Track, BColor Thumb) PaletteScrollbars =>
+        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb);
+
+    // The bars the last theme gave the editor. ApplyTheme moves a color on to the next theme's only while it still
+    // holds this one, so a color the application set outlives a theme change, as the font does.
+    private (BColor Track, BColor Thumb) _themeScrollbars = PaletteScrollbars;
+
     /// <summary>
     /// The track of the scrollbars. A translucent gray until a theme gives scrollbars colors of their own
     /// (<see cref="StandardControlPaint.ScrollbarColors"/>), as a high-contrast theme does; then
-    /// <see cref="StandardThemeTokens.ScrollbarTrack"/>.
+    /// <see cref="StandardThemeTokens.ScrollbarTrack"/>. A color set here is kept by <see cref="ApplyTheme"/>.
     /// </summary>
-    public BColor ScrollbarTrack { get; set; } =
-        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Track;
+    /// <remarks>
+    /// A translucent bar overlays the right edge of the text, which shows through it. Once the track or the thumb
+    /// is fully opaque, as in high contrast, the bar would hide that text, so the editor keeps a strip of
+    /// <see cref="ScrollbarThickness"/> for it beside the text column instead, whether or not the bar shows, and
+    /// the text wraps to the narrower column. A horizontal bar likewise keeps a strip below the text.
+    /// </remarks>
+    public BColor ScrollbarTrack { get; set; } = PaletteScrollbars.Track;
 
     /// <summary>
     /// The thumb of the scrollbars. A translucent gray until a theme gives scrollbars colors of their own; then
-    /// <see cref="StandardThemeTokens.ScrollbarThumb"/>.
+    /// <see cref="StandardThemeTokens.ScrollbarThumb"/>. A color set here is kept by <see cref="ApplyTheme"/>.
+    /// An opaque thumb is drawn beside the text, as an opaque <see cref="ScrollbarTrack"/> is.
     /// </summary>
-    public BColor ScrollbarThumb { get; set; } =
-        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Thumb;
+    public BColor ScrollbarThumb { get; set; } = PaletteScrollbars.Thumb;
 
     public double ScrollbarThickness { get; set; } = 12;
 
@@ -307,7 +330,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
                 : PreferredSize.Width;
 
             _layout.Update(Document, new RichEditLayoutSettings(contentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping));
-            double measuredHeight = _layout.ContentHeight + (PaddingY * 2);
+            double measuredHeight = _layout.ContentHeight + (PaddingY * 2) + HorizontalScrollbarGutter;
             double width = double.IsFinite(availableSize.Width) && availableSize.Width > 0
                 ? availableSize.Width
                 : (Wrapping == RichEditWrapping.NoWrap ? _layout.ContentExtentWidth + (PaddingX * 2) : PreferredSize.Width);
@@ -426,13 +449,39 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     /// have moved since the last one.
     /// </summary>
     private RichEditViewport View =>
-        RichEditViewport.Create(Bounds, PaddingX, PaddingY, Document, _zoom, _scroller.Offset, _scroller.OffsetX);
+        RichEditViewport.Create(ContentBounds, PaddingX, PaddingY, Document, _zoom, _scroller.Offset, _scroller.OffsetX);
 
     private RichEditScrollMetrics ScrollMetrics =>
-        new(VerticalScrollPolicy, InnerBounds, _layout.ContentHeight, ScrollbarThickness, MinimumScrollbarThumbLength);
+        new(VerticalScrollPolicy, InnerBounds, _layout.ContentHeight, ScrollbarThickness, MinimumScrollbarThumbLength, VerticalScrollbarGutter);
 
     private RichEditHorizontalScrollMetrics HorizontalScrollMetrics =>
-        new(HorizontalScrollPolicy, InnerBounds, _layout.ContentExtentWidth, ScrollbarThickness, MinimumScrollbarThumbLength);
+        new(HorizontalScrollPolicy, InnerBounds, _layout.ContentExtentWidth, ScrollbarThickness, MinimumScrollbarThumbLength, HorizontalScrollbarGutter);
+
+    /// <summary>
+    /// Whether the bars would hide the text they are drawn over: the track or the thumb is fully opaque, as in
+    /// high contrast. The translucent bars of the Light and Dark presets let the text show through.
+    /// </summary>
+    private bool ScrollbarsHideContent => ScrollbarTrack.A == 255 || ScrollbarThumb.A == 255;
+
+    /// <summary>
+    /// The strip right of the text kept for an opaque vertical bar, whether or not the bar shows, so that the bar
+    /// coming and going never rewraps the document; 0 while the bar overlays the text.
+    /// </summary>
+    private double VerticalScrollbarGutter =>
+        ScrollbarsHideContent && VerticalScrollPolicy != RichEditScrollPolicy.Never ? Math.Max(0, ScrollbarThickness) : 0;
+
+    /// <summary>The strip below the text kept for an opaque horizontal bar; 0 while the bar overlays the text.</summary>
+    private double HorizontalScrollbarGutter =>
+        ScrollbarsHideContent && HorizontalScrollPolicy != RichEditScrollPolicy.Never ? Math.Max(0, ScrollbarThickness) : 0;
+
+    /// <summary>
+    /// The control's box less the scrollbar gutters: what the padding, the text column and the page are laid out in.
+    /// </summary>
+    private BRect ContentBounds => new(
+        Bounds.Left,
+        Bounds.Top,
+        Math.Max(0, Bounds.Width - VerticalScrollbarGutter),
+        Math.Max(0, Bounds.Height - HorizontalScrollbarGutter));
 
     public double HorizontalScrollOffset => _scroller.OffsetX;
 
@@ -491,7 +540,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         return scrolled;
     }
 
-    private BRect InnerBounds => RichEditViewport.InnerOf(Bounds, PaddingX, PaddingY);
+    private BRect InnerBounds => RichEditViewport.InnerOf(ContentBounds, PaddingX, PaddingY);
 
     /// <summary>
     /// The height of a line of the control's own font as it is drawn now, which is

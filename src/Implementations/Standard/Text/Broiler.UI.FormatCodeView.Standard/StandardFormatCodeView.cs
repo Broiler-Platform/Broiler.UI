@@ -88,20 +88,31 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
     private static readonly BColor OwnScrollbarTrack = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
     private static readonly BColor OwnScrollbarThumb = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
 
+    // The bars the shared palette gives a view that is not themed yet.
+    private static (BColor Track, BColor Thumb) PaletteScrollbars =>
+        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb);
+
+    // The bars the last theme gave the view. ApplyTheme moves a color on to the next theme's only while it still
+    // holds this one, so a color the application set outlives a theme change.
+    private (BColor Track, BColor Thumb) _themeScrollbars = PaletteScrollbars;
+
     /// <summary>
     /// The track of the scrollbars. A translucent gray until a theme gives scrollbars colors of their own
     /// (<see cref="StandardControlPaint.ScrollbarColors"/>), as a high-contrast theme does; then
-    /// <see cref="StandardThemeTokens.ScrollbarTrack"/>.
+    /// <see cref="StandardThemeTokens.ScrollbarTrack"/>. A color set here is kept by <see cref="ApplyTheme"/>.
     /// </summary>
-    public BColor ScrollbarTrack { get; set; } =
-        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Track;
+    /// <remarks>
+    /// The bars sit at the very edge of the box, so a translucent one overlays the last few DIP of the text inside
+    /// the padding. Once the track or the thumb is fully opaque, as in high contrast, the text stops where the bar
+    /// starts instead, whether or not the bar shows.
+    /// </remarks>
+    public BColor ScrollbarTrack { get; set; } = PaletteScrollbars.Track;
 
     /// <summary>
     /// The thumb of the scrollbars. A translucent gray until a theme gives scrollbars colors of their own; then
-    /// <see cref="StandardThemeTokens.ScrollbarThumb"/>.
+    /// <see cref="StandardThemeTokens.ScrollbarThumb"/>. A color set here is kept by <see cref="ApplyTheme"/>.
     /// </summary>
-    public BColor ScrollbarThumb { get; set; } =
-        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Thumb;
+    public BColor ScrollbarThumb { get; set; } = PaletteScrollbars.Thumb;
 
     public BFontStyle Font { get; set; } = new("monospace", 15);
 
@@ -169,8 +180,14 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
         CaretColor = theme.Text;
         BorderColor = theme.Border;
         FocusRing = theme.FocusRing;
-        // The translucent bars stay unless the theme gives scrollbars colors of their own, as high contrast does.
-        (ScrollbarTrack, ScrollbarThumb) = StandardControlPaint.ScrollbarColors(theme, OwnScrollbarTrack, OwnScrollbarThumb);
+        // The translucent bars stay unless the theme gives scrollbars colors of their own, as high contrast does; a
+        // color the application set is kept.
+        (BColor track, BColor thumb) = StandardControlPaint.ScrollbarColors(theme, OwnScrollbarTrack, OwnScrollbarThumb);
+        if (ScrollbarTrack == _themeScrollbars.Track)
+            ScrollbarTrack = track;
+        if (ScrollbarThumb == _themeScrollbars.Thumb)
+            ScrollbarThumb = thumb;
+        _themeScrollbars = (track, thumb);
         Invalidate(UiInvalidationKind.Render);
     }
 
@@ -966,9 +983,30 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
 
     private double ContentTop => Bounds.Top + PaddingY;
 
-    private double ViewportWidth => Math.Max(0, Bounds.Width - (PaddingX * 2));
+    private double ViewportWidth => Math.Max(0, Bounds.Width - PaddingX - RightInset);
 
-    private double ViewportHeight => Math.Max(0, Bounds.Height - (PaddingY * 2));
+    private double ViewportHeight => Math.Max(0, Bounds.Height - PaddingY - BottomInset);
+
+    /// <summary>
+    /// Whether the bars would hide the text they are drawn over: the track or the thumb is fully opaque, as in
+    /// high contrast. The translucent bars of the Light and Dark presets let the text show through.
+    /// </summary>
+    private bool ScrollbarsHideContent => ScrollbarTrack.A == 255 || ScrollbarThumb.A == 255;
+
+    /// <summary>
+    /// The room right of the text: the padding, or the vertical bar's whole strip when an opaque bar could show
+    /// there, kept whether or not it does so that the bar coming and going never rewraps the text.
+    /// </summary>
+    private double RightInset =>
+        ScrollbarsHideContent && VerticalScrollPolicy != FormatCodeViewScrollPolicy.Never
+            ? Math.Max(PaddingX, ScrollbarThickness)
+            : PaddingX;
+
+    /// <summary>The room below the text: the padding, or the horizontal bar's strip when an opaque bar could show there.</summary>
+    private double BottomInset =>
+        ScrollbarsHideContent && Wrapping == FormatCodeViewWrapping.NoWrap && HorizontalScrollPolicy != FormatCodeViewScrollPolicy.Never
+            ? Math.Max(PaddingY, ScrollbarThickness)
+            : PaddingY;
 
     private BRect VerticalScrollbarTrack => new(
         Bounds.Right - ScrollbarThickness,

@@ -195,8 +195,9 @@ public static class StandardControlPaint
     /// The track and thumb a control with scrollbar colors of its own draws under <paramref name="theme"/>: the theme's
     /// <see cref="StandardThemeTokens.ScrollbarTrack"/> and <see cref="StandardThemeTokens.ScrollbarThumb"/> once the
     /// theme gives scrollbars colors, and otherwise <paramref name="track"/> and <paramref name="thumb"/>, the control's
-    /// own. A theme gives them colors when it is high contrast, or when either role differs from the role it follows
-    /// (<see cref="StandardThemeTokens.SurfaceDisabled"/> and <see cref="StandardThemeTokens.BorderStrong"/>).
+    /// own. A theme gives them colors when it sets either role, even to the color the role follows, or when it reads
+    /// as high contrast: it says so (<see cref="StandardThemeTokens.IsHighContrast"/>), or its surface and text sit at
+    /// the extremes of lightness, the test the list, the tree and the code editor make for their high-contrast cues.
     /// </summary>
     /// <remarks>
     /// The rule for the scroll view, the rich edit and the formatting code view, whose translucent bars are older than
@@ -207,11 +208,16 @@ public static class StandardControlPaint
     public static (BColor Track, BColor Thumb) ScrollbarColors(StandardThemeTokens theme, BColor track, BColor thumb)
     {
         ArgumentNullException.ThrowIfNull(theme);
-        bool themed = theme.IsHighContrast ||
-            theme.ScrollbarTrack != theme.SurfaceDisabled ||
-            theme.ScrollbarThumb != theme.BorderStrong;
+        bool themed = theme.SetsScrollbarRoles ||
+            theme.IsHighContrast ||
+            Math.Abs(Lightness(theme.Surface) - Lightness(theme.Text)) > 0.9;
         return themed ? (theme.ScrollbarTrack, theme.ScrollbarThumb) : (track, thumb);
     }
+
+    // The weighted channel average, not WCAG's relative luminance, so the extremes are the ones the list, the tree
+    // and the code editor's palette recognize.
+    private static double Lightness(BColor color) =>
+        ((0.2126 * color.R) + (0.7152 * color.G) + (0.0722 * color.B)) / 255.0;
 
 
     public static BRect Inset(BRect rect, double amount) =>

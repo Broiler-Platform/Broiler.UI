@@ -117,6 +117,64 @@ public sealed class ScrollViewFocusTests
     }
 
     [Fact]
+    public void ApplyThemeKeepsAScrollbarColorTheApplicationSet()
+    {
+        BColor thumb = BColor.FromArgb(0xFF, 0x6A, 0x1B, 0x9A);
+        var scroll = new StandardScrollView { ScrollbarThumb = thumb };
+        BColor track = scroll.ScrollbarTrack;
+
+        // Light, then a contrast theme, then Light again: the track the application left alone follows each theme.
+        scroll.ApplyTheme(StandardThemeTokens.Light);
+        Assert.Equal((track, thumb), (scroll.ScrollbarTrack, scroll.ScrollbarThumb));
+        scroll.ApplyTheme(StandardThemeTokens.HighContrastDark);
+        Assert.Equal((StandardThemeTokens.HighContrastDark.ScrollbarTrack, thumb), (scroll.ScrollbarTrack, scroll.ScrollbarThumb));
+        scroll.ApplyTheme(StandardThemeTokens.Light);
+        Assert.Equal((track, thumb), (scroll.ScrollbarTrack, scroll.ScrollbarThumb));
+
+        // A color set between themes is kept by the next one as well.
+        scroll.ScrollbarTrack = BColor.White;
+        scroll.ApplyTheme(StandardThemeTokens.HighContrastDark);
+        Assert.Equal((BColor.White, thumb), (scroll.ScrollbarTrack, scroll.ScrollbarThumb));
+    }
+
+    [Theory]
+    [InlineData(nameof(StandardThemeTokens.HighContrastLight))]
+    [InlineData(nameof(StandardThemeTokens.HighContrastDark))]
+    public void InHighContrastTheRingStaysWholeWhereItCrossesTheThumb(string name)
+    {
+        StandardThemeTokens contrast = name == nameof(StandardThemeTokens.HighContrastLight)
+            ? StandardThemeTokens.HighContrastLight
+            : StandardThemeTokens.HighContrastDark;
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, FocusWhenScrollable = true };
+        scroll.AddChild(new Fixed(new BSize(80, 300)));
+        using UiSession session = Attach(scroll, 100, 100);
+        scroll.ApplyTheme(contrast);
+        session.SetFocus(scroll);
+
+        BRenderCommand[] commands = session.RenderFrame().Commands.ToArray();
+        BRenderCommand.StrokeRect ring = Assert.Single(commands.OfType<BRenderCommand.StrokeRect>(), command => command.Color == scroll.FocusRing);
+        BRenderCommand.FillRoundedRect thumb = commands.OfType<BRenderCommand.FillRoundedRect>().Last(fill => fill.Color == scroll.ScrollbarThumb);
+
+        // The ring's right side runs through the bar, and the thumb is drawn in a color the ring is lost on.
+        Assert.InRange(ring.Rect.Right, thumb.Rect.Left, thumb.Rect.Right);
+        Assert.True(StandardContrast.Ratio(ring.Color, thumb.Color) < StandardContrast.AaLargeOrUi);
+
+        // So the stretch over the thumb is drawn again after the ring, clipped to the thumb, in a color that stands out on it.
+        BRenderCommand[] after = commands.Skip(Array.IndexOf(commands, ring) + 1).ToArray();
+        BRenderCommand.PushClip clip = Assert.IsType<BRenderCommand.PushClip>(after[0]);
+        BRenderCommand.StrokeRect across = Assert.IsType<BRenderCommand.StrokeRect>(after[1]);
+        Assert.IsType<BRenderCommand.PopClip>(after[2]);
+        Assert.Equal(thumb.Rect, clip.Rect);
+        Assert.Equal(ring.Rect, across.Rect);
+        Assert.Equal(ring.Thickness, across.Thickness);
+        Assert.True(StandardContrast.Ratio(across.Color, thumb.Color) >= StandardContrast.AaLargeOrUi);
+
+        // The translucent thumb of the Light preset leaves the ring as it was: drawn once.
+        scroll.ApplyTheme(StandardThemeTokens.Light);
+        Assert.Single(session.RenderFrame().Commands.OfType<BRenderCommand.StrokeRect>(), command => command.Rect == ring.Rect);
+    }
+
+    [Fact]
     public void FocusWhenScrollableMakesAStopOnlyWhileItScrollsWithNothingFocusableInside()
     {
         var content = new Fixed(new BSize(80, 300));

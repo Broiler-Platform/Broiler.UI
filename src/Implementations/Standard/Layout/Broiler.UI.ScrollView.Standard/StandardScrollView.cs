@@ -39,20 +39,27 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     private static readonly BColor OwnScrollbarTrack = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
     private static readonly BColor OwnScrollbarThumb = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
 
+    // The bars the shared palette gives a view that is not themed yet.
+    private static (BColor Track, BColor Thumb) PaletteScrollbars =>
+        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb);
+
+    // The bars the last theme gave the view. ApplyTheme moves a color on to the next theme's only while it still
+    // holds this one, so a color the application set outlives a theme change, as a font does (StandardThemeFonts).
+    private (BColor Track, BColor Thumb) _themeScrollbars = PaletteScrollbars;
+
     /// <summary>
     /// The track of the scrollbars, also filling the corner where the two meet. A translucent gray until a theme
     /// gives scrollbars colors of their own (<see cref="StandardControlPaint.ScrollbarColors"/>), as a high-contrast
-    /// theme does; then <see cref="StandardThemeTokens.ScrollbarTrack"/>.
+    /// theme does; then <see cref="StandardThemeTokens.ScrollbarTrack"/>. A color set here is kept by
+    /// <see cref="ApplyTheme"/>.
     /// </summary>
-    public BColor ScrollbarTrack { get; set; } =
-        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Track;
+    public BColor ScrollbarTrack { get; set; } = PaletteScrollbars.Track;
 
     /// <summary>
     /// The thumb of the scrollbars. A translucent gray until a theme gives scrollbars colors of their own; then
-    /// <see cref="StandardThemeTokens.ScrollbarThumb"/>.
+    /// <see cref="StandardThemeTokens.ScrollbarThumb"/>. A color set here is kept by <see cref="ApplyTheme"/>.
     /// </summary>
-    public BColor ScrollbarThumb { get; set; } =
-        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Thumb;
+    public BColor ScrollbarThumb { get; set; } = PaletteScrollbars.Thumb;
 
     /// <summary>
     /// The color of the ring drawn around the scroll view while it has focus and is a keyboard stop
@@ -98,14 +105,20 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     /// <summary>
     /// Re-derives the focus ring and the scrollbars from <paramref name="theme"/>. The bars take the theme's
     /// scrollbar roles when it gives scrollbars colors of their own, as a high-contrast theme does, and
-    /// otherwise their translucent defaults, so the Light and Dark presets draw them as before.
+    /// otherwise their translucent defaults, so the Light and Dark presets draw them as before. A bar color the
+    /// application set is kept.
     /// </summary>
     public void ApplyTheme(StandardThemeTokens theme)
     {
         ArgumentNullException.ThrowIfNull(theme);
         _theme = theme;
         FocusRing = theme.FocusRing;
-        (ScrollbarTrack, ScrollbarThumb) = StandardControlPaint.ScrollbarColors(theme, OwnScrollbarTrack, OwnScrollbarThumb);
+        (BColor track, BColor thumb) = StandardControlPaint.ScrollbarColors(theme, OwnScrollbarTrack, OwnScrollbarThumb);
+        if (ScrollbarTrack == _themeScrollbars.Track)
+            ScrollbarTrack = track;
+        if (ScrollbarThumb == _themeScrollbars.Thumb)
+            ScrollbarThumb = thumb;
+        _themeScrollbars = (track, thumb);
         Invalidate(UiInvalidationKind.Render);
     }
 
@@ -431,8 +444,29 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         {
             BRect ring = StandardControlPaint.Inset(Bounds, _theme.FocusRingOffset);
             if (!ring.IsEmpty && _theme.FocusRingThickness > 0)
+            {
                 context.RenderList.StrokeRect(ring, FocusRing, _theme.FocusRingThickness);
+                RenderRingAcrossThumb(context, ring, ScrollbarAxis.Vertical);
+                RenderRingAcrossThumb(context, ring, ScrollbarAxis.Horizontal);
+            }
         }
+    }
+
+    /// <summary>
+    /// Draws the stretch of the ring that crosses an opaque thumb of too nearly its color again, in a color that
+    /// stands out on the thumb (<see cref="StandardControlPaint.FocusRingColor"/>), so the ring stays whole. A
+    /// high-contrast theme draws its thumb in the text color, which is the ring's color in HighContrastLight.
+    /// </summary>
+    private void RenderRingAcrossThumb(UiRenderContext context, BRect ring, ScrollbarAxis axis)
+    {
+        BColor across = StandardControlPaint.FocusRingColor(FocusRing, ScrollbarThumb, _theme.Surface);
+        BRect thumb = GetThumbBounds(axis);
+        if (across == FocusRing || thumb.IsEmpty)
+            return;
+
+        context.RenderList.PushClip(thumb);
+        context.RenderList.StrokeRect(ring, across, _theme.FocusRingThickness);
+        context.RenderList.PopClip();
     }
 
     protected override bool OnInput(UiInputEvent input)

@@ -93,6 +93,21 @@ public sealed class ScrollbarThemeRoleTests
         StandardThemeTokens onlyThumb = StandardThemeTokens.Light with { ScrollbarThumb = custom };
         Assert.Equal((onlyThumb.SurfaceDisabled, custom), StandardControlPaint.ScrollbarColors(onlyThumb, track, thumb));
         Assert.Throws<ArgumentNullException>(() => StandardControlPaint.ScrollbarColors(null!, track, thumb));
+
+        // A role set to the very color it follows is still set: the theme spoke about scrollbars.
+        StandardThemeTokens explicitRoles = StandardThemeTokens.Light with
+        {
+            ScrollbarTrack = StandardThemeTokens.Light.SurfaceDisabled,
+            ScrollbarThumb = StandardThemeTokens.Light.BorderStrong,
+        };
+        Assert.Equal((explicitRoles.ScrollbarTrack, explicitRoles.ScrollbarThumb), StandardControlPaint.ScrollbarColors(explicitRoles, track, thumb));
+        Assert.Equal((explicitRoles.ScrollbarTrack, explicitRoles.ScrollbarThumb), StandardControlPaint.ScrollbarColors(explicitRoles.WithTextScale(2), track, thumb));
+
+        // A palette whose surface and text sit at the extremes reads as high contrast without saying so, as it
+        // does to the list, the tree and the code editor.
+        StandardThemeTokens extremes = Extremes;
+        Assert.False(extremes.IsHighContrast);
+        Assert.Equal((extremes.ScrollbarTrack, extremes.ScrollbarThumb), StandardControlPaint.ScrollbarColors(extremes, track, thumb));
     }
 
     [Theory]
@@ -140,6 +155,46 @@ public sealed class ScrollbarThemeRoleTests
 
     [Theory]
     [MemberData(nameof(Controls))]
+    public void Roles_Set_To_The_Colors_They_Follow_Reach_Every_Scrollbar(string control)
+    {
+        StandardThemeTokens light = StandardThemeTokens.Light;
+        StandardThemeTokens explicitRoles = light with { ScrollbarTrack = light.SurfaceDisabled, ScrollbarThumb = light.BorderStrong };
+
+        Assert.Equal((light.SurfaceDisabled, light.BorderStrong), RenderBar(control, explicitRoles));
+    }
+
+    [Theory]
+    [MemberData(nameof(Controls))]
+    public void A_Palette_At_The_Extremes_Draws_Every_Scrollbar_In_Its_Roles(string control)
+    {
+        StandardThemeTokens extremes = Extremes;
+
+        (BColor track, BColor thumb) = RenderBar(control, extremes);
+
+        Assert.Equal((extremes.ScrollbarTrack, extremes.ScrollbarThumb), (track, thumb));
+        Assert.True(StandardContrast.Ratio(thumb, track) >= StandardContrast.AaLargeOrUi, $"{control}: thumb on track {StandardContrast.Ratio(thumb, track):F2}:1");
+    }
+
+    [Theory]
+    [MemberData(nameof(TranslucentControls))]
+    public void A_Bar_Color_The_Application_Set_Outlives_A_Theme_Change(string control)
+    {
+        BColor thumb = BColor.FromArgb(0xFF, 0x6A, 0x1B, 0x9A);
+        UiElement element = Create(control);
+        var themed = (IStandardThemedControl)element;
+        SetScrollbarThumb(element, thumb);
+
+        // The thumb the application set stays; the track it left alone follows each theme.
+        themed.ApplyTheme(StandardThemeTokens.Light);
+        themed.ApplyTheme(StandardThemeTokens.HighContrastDark);
+        Assert.Equal((StandardThemeTokens.HighContrastDark.ScrollbarTrack, thumb), VerticalBar(Render(element), control));
+
+        themed.ApplyTheme(StandardThemeTokens.Dark);
+        Assert.Equal((TranslucentTrack, thumb), VerticalBar(Render(element), control));
+    }
+
+    [Theory]
+    [MemberData(nameof(Controls))]
     public void A_Theme_That_Says_Nothing_About_Scrollbars_Brings_Back_The_Bars_A_Preset_Draws(string control)
     {
         UiElement element = Create(control);
@@ -182,8 +237,35 @@ public sealed class ScrollbarThemeRoleTests
         SystemPalette(StandardThemeTokens.HighContrastLight, BColor.FromArgb(0xFF, 0xFF, 0xFA, 0xEF), BColor.FromArgb(0xFF, 0x3D, 0x3D, 0x3D)),
     };
 
+    public static TheoryData<string> TranslucentControls => new() { "scroll view", "rich edit", "format code view" };
+
+    /// <summary>
+    /// The four-color palette in black and white, which does not say it is high contrast: its roles follow the
+    /// black surface and the white text.
+    /// </summary>
+    internal static StandardThemeTokens Extremes =>
+        new(BColor.Black, BColor.White, BColor.FromArgb(0xFF, 0x00, 0x78, 0xD7), BColor.White);
+
     internal static bool HasTranslucentBars(string control) =>
         control is "scroll view" or "rich edit" or "format code view";
+
+    private static void SetScrollbarThumb(UiElement element, BColor thumb)
+    {
+        switch (element)
+        {
+            case StandardScrollView scrollView:
+                scrollView.ScrollbarThumb = thumb;
+                break;
+            case StandardRichEdit edit:
+                edit.ScrollbarThumb = thumb;
+                break;
+            case StandardFormatCodeView view:
+                view.ScrollbarThumb = thumb;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(element), element, null);
+        }
+    }
 
     internal static (BColor Track, BColor Thumb) RenderBar(string control, StandardThemeTokens theme)
     {
