@@ -47,7 +47,16 @@ accessibility bridge and apply visibility/announcement policy. Use a real applic
 cancellation command beside the actions; a progress banner creates no task or timer.
 
 `FormSurface` allocates up to 112 DIP (at most one quarter of its height) to feedback;
-long feedback scrolls separately. Form content is constrained to the viewport width.
+long feedback scrolls separately. Form content is constrained to the viewport width,
+less 1 DIP on each side (`StandardScrollView.HorizontalContentInset`), with 1 DIP above
+and below it (`StandardScrollView.VerticalContentInset`): an edit strokes its 2 DIP
+focus ring centered on its edge, and a field as wide as the form, or one the keyboard
+or `Reveal` brings into view at the top or the bottom, would otherwise lose the outer
+half of the ring to the viewport's clip. In a `FormSurface` the viewports reach 1 DIP
+into the space around them (the margins, the gap above the action strip and the gap
+above the feedback), so fields and banners keep their places and the action strip's
+edges. Shown feedback starts 4 DIP below the action strip, as far as banners stacked
+in a `StandardPanel { Spacing = 4 }` sit apart. See ADR 0034.
 An unconstrained measure uses a finite 640×480 fallback. The persistent action bar is
 intended for application-sized viewports; products must choose a practical minimum
 size for their action labels and fonts.

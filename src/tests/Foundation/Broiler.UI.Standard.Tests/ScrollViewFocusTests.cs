@@ -159,19 +159,61 @@ public sealed class ScrollViewFocusTests
         Assert.InRange(ring.Rect.Right, thumb.Rect.Left, thumb.Rect.Right);
         Assert.True(StandardContrast.Ratio(ring.Color, thumb.Color) < StandardContrast.AaLargeOrUi);
 
-        // So the stretch over the thumb is drawn again after the ring, clipped to the thumb, in a color that stands out on it.
-        BRenderCommand[] after = commands.Skip(Array.IndexOf(commands, ring) + 1).ToArray();
-        BRenderCommand.PushClip clip = Assert.IsType<BRenderCommand.PushClip>(after[0]);
-        BRenderCommand.StrokeRect across = Assert.IsType<BRenderCommand.StrokeRect>(after[1]);
-        Assert.IsType<BRenderCommand.PopClip>(after[2]);
-        Assert.Equal(thumb.Rect, clip.Rect);
+        // So the stretch over the thumb is drawn again after the ring, in a color that stands out on it, clipped to the
+        // thumb's pill: the ring beside its rounded ends lies on the track and keeps its own color there.
+        BRenderCommand.StrokeRect across = Assert.IsType<BRenderCommand.StrokeRect>(commands[Array.IndexOf(commands, ring) + 2]);
         Assert.Equal(ring.Rect, across.Rect);
         Assert.Equal(ring.Thickness, across.Thickness);
         Assert.True(StandardContrast.Ratio(across.Color, thumb.Color) >= StandardContrast.AaLargeOrUi);
+        BRect[] clips = PillGeometry.ClipsOfRedraws<BRenderCommand.StrokeRect>(commands, ring, stroke => (stroke.Rect, stroke.Color, stroke.Thickness) == (across.Rect, across.Color, across.Thickness));
+        PillGeometry.AssertRedrawnOnTheThumbAlone(thumb.Rect, clips, ring.Rect, 0);
+
+        // Scrolled to the end, the thumb sits at the bottom of its track, and the ring's bottom side crosses it too.
+        scroll.ScrollBy(0, 1000);
+        commands = session.RenderFrame().Commands.ToArray();
+        ring = Assert.Single(commands.OfType<BRenderCommand.StrokeRect>(), command => command.Color == scroll.FocusRing);
+        thumb = commands.OfType<BRenderCommand.FillRoundedRect>().Last(fill => fill.Color == scroll.ScrollbarThumb);
+        Assert.Equal(scroll.ContentBounds.Bottom, thumb.Rect.Bottom, 6);
+        clips = PillGeometry.ClipsOfRedraws<BRenderCommand.StrokeRect>(commands, ring, stroke => (stroke.Rect, stroke.Color, stroke.Thickness) == (across.Rect, across.Color, across.Thickness));
+        PillGeometry.AssertRedrawnOnTheThumbAlone(thumb.Rect, clips, ring.Rect, 0);
 
         // The translucent thumb of the Light preset leaves the ring as it was: drawn once.
         scroll.ApplyTheme(StandardThemeTokens.Light);
         Assert.Single(session.RenderFrame().Commands.OfType<BRenderCommand.StrokeRect>(), command => command.Rect == ring.Rect);
+    }
+
+    [Theory]
+    [InlineData(nameof(StandardThemeTokens.HighContrastLight))]
+    [InlineData(nameof(StandardThemeTokens.HighContrastDark))]
+    public void InHighContrastTheRingStaysWholeWhereItCrossesAThumbLyingDown(string name)
+    {
+        StandardThemeTokens contrast = name == nameof(StandardThemeTokens.HighContrastLight)
+            ? StandardThemeTokens.HighContrastLight
+            : StandardThemeTokens.HighContrastDark;
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, FocusWhenScrollable = true, Constraint = UiScrollConstraint.ConstrainHeight };
+        scroll.AddChild(new Fixed(new BSize(300, 80)));
+        using UiSession session = Attach(scroll, 100, 100);
+        scroll.ApplyTheme(contrast);
+        session.SetFocus(scroll);
+
+        foreach (double by in new[] { 0.0, 100, 1000 })
+        {
+            // From the left end of the track, part way along and to the right end: the ring's bottom side runs
+            // along the bar, and its left or right side crosses the thumb at either end.
+            scroll.ScrollBy(by, 0);
+            BRenderCommand[] commands = session.RenderFrame().Commands.ToArray();
+            Assert.True(scroll.HasHorizontalScrollbar);
+            BRenderCommand.StrokeRect ring = Assert.Single(commands.OfType<BRenderCommand.StrokeRect>(), command => command.Color == scroll.FocusRing);
+            BRenderCommand.FillRoundedRect thumb = commands.OfType<BRenderCommand.FillRoundedRect>().Last(fill => fill.Color == scroll.ScrollbarThumb);
+            Assert.True(thumb.Rect.Width > thumb.Rect.Height, "The thumb lies along a horizontal bar.");
+            Assert.True(StandardContrast.Ratio(ring.Color, thumb.Color) < StandardContrast.AaLargeOrUi);
+
+            BRect[] clips = PillGeometry.ClipsOfRedraws<BRenderCommand.StrokeRect>(
+                commands,
+                ring,
+                stroke => stroke.Rect == ring.Rect && stroke.Thickness == ring.Thickness && StandardContrast.Ratio(stroke.Color, thumb.Color) >= StandardContrast.AaLargeOrUi);
+            PillGeometry.AssertRedrawnOnTheThumbAlone(thumb.Rect, clips, ring.Rect, 0);
+        }
     }
 
     [Fact]

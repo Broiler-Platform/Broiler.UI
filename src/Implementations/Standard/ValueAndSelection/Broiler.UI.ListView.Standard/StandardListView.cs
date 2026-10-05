@@ -56,6 +56,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         FocusRing = theme.FocusRing;
         BorderColor = theme.Border;
         Accent = theme.Accent;
+        SetAccentText(theme.AccentText, chosenFor: theme.Accent);
         ScrollbarTrack = theme.ScrollbarTrack;
         ScrollbarThumb = theme.ScrollbarThumb;
         // The token says so for the presets and system palettes; the luminance test still recognizes a
@@ -79,6 +80,10 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     private BColor _focusRing = StandardControlPaint.Focus;
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _accent = StandardControlPaint.Accent;
+    // The accent text a theme gave (or the shared palette's, until a theme is applied) belongs to the accent it
+    // was chosen for, as StandardThemeTokens.AccentText does: once the accent is changed, it follows the new one.
+    private BColor? _accentText = StandardControlPaint.AccentText;
+    private BColor? _accentTextChosenFor = StandardControlPaint.Accent;
     private BColor _scrollbarTrack = StandardControlPaint.ScrollbarTrack;
     private BColor _scrollbarThumb = StandardControlPaint.ScrollbarThumb;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
@@ -106,6 +111,30 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
             _accent = value;
             Invalidate(UiInvalidationKind.Render);
         }
+    }
+
+    /// <summary>
+    /// The shade of <see cref="Accent"/> a row presenter draws an accent mark in where the accent does not stand
+    /// out from the row's fill (<see cref="UiListItemRenderContext.AccentText"/>), as the two-line presenter's
+    /// unread dot on a selected row in Dark. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.AccentText"/>, which reads on the surface and on the selection fill; until
+    /// then it is the shared palette's. Either belongs to the accent it was chosen for: once <see cref="Accent"/>
+    /// is set to another color, it is that accent, so a brand accent is not paired with the theme's shade of blue.
+    /// A value set here is kept until the next theme.
+    /// </summary>
+    public BColor AccentText
+    {
+        get => _accentText is { } text && (_accentTextChosenFor is not { } chosenFor || chosenFor == Accent) ? text : Accent;
+        set => SetAccentText(value, chosenFor: null);
+    }
+
+    private void SetAccentText(BColor text, BColor? chosenFor)
+    {
+        if (_accentText == text && _accentTextChosenFor == chosenFor)
+            return;
+        _accentText = text;
+        _accentTextChosenFor = chosenFor;
+        Invalidate(UiInvalidationKind.Render);
     }
 
     public double EffectiveItemHeight =>
@@ -341,7 +370,6 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     {
         UpdateVisibleRange();
         StandardControlPaint.FillRounded(context.RenderList, Bounds, Background, CornerRadius);
-        StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, CornerRadius, 1);
         context.RenderList.PushClip(_contentBounds);
 
         IUiListItemPresenter presenter = ItemPresenter ?? DefaultListItemPresenter.Instance;
@@ -372,6 +400,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
                 SelectedSecondaryForeground = SelectedSecondaryForeground,
                 FocusRing = FocusRing,
                 Accent = Accent,
+                AccentText = AccentText,
                 IsHighContrast = _isHighContrast,
             };
 
@@ -381,8 +410,43 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         context.RenderList.PopClip();
         RenderScrollbar(context);
 
+        // The frame goes on after the bar, which runs down the right edge and would otherwise cover that side of
+        // it, leaving only the rounded corners.
+        StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, CornerRadius, 1);
+
         if (Session?.FocusedElement == this)
-            StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
+        {
+            BRect ring = StandardControlPaint.Inset(Bounds, 2);
+            double radius = Math.Max(0, CornerRadius - 2);
+            StandardControlPaint.StrokeRounded(context.RenderList, ring, FocusRing, radius, 1);
+            RenderRingAcrossThumb(context, ring, radius);
+        }
+    }
+
+    /// <summary>
+    /// Draws the stretch of the focus ring that crosses an opaque thumb of too nearly its color again, clipped to
+    /// the thumb, in the list's background (<see cref="StandardControlPaint.FocusRingColor"/>), as the scroll view
+    /// does. The ring runs 2 DIP inside the right edge, through the bar. A palette built from a system contrast
+    /// theme draws the ring in the highlight and the thumb in the window text, 1.4:1 to 1.9:1 apart in the
+    /// Windows 11 contrast themes, and the high-contrast presets draw both in one color. Only a background that
+    /// stands out from the thumb (3:1) is drawn: the Light and Dark thumbs are mid tones that neither the ring nor
+    /// the background reaches 3:1 on, and there the ring is left as it was. The clips keep to the thumb's pill
+    /// (<see cref="StandardControlPaint.PillAreasUnderRing"/>): beside its rounded ends the ring runs over the
+    /// track, which is the background's color in those palettes, and is left in its own color there.
+    /// </summary>
+    private void RenderRingAcrossThumb(UiRenderContext context, BRect ring, double radius)
+    {
+        BColor across = StandardControlPaint.FocusRingColor(FocusRing, ScrollbarThumb, Background);
+        BRect thumb = GetScrollbarThumbBounds();
+        if (across == FocusRing || thumb.IsEmpty || StandardContrast.Ratio(across, ScrollbarThumb) < StandardContrast.AaLargeOrUi)
+            return;
+
+        foreach (BRect area in StandardControlPaint.PillAreasUnderRing(thumb, ring, 1))
+        {
+            context.RenderList.PushClip(area);
+            StandardControlPaint.StrokeRounded(context.RenderList, ring, across, radius, 1);
+            context.RenderList.PopClip();
+        }
     }
 
     protected override bool OnInput(UiInputEvent input)

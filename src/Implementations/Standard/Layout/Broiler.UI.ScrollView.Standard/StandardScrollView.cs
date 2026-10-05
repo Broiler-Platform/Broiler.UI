@@ -23,6 +23,8 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     private BRect _scrollbarCornerBounds = BRect.Empty;
     private double _scrollbarThickness = 12;
     private double _minimumThumbLength = 18;
+    private double _horizontalContentInset;
+    private double _verticalContentInset;
     private bool _showScrollbars = true;
     private ScrollbarAxis _dragAxis = ScrollbarAxis.None;
     private double _dragPointerOffsetWithinThumb;
@@ -166,6 +168,55 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         }
     }
 
+    /// <summary>
+    /// Room, in DIP, between the content and the left and right edges of the area the content is drawn and clipped
+    /// in. A control strokes its frame and focus ring centered on its edge, so half the stroke lies outside it, and
+    /// the clip cuts that half off a control as wide as the viewport; this leaves room for it. 0 by default, where
+    /// the content fills the viewport. With <see cref="UiScrollConstraint.ConstrainWidth"/> the content is measured
+    /// and arranged this much narrower on each side; otherwise it keeps its width and the extent grows by the room
+    /// on each side. The scrollbars, the clip and <see cref="ContentBounds"/> do not move.
+    /// </summary>
+    public double HorizontalContentInset
+    {
+        get => _horizontalContentInset;
+        set
+        {
+            ThrowIfDisposed();
+            if (value < 0 || !double.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), "The content inset must be a finite non-negative value.");
+            if (_horizontalContentInset == value)
+                return;
+
+            _horizontalContentInset = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
+    /// <summary>
+    /// Room, in DIP, between the content and the top and bottom edges of the area the content is drawn and clipped
+    /// in, as <see cref="HorizontalContentInset"/> leaves at the sides: a control at the top or the bottom of the
+    /// content, scrolled to that end, keeps the outer half of its frame and ring. 0 by default. With
+    /// <see cref="UiScrollConstraint.ConstrainHeight"/> the content is measured and arranged this much shorter at each
+    /// end; otherwise it keeps its height and the extent grows by the room at each end. <see cref="MakeVisible"/>
+    /// keeps it too, so a control the keyboard brings into view at the top or the bottom shows its ring whole. The
+    /// scrollbars, the clip and <see cref="ContentBounds"/> do not move.
+    /// </summary>
+    public double VerticalContentInset
+    {
+        get => _verticalContentInset;
+        set
+        {
+            ThrowIfDisposed();
+            if (value < 0 || !double.IsFinite(value))
+                throw new ArgumentOutOfRangeException(nameof(value), "The content inset must be a finite non-negative value.");
+            if (_verticalContentInset == value)
+                return;
+
+            _verticalContentInset = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
     public BRect ContentBounds { get; private set; } = BRect.Empty;
 
     public bool HasVerticalScrollbar { get; private set; }
@@ -182,17 +233,18 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         if (viewport.IsEmpty)
             return false;
 
+        // The room around the content is kept, so a control brought in at any edge shows its frame whole.
         double deltaX = 0;
-        if (targetRect.Left < viewport.Left)
-            deltaX = targetRect.Left - viewport.Left;
-        else if (targetRect.Right > viewport.Right)
-            deltaX = targetRect.Right - viewport.Right;
+        if (targetRect.Left < viewport.Left + _horizontalContentInset)
+            deltaX = targetRect.Left - (viewport.Left + _horizontalContentInset);
+        else if (targetRect.Right > viewport.Right - _horizontalContentInset)
+            deltaX = targetRect.Right - (viewport.Right - _horizontalContentInset);
 
         double deltaY = 0;
-        if (targetRect.Top < viewport.Top)
-            deltaY = targetRect.Top - viewport.Top;
-        else if (targetRect.Bottom > viewport.Bottom)
-            deltaY = targetRect.Bottom - viewport.Bottom;
+        if (targetRect.Top < viewport.Top + _verticalContentInset)
+            deltaY = targetRect.Top - (viewport.Top + _verticalContentInset);
+        else if (targetRect.Bottom > viewport.Bottom - _verticalContentInset)
+            deltaY = targetRect.Bottom - (viewport.Bottom - _verticalContentInset);
 
         if (deltaX != 0 || deltaY != 0)
         {
@@ -223,9 +275,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 if (child.Visibility == UiVisibility.Collapsed)
                     continue;
 
-                BSize desired = child.Measure(new BSize(contentWidth, double.PositiveInfinity));
-                extentWidth = Math.Max(extentWidth, desired.Width);
-                extentHeight = Math.Max(extentHeight, desired.Height);
+                BSize desired = child.Measure(new BSize(InsetWidth(contentWidth), double.PositiveInfinity));
+                extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
             if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > outerSize.Height && thickness > 0)
@@ -239,9 +291,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                     if (child.Visibility == UiVisibility.Collapsed)
                         continue;
 
-                    BSize desired = child.Measure(new BSize(contentWidth, double.PositiveInfinity));
-                    extentWidth = Math.Max(extentWidth, desired.Width);
-                    extentHeight = Math.Max(extentHeight, desired.Height);
+                    BSize desired = child.Measure(new BSize(InsetWidth(contentWidth), double.PositiveInfinity));
+                    extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                    extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
                 }
             }
 
@@ -265,9 +317,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 if (child.Visibility == UiVisibility.Collapsed)
                     continue;
 
-                BSize desired = child.Measure(new BSize(double.PositiveInfinity, contentHeight));
-                extentWidth = Math.Max(extentWidth, desired.Width);
-                extentHeight = Math.Max(extentHeight, desired.Height);
+                BSize desired = child.Measure(new BSize(double.PositiveInfinity, InsetHeight(contentHeight)));
+                extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
             if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > outerSize.Width && thickness > 0)
@@ -281,9 +333,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                     if (child.Visibility == UiVisibility.Collapsed)
                         continue;
 
-                    BSize desired = child.Measure(new BSize(double.PositiveInfinity, contentHeight));
-                    extentWidth = Math.Max(extentWidth, desired.Width);
-                    extentHeight = Math.Max(extentHeight, desired.Height);
+                    BSize desired = child.Measure(new BSize(double.PositiveInfinity, InsetHeight(contentHeight)));
+                    extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                    extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
                 }
             }
 
@@ -302,8 +354,8 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                     continue;
 
                 BSize desired = child.Measure(new BSize(double.PositiveInfinity, double.PositiveInfinity));
-                extentWidth = Math.Max(extentWidth, desired.Width);
-                extentHeight = Math.Max(extentHeight, desired.Height);
+                extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
             _contentDesiredExtent = new BSize(extentWidth, extentHeight);
@@ -328,9 +380,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 if (child.Visibility == UiVisibility.Collapsed)
                     continue;
 
-                BSize desired = child.Measure(new BSize(contentWidth, double.PositiveInfinity));
-                extentWidth = Math.Max(extentWidth, desired.Width);
-                extentHeight = Math.Max(extentHeight, desired.Height);
+                BSize desired = child.Measure(new BSize(InsetWidth(contentWidth), double.PositiveInfinity));
+                extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
             if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > finalRect.Height && thickness > 0)
@@ -344,9 +396,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                     if (child.Visibility == UiVisibility.Collapsed)
                         continue;
 
-                    BSize desired = child.Measure(new BSize(contentWidth, double.PositiveInfinity));
-                    extentWidth = Math.Max(extentWidth, desired.Width);
-                    extentHeight = Math.Max(extentHeight, desired.Height);
+                    BSize desired = child.Measure(new BSize(InsetWidth(contentWidth), double.PositiveInfinity));
+                    extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                    extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
                 }
             }
 
@@ -365,9 +417,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 if (child.Visibility == UiVisibility.Collapsed)
                     continue;
 
-                BSize desired = child.Measure(new BSize(double.PositiveInfinity, contentHeight));
-                extentWidth = Math.Max(extentWidth, desired.Width);
-                extentHeight = Math.Max(extentHeight, desired.Height);
+                BSize desired = child.Measure(new BSize(double.PositiveInfinity, InsetHeight(contentHeight)));
+                extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
             if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > finalRect.Width && thickness > 0)
@@ -381,9 +433,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                     if (child.Visibility == UiVisibility.Collapsed)
                         continue;
 
-                    BSize desired = child.Measure(new BSize(double.PositiveInfinity, contentHeight));
-                    extentWidth = Math.Max(extentWidth, desired.Width);
-                    extentHeight = Math.Max(extentHeight, desired.Height);
+                    BSize desired = child.Measure(new BSize(double.PositiveInfinity, InsetHeight(contentHeight)));
+                    extentWidth = Math.Max(extentWidth, desired.Width + (2 * _horizontalContentInset));
+                    extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
                 }
             }
 
@@ -407,16 +459,18 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 continue;
             }
 
+            double inner = Math.Max(0, ContentBounds.Width - (2 * _horizontalContentInset));
+            double innerHeight = Math.Max(0, ContentBounds.Height - (2 * _verticalContentInset));
             double arrangeWidth = Constraint == UiScrollConstraint.ConstrainWidth
-                ? ContentBounds.Width
-                : Math.Max(child.DesiredSize.Width, ContentBounds.Width);
+                ? inner
+                : Math.Max(child.DesiredSize.Width, inner);
             double arrangeHeight = Constraint == UiScrollConstraint.ConstrainHeight
-                ? ContentBounds.Height
-                : Math.Max(child.DesiredSize.Height, ContentBounds.Height);
+                ? innerHeight
+                : Math.Max(child.DesiredSize.Height, innerHeight);
 
             child.Arrange(new BRect(
-                ContentBounds.Left - HorizontalOffset,
-                ContentBounds.Top - VerticalOffset,
+                ContentBounds.Left + _horizontalContentInset - HorizontalOffset,
+                ContentBounds.Top + _verticalContentInset - VerticalOffset,
                 arrangeWidth,
                 arrangeHeight));
         }
@@ -455,7 +509,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     /// <summary>
     /// Draws the stretch of the ring that crosses an opaque thumb of too nearly its color again, in a color that
     /// stands out on the thumb (<see cref="StandardControlPaint.FocusRingColor"/>), so the ring stays whole. A
-    /// high-contrast theme draws its thumb in the text color, which is the ring's color in HighContrastLight.
+    /// high-contrast theme draws its thumb in the text color, which is the ring's color in HighContrastLight. The
+    /// clips keep to the thumb's pill (<see cref="StandardControlPaint.PillAreasUnderRing"/>), so the ring beside its
+    /// rounded ends, over the track, keeps its own color.
     /// </summary>
     private void RenderRingAcrossThumb(UiRenderContext context, BRect ring, ScrollbarAxis axis)
     {
@@ -464,9 +520,12 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         if (across == FocusRing || thumb.IsEmpty)
             return;
 
-        context.RenderList.PushClip(thumb);
-        context.RenderList.StrokeRect(ring, across, _theme.FocusRingThickness);
-        context.RenderList.PopClip();
+        foreach (BRect area in StandardControlPaint.PillAreasUnderRing(thumb, ring, _theme.FocusRingThickness))
+        {
+            context.RenderList.PushClip(area);
+            context.RenderList.StrokeRect(ring, across, _theme.FocusRingThickness);
+            context.RenderList.PopClip();
+        }
     }
 
     protected override bool OnInput(UiInputEvent input)
@@ -874,6 +933,14 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 
     private static double ClampDesired(double desired, double available) =>
         double.IsInfinity(available) ? desired : Math.Min(desired, Math.Max(0, available));
+
+    // The width a width-constrained child is measured at: the viewport's, less the room on each side.
+    private double InsetWidth(double contentWidth) =>
+        Math.Max(1, contentWidth - (2 * _horizontalContentInset));
+
+    // The height a height-constrained child is measured at: the viewport's, less the room at each end.
+    private double InsetHeight(double contentHeight) =>
+        Math.Max(1, contentHeight - (2 * _verticalContentInset));
 
     private readonly record struct ScrollbarLayout(
         BRect ContentBounds,

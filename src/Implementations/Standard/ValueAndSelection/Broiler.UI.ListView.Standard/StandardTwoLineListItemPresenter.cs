@@ -83,10 +83,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         {
             double dotSize = 6;
             double dotTop = primaryTop + Math.Max(0, (primaryLineHeight - dotSize) / 2);
-            // A selection with a text color of its own can share its fill with the accent (a system
-            // highlight pair is both), so the dot takes the selected text color there to stay visible.
-            BColor dot = isSelected && context.SelectedForeground != context.Foreground ? context.SelectedForeground : context.Accent;
-            list.FillRect(new BRect(primaryLeft, dotTop, dotSize, dotSize), dot);
+            list.FillRect(new BRect(primaryLeft, dotTop, dotSize, dotSize), UnreadDotColor(context));
             primaryLeft += dotSize + 6;
         }
 
@@ -138,6 +135,29 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         {
             DefaultListItemPresenter.StrokeFocusRing(context);
         }
+    }
+
+    /// <summary>
+    /// The color of the unread dot: a mark that is not text, so it needs 3:1 against the fill it is drawn on, the
+    /// row's selection fill or the list's background. A selection with a text color of its own can share its fill
+    /// with the accent (a system highlight pair is both), so the dot takes the selected text color there. Otherwise
+    /// it is the accent where that stands out from the fill, then the accent text shade, which a theme chooses to
+    /// read on its surfaces and its selection fill (Dark's accent is 2.76:1 on its selection fill, its accent text
+    /// 6.27:1), and failing both the row's text color. A fill that is not opaque keeps the accent: what shows
+    /// through it is not known.
+    /// </summary>
+    private static BColor UnreadDotColor(UiListItemRenderContext context)
+    {
+        bool isSelected = context.State.IsSelected;
+        if (isSelected && context.SelectedForeground != context.Foreground)
+            return context.SelectedForeground;
+
+        BColor fill = isSelected ? context.SelectedBackground : context.Background;
+        if (fill.A != 255 || StandardContrast.Ratio(context.Accent, fill) >= StandardContrast.AaLargeOrUi)
+            return context.Accent;
+        if (StandardContrast.Ratio(context.AccentText, fill) >= StandardContrast.AaLargeOrUi)
+            return context.AccentText;
+        return isSelected ? context.SelectedForeground : context.Foreground;
     }
 
     /// <summary>

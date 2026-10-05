@@ -133,6 +133,32 @@ public sealed class CompactFormsTests
     }
 
     [Fact]
+    public void RevealLeavesRoomForTheRingOfTheControlItBringsIntoView()
+    {
+        var fields = new StandardPanel { Spacing = 8 };
+        FormField? last = null;
+        for (int index = 1; index <= 12; index++)
+            fields.AddChild(last = new FormField($"Field {index}", new StandardEdit()));
+        using var surface = new FormSurface(fields, FormSurface.ActionBar(new StandardButton { Text = "Save" }), new InlineFeedback());
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+
+        // The last field has no error below its control, so the control is what meets the bottom of the viewport.
+        surface.Reveal(last!);
+        BRenderList renderList = session.RenderFrame();
+        (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(renderList, stroke => stroke.Rect == last!.Control.Bounds && stroke.Thickness == 2);
+        Assert.True(clip.Bottom >= ring.Rect.Bottom + (ring.Thickness / 2), $"The ring around {ring.Rect} is clipped to {clip}.");
+
+        // From below, a field comes in at the top with the same room above its label.
+        var middle = (FormField)fields.Children[5];
+        surface.Reveal(middle);
+        session.RenderFrame();
+        Assert.True(surface.Content.Scroll.VerticalOffset > 0);
+        Assert.Equal(surface.Content.Scroll.ContentBounds.Top + surface.Content.Scroll.VerticalContentInset, middle.Bounds.Top, 6);
+    }
+
+    [Fact]
     public void FeedbackThatShrinksTheFormKeepsTheFocusedControlInView()
     {
         using var form = new FeedbackForm();
@@ -150,6 +176,10 @@ public sealed class CompactFormsTests
         Assert.True(edit.Bounds.Top >= shrunk.Top - 0.5 && edit.Bounds.Bottom <= shrunk.Bottom + 0.5,
             $"The focused control is at {edit.Bounds}, outside the form's {shrunk}.");
         Assert.Same(edit, form.Session.FocusedElement);
+
+        // With room for its ring: the outer half of the ring's bottom line is not cut off by the clip.
+        (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(form.Session.RenderFrame(), stroke => stroke.Rect == edit.Bounds && stroke.Thickness == 2);
+        Assert.True(clip.Bottom >= ring.Rect.Bottom + (ring.Thickness / 2), $"The ring around {ring.Rect} is clipped to {clip}.");
     }
 
     [Fact]
@@ -173,6 +203,150 @@ public sealed class CompactFormsTests
             form.Feedback.Set("");
             form.Session.RenderFrame();
         }
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(12)]
+    public void AFocusedFieldAsWideAsTheFormShowsItsWholeFocusRing(int count)
+    {
+        // One field fits; twelve scroll, with the bar beside the fields.
+        var fields = new StandardPanel { Spacing = 8 };
+        StandardEdit[] edits = Enumerable.Range(0, count).Select(_ => new StandardEdit()).ToArray();
+        foreach (var edit in edits)
+            fields.AddChild(new FormField("Email address", edit));
+        using var surface = new FormSurface(fields, FormSurface.ActionBar(new StandardButton { Text = "Save" }), new InlineFeedback());
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+        session.SetFocus(edits[0]);
+        BRenderList renderList = session.RenderFrame();
+        Assert.Equal(count > 1, surface.Content.Scroll.HasVerticalScrollbar);
+
+        // The edit strokes its 2 DIP ring centered on its edge, so 1 DIP of it lies outside the edit, and the
+        // form's viewport clips its content. The clip leaves room for that 1 DIP on both sides.
+        (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(renderList, stroke => stroke.Rect == edits[0].Bounds && stroke.Thickness == 2);
+        double outset = ring.Thickness / 2;
+        Assert.True(clip.Left <= ring.Rect.Left - outset && clip.Right >= ring.Rect.Right + outset,
+            $"The ring around {ring.Rect} is clipped to {clip}.");
+        if (surface.Content.Scroll.HasVerticalScrollbar)
+            Assert.True(ring.Rect.Right + outset <= surface.Content.Scroll.ContentBounds.Right, "The ring reaches into the bar.");
+
+        // The fields keep the edges of the action strip, as before: the viewport reaches 1 DIP into the margins.
+        Assert.Equal(surface.Actions.Bounds.Left, edits[0].Bounds.Left, 6);
+        double right = surface.Actions.Bounds.Right - (surface.Content.Scroll.HasVerticalScrollbar ? surface.Content.Scroll.ScrollbarThickness : 0);
+        Assert.Equal(right, edits[0].Bounds.Right, 6);
+    }
+
+    [Fact]
+    public void AFieldTheKeyboardBringsIntoViewShowsItsWholeFocusRing()
+    {
+        var fields = new StandardPanel { Spacing = 8 };
+        StandardEdit[] edits = Enumerable.Range(0, 12).Select(_ => new StandardEdit()).ToArray();
+        foreach (var edit in edits)
+            fields.AddChild(new FormField("Email address", edit));
+        using var surface = new FormSurface(fields, FormSurface.ActionBar(new StandardButton { Text = "Save" }), new InlineFeedback());
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+        BRect first = edits[0].Bounds;
+        var focus = new StandardFocusScope(session);
+
+        // Tab down past the fold, to the last field at the very end of the form, and back up to the first: each
+        // field is scrolled to the bottom or the top of the viewport, and keeps room there for its ring.
+        foreach (int index in Enumerable.Range(0, edits.Length).Concat(Enumerable.Range(0, edits.Length).Reverse()))
+        {
+            Assert.True(focus.TryFocus(edits[index]));
+            BRenderList renderList = session.RenderFrame();
+            (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(renderList, stroke => stroke.Rect == edits[index].Bounds && stroke.Thickness == 2);
+            double outset = ring.Thickness / 2;
+            Assert.True(
+                clip.Left <= ring.Rect.Left - outset && clip.Right >= ring.Rect.Right + outset &&
+                clip.Top <= ring.Rect.Top - outset && clip.Bottom >= ring.Rect.Bottom + outset,
+                $"Field {index}: the ring around {ring.Rect} is clipped to {clip}.");
+        }
+
+        // Scrolled back to the top, the fields are where they were: the viewport reaches into the space around it
+        // by the room, rather than the fields moving down.
+        surface.Content.Scroll.ScrollBy(0, -1000);
+        session.RenderFrame();
+        Assert.Equal(first, edits[0].Bounds);
+        Assert.Equal(surface.Bounds.Top + 12, fields.Bounds.Top, 6);
+        Assert.Equal(surface.Bounds.Top + 12 - surface.Content.Scroll.VerticalContentInset, surface.Content.Bounds.Top, 6);
+        Assert.Equal(surface.Actions.Bounds.Top - 8 + surface.Content.Scroll.VerticalContentInset, surface.Content.Bounds.Bottom, 6);
+    }
+
+    [Fact]
+    public void TheFirstBannerSitsAsFarBelowTheActionsAsTheBannersSitFromEachOther()
+    {
+        var info = new InlineFeedback();
+        var error = new InlineFeedback();
+        var banners = new StandardPanel { Spacing = 4 };
+        banners.AddChild(info);
+        banners.AddChild(error);
+        using var surface = new FormSurface(new StandardPanel(), FormSurface.ActionBar(new StandardButton { Text = "Send" }), banners);
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        session.RenderFrame();
+        Assert.Equal(480 - 12, surface.Actions.Bounds.Bottom, 6);
+
+        info.Set("The draft is saved.");
+        error.Set("Enter a recipient.", FeedbackKind.Error);
+        session.RenderFrame();
+
+        Assert.Equal(4, info.Bounds.Top - surface.Actions.Bounds.Bottom, 6);
+        Assert.Equal(error.Bounds.Top - info.Bounds.Bottom, info.Bounds.Top - surface.Actions.Bounds.Bottom, 6);
+        // The banners still end 12 DIP above the bottom, and line up with the strip.
+        Assert.Equal(480 - 12, error.Bounds.Bottom, 6);
+        Assert.Equal(surface.Actions.Bounds.Left, info.Bounds.Left, 6);
+        Assert.Equal(surface.Actions.Bounds.Right, info.Bounds.Right, 6);
+    }
+
+    [Fact]
+    public void TheSpaceAboveTheFeedbackIsCountedWhenTheFormIsMeasured()
+    {
+        var feedback = new InlineFeedback();
+        using var surface = new FormSurface(new StandardPanel(), FormSurface.ActionBar(new StandardButton { Text = "Save" }), feedback);
+        // A viewport that wants all it is offered reports the size the form measured it at.
+        surface.Content.Scroll.PreferredSize = new BSize(10_000, 10_000);
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, 480));
+        session.AddRoot(surface);
+        feedback.Set("Settings saved.", FeedbackKind.Success);
+        session.RenderFrame();
+
+        Assert.Equal(surface.Content.Bounds.Size, surface.Content.DesiredSize);
+    }
+
+    /// <summary>The first stroke that matches, and the clip it is drawn in.</summary>
+    private static (BRenderCommand.StrokeRoundedRect Stroke, BRect Clip) StrokeAndClip(BRenderList renderList, Func<BRenderCommand.StrokeRoundedRect, bool> match)
+    {
+        var clips = new Stack<BRect>();
+        clips.Push(new BRect(-1e9, -1e9, 2e9, 2e9));
+        foreach (BRenderCommand command in renderList.Commands)
+        {
+            switch (command)
+            {
+                case BRenderCommand.PushClip push:
+                    clips.Push(Intersect(clips.Peek(), push.Rect));
+                    break;
+                case BRenderCommand.PopClip:
+                    clips.Pop();
+                    break;
+                case BRenderCommand.StrokeRoundedRect stroke when match(stroke):
+                    return (stroke, clips.Peek());
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException("No stroke matched.");
+    }
+
+    private static BRect Intersect(BRect a, BRect b)
+    {
+        double left = Math.Max(a.Left, b.Left);
+        double top = Math.Max(a.Top, b.Top);
+        double right = Math.Min(a.Right, b.Right);
+        double bottom = Math.Min(a.Bottom, b.Bottom);
+        return new BRect(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
     }
 
     /// <summary>Twelve fields, more than fit at 640x480, with no feedback yet.</summary>

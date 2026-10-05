@@ -141,7 +141,8 @@ in `Accent`, with the contrast it had in Dark and Light:
 - The accent as a fill or a mark that is not text keeps `Accent` and needs 3:1, which Dark's accent
   meets on `Surface` (3.42) and `SurfaceAlt` (3.01): check box and radio button fills, progress bar and
   slider fills, the list's unread dot, window and dialog active borders, the file dialog's title bar and
-  the primary button (both with `OnAccent` text, 4.74:1 in Dark).
+  the primary button (both with `OnAccent` text, 4.74:1 in Dark). The unread dot also sits on a selected
+  row's `AccentSoft`, where Dark's accent is 2.76:1; ADR 0034 draws it in `AccentText` there.
 
 ### A selected-tab mark that is not color
 
