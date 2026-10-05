@@ -94,6 +94,10 @@ public static class StandardControlPaint
     public static BColor StateFill => _theme.StateFill;
     public static BColor StateText => _theme.StateText;
 
+    // Scrollbars
+    public static BColor ScrollbarTrack => _theme.ScrollbarTrack;
+    public static BColor ScrollbarThumb => _theme.ScrollbarThumb;
+
     // Focus
     public static BColor Focus => _theme.FocusRing;
     public static double FocusRingThickness => _theme.FocusRingThickness;
@@ -186,6 +190,28 @@ public static class StandardControlPaint
     /// </remarks>
     public static BColor FocusRingColor(BColor ring, BColor fill, BColor label) =>
         fill.A == 255 && StandardContrast.Ratio(ring, fill) < StandardContrast.AaLargeOrUi ? label : ring;
+
+    /// <summary>
+    /// The track and thumb a control with scrollbar colors of its own draws under <paramref name="theme"/>: the theme's
+    /// <see cref="StandardThemeTokens.ScrollbarTrack"/> and <see cref="StandardThemeTokens.ScrollbarThumb"/> once the
+    /// theme gives scrollbars colors, and otherwise <paramref name="track"/> and <paramref name="thumb"/>, the control's
+    /// own. A theme gives them colors when it is high contrast, or when either role differs from the role it follows
+    /// (<see cref="StandardThemeTokens.SurfaceDisabled"/> and <see cref="StandardThemeTokens.BorderStrong"/>).
+    /// </summary>
+    /// <remarks>
+    /// The rule for the scroll view, the rich edit and the formatting code view, whose translucent bars are older than
+    /// the roles and are kept where the theme says nothing about scrollbars, so the Light and Dark presets draw them as
+    /// before (ADR 0033). The list, the tree and the code editor draw the roles in every theme; without a value of their
+    /// own the roles are the colors those controls always drew.
+    /// </remarks>
+    public static (BColor Track, BColor Thumb) ScrollbarColors(StandardThemeTokens theme, BColor track, BColor thumb)
+    {
+        ArgumentNullException.ThrowIfNull(theme);
+        bool themed = theme.IsHighContrast ||
+            theme.ScrollbarTrack != theme.SurfaceDisabled ||
+            theme.ScrollbarThumb != theme.BorderStrong;
+        return themed ? (theme.ScrollbarTrack, theme.ScrollbarThumb) : (track, thumb);
+    }
 
 
     public static BRect Inset(BRect rect, double amount) =>

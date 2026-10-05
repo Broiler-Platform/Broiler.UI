@@ -35,9 +35,24 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 
     public BColor Background { get; set; } = BColor.Transparent;
 
-    public BColor ScrollbarTrack { get; set; } = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
+    // The translucent bars the view has always drawn, kept while the theme says nothing about scrollbars.
+    private static readonly BColor OwnScrollbarTrack = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
+    private static readonly BColor OwnScrollbarThumb = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
 
-    public BColor ScrollbarThumb { get; set; } = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
+    /// <summary>
+    /// The track of the scrollbars, also filling the corner where the two meet. A translucent gray until a theme
+    /// gives scrollbars colors of their own (<see cref="StandardControlPaint.ScrollbarColors"/>), as a high-contrast
+    /// theme does; then <see cref="StandardThemeTokens.ScrollbarTrack"/>.
+    /// </summary>
+    public BColor ScrollbarTrack { get; set; } =
+        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Track;
+
+    /// <summary>
+    /// The thumb of the scrollbars. A translucent gray until a theme gives scrollbars colors of their own; then
+    /// <see cref="StandardThemeTokens.ScrollbarThumb"/>.
+    /// </summary>
+    public BColor ScrollbarThumb { get; set; } =
+        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Thumb;
 
     /// <summary>
     /// The color of the ring drawn around the scroll view while it has focus and is a keyboard stop
@@ -81,14 +96,16 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     public override bool CanFocus => base.CanFocus || (FocusWhenScrollable && IsKeyboardScrollStop());
 
     /// <summary>
-    /// Re-derives the focus ring from <paramref name="theme"/>. The scrollbar colors keep their
-    /// values, so a themed session draws scrollbars exactly as before.
+    /// Re-derives the focus ring and the scrollbars from <paramref name="theme"/>. The bars take the theme's
+    /// scrollbar roles when it gives scrollbars colors of their own, as a high-contrast theme does, and
+    /// otherwise their translucent defaults, so the Light and Dark presets draw them as before.
     /// </summary>
     public void ApplyTheme(StandardThemeTokens theme)
     {
         ArgumentNullException.ThrowIfNull(theme);
         _theme = theme;
         FocusRing = theme.FocusRing;
+        (ScrollbarTrack, ScrollbarThumb) = StandardControlPaint.ScrollbarColors(theme, OwnScrollbarTrack, OwnScrollbarThumb);
         Invalidate(UiInvalidationKind.Render);
     }
 

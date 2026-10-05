@@ -131,7 +131,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         _warningColor = tokens.Warning;
         _informationColor = tokens.Info;
 
-        _scrollbars.ApplyPaint(tokens.SurfaceDisabled, tokens.BorderStrong);
+        _scrollbars.ApplyPaint(tokens.ScrollbarTrack, tokens.ScrollbarThumb);
 
         // A theme that says it is high contrast, or whose surface and text sit
         // at the extremes whatever it is called. There, decorations carry a

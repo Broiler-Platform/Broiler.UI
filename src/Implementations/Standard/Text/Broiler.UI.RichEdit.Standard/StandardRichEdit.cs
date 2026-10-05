@@ -76,6 +76,8 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         ContextMenuHighlight = theme.AccentSoft;
         _contextMenuHighlightForeground = selectionText;
         ContextMenuBorderColor = theme.Border;
+        // The translucent bars stay unless the theme gives scrollbars colors of their own, as high contrast does.
+        (ScrollbarTrack, ScrollbarThumb) = StandardControlPaint.ScrollbarColors(theme, OwnScrollbarTrack, OwnScrollbarThumb);
     }
 
     public BColor Background { get; set; } = StandardControlPaint.Surface;
@@ -118,9 +120,24 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
 
     public BColor CaretColor { get; set; } = BColor.Black;
 
-    public BColor ScrollbarTrack { get; set; } = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
+    // The translucent bars the editor has always drawn, kept while the theme says nothing about scrollbars.
+    private static readonly BColor OwnScrollbarTrack = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
+    private static readonly BColor OwnScrollbarThumb = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
 
-    public BColor ScrollbarThumb { get; set; } = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
+    /// <summary>
+    /// The track of the scrollbars. A translucent gray until a theme gives scrollbars colors of their own
+    /// (<see cref="StandardControlPaint.ScrollbarColors"/>), as a high-contrast theme does; then
+    /// <see cref="StandardThemeTokens.ScrollbarTrack"/>.
+    /// </summary>
+    public BColor ScrollbarTrack { get; set; } =
+        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Track;
+
+    /// <summary>
+    /// The thumb of the scrollbars. A translucent gray until a theme gives scrollbars colors of their own; then
+    /// <see cref="StandardThemeTokens.ScrollbarThumb"/>.
+    /// </summary>
+    public BColor ScrollbarThumb { get; set; } =
+        StandardControlPaint.ScrollbarColors(StandardControlPaint.Theme, OwnScrollbarTrack, OwnScrollbarThumb).Thumb;
 
     public double ScrollbarThickness { get; set; } = 12;
 

@@ -88,7 +88,7 @@ public sealed class ScrollViewFocusTests
     }
 
     [Fact]
-    public void ApplyThemeFollowsTheRingButKeepsScrollbarColors()
+    public void ApplyThemeFollowsTheRingAndTheScrollbarRolesOfAHighContrastTheme()
     {
         var scroll = new StandardScrollView { FocusWhenScrollable = true };
         BColor track = scroll.ScrollbarTrack;
@@ -96,11 +96,17 @@ public sealed class ScrollViewFocusTests
         StandardThemeTokens contrast = StandardThemeTokens.HighContrastDark;
 
         Assert.IsAssignableFrom<IStandardThemedControl>(scroll);
+        scroll.ApplyTheme(StandardThemeTokens.Dark);
+        Assert.Equal(StandardThemeTokens.Dark.FocusRing, scroll.FocusRing);
+        Assert.Equal(track, scroll.ScrollbarTrack);
+        Assert.Equal(thumb, scroll.ScrollbarThumb);
+
+        // High contrast gives the bars its scrollbar roles (ADR 0033); the translucent defaults did not reach 3:1.
         scroll.ApplyTheme(contrast);
 
         Assert.Equal(contrast.FocusRing, scroll.FocusRing);
-        Assert.Equal(track, scroll.ScrollbarTrack);
-        Assert.Equal(thumb, scroll.ScrollbarThumb);
+        Assert.Equal(contrast.ScrollbarTrack, scroll.ScrollbarTrack);
+        Assert.Equal(contrast.ScrollbarThumb, scroll.ScrollbarThumb);
 
         scroll.AddChild(new Fixed(new BSize(80, 300)));
         using UiSession session = Attach(scroll, 100, 100);

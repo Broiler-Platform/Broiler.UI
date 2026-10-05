@@ -110,7 +110,7 @@ public sealed partial class StandardCodeEditor : UiCodeEditor, IStandardThemedCo
     {
         ArgumentNullException.ThrowIfNull(tokens);
         Palette = StandardCodeEditorPalette.FromTokens(tokens);
-        _scrollbars.ApplyPaint(tokens.SurfaceDisabled, tokens.BorderStrong);
+        _scrollbars.ApplyPaint(tokens.ScrollbarTrack, tokens.ScrollbarThumb);
     }
 
     protected override BSize MeasureCore(BSize availableSize)
