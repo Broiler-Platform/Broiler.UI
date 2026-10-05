@@ -15,7 +15,8 @@ namespace Broiler.UI.Standard.Tests;
 /// <summary>
 /// A focused scroll view shows where the keyboard is, and can be a keyboard stop of its own while
 /// it has something to scroll and nothing else inside it can take focus (ADR 0028). A stop that
-/// stops being one while it has focus hands focus on (ADR 0032).
+/// stops being one while it has focus hands focus on (ADR 0032). It is one exactly while a bar set
+/// to Auto shows, as the view was last arranged (ADR 0034).
 /// </summary>
 [Collection(GlobalThemeCollection.Name)]
 public sealed class ScrollViewFocusTests
@@ -250,6 +251,75 @@ public sealed class ScrollViewFocusTests
 
         scroll.Visibility = UiVisibility.Collapsed;
         Assert.False(scroll.CanFocus);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0.25)]
+    [InlineData(0.5)]
+    [InlineData(0.75)]
+    [InlineData(1)]
+    [InlineData(200)]
+    public void AStopExistsExactlyWhileTheBarShows(double overflow)
+    {
+        // Content as tall as the viewport plus a rounding error, or more.
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
+        scroll.AddChild(new Fixed(new BSize(80, 100 + overflow)));
+        using UiSession session = Attach(scroll, 100, 100);
+
+        // Past half a DIP the content scrolls, and both the bar and the stop show it; short of that neither does.
+        Assert.Equal(overflow > 0.5, scroll.HasVerticalScrollbar);
+        Assert.Equal(scroll.HasVerticalScrollbar, scroll.CanFocus);
+        Assert.Equal(scroll.CanFocus, new StandardFocusScope(session).MoveFocus(1));
+    }
+
+    [Fact]
+    public void AStopFollowsTheViewAsArrangedNotAMeasureAtAnotherSize()
+    {
+        // As a bounded area does: the scroll view is measured at a cap and then at its content's height, and given
+        // that height, where everything shows. With no preferred size of its own it measures to 160 x 120 DIP at
+        // either height, and records the 150 x 120 DIP viewport beside a bar in that, which the content overflows.
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
+        scroll.AddChild(new Fixed(new BSize(80, 200)));
+        var bounded = new Bounded(scroll, cap: 150, height: 200);
+        using UiSession session = Attach(bounded, 200, 600);
+        Assert.False(scroll.HasVerticalScrollbar);
+        Assert.False(scroll.CanFocus);
+
+        // Measured again, as when something else in the area changed, and not arranged again: the size it is
+        // measured to does not change, and neither does the rectangle it is given.
+        bounded.InvalidateMeasure();
+        session.RenderFrame();
+
+        Assert.False(scroll.HasVerticalScrollbar);
+        Assert.False(scroll.CanFocus);
+        Assert.False(new StandardFocusScope(session).MoveFocus(1));
+        session.SetFocus(scroll);
+        Assert.Empty(Rings(session.RenderFrame(), scroll));
+    }
+
+    [Fact]
+    public void BecomingAStopIsReportedWhenItsScrollSizesAreThoseAMeasureAlreadyRecorded()
+    {
+        // With no preferred size of its own the view measures to 160 x 120 DIP at any height, and records the
+        // 150 x 120 DIP viewport beside a bar in that. Given 300 DIP, its 200 DIP of content fit.
+        var scroll = new StandardScrollView { ScrollbarThickness = 10, Constraint = UiScrollConstraint.ConstrainWidth, FocusWhenScrollable = true };
+        scroll.AddChild(new Fixed(new BSize(80, 200)));
+        var area = new Sized(scroll, measureHeight: 300, arrangeHeight: 300);
+        using UiSession session = Attach(area, 160, 600);
+        area.MeasureHeight = 301;
+        session.RenderFrame();
+        Assert.False(scroll.CanFocus);
+
+        // Given 120 DIP, it scrolls with the very viewport and extent that measure recorded, so neither changes.
+        var changes = new List<UiSemanticChangeKind>();
+        session.SemanticChanged += (_, e) => { if (e.Element == scroll) changes.Add(e.Change); };
+        area.ArrangeHeight = 120;
+        session.RenderFrame();
+
+        Assert.True(scroll.HasVerticalScrollbar);
+        Assert.True(scroll.CanFocus);
+        Assert.Contains(UiSemanticChangeKind.StateChanged, changes);
     }
 
     [Fact]
@@ -604,6 +674,75 @@ public sealed class ScrollViewFocusTests
             foreach (UiElement child in Children)
                 child.Arrange(new BRect(finalRect.Left, finalRect.Top, 80, 32));
         }
+    }
+
+    /// <summary>Measures its scroll view at a cap and then at a fixed height, and gives it that height.</summary>
+    private sealed class Bounded : UiElement
+    {
+        private readonly UiElement _scroll;
+        private readonly double _cap;
+        private readonly double _height;
+
+        public Bounded(UiElement scroll, double cap, double height)
+        {
+            (_scroll, _cap, _height) = (scroll, cap, height);
+            AddChild(scroll);
+        }
+
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            double width = double.IsFinite(availableSize.Width) ? availableSize.Width : 100;
+            _scroll.Measure(new BSize(width, _cap));
+            _scroll.Measure(new BSize(width, _height));
+            return new BSize(width, _height);
+        }
+
+        protected override void ArrangeCore(BRect finalRect) =>
+            _scroll.Arrange(new BRect(finalRect.Left, finalRect.Top, finalRect.Width, _height));
+    }
+
+    /// <summary>Measures its scroll view at one height and gives it another, each changed on its own.</summary>
+    private sealed class Sized : UiElement
+    {
+        private readonly UiElement _scroll;
+        private double _measureHeight;
+        private double _arrangeHeight;
+
+        public Sized(UiElement scroll, double measureHeight, double arrangeHeight)
+        {
+            (_scroll, _measureHeight, _arrangeHeight) = (scroll, measureHeight, arrangeHeight);
+            AddChild(scroll);
+        }
+
+        public double MeasureHeight
+        {
+            get => _measureHeight;
+            set
+            {
+                _measureHeight = value;
+                InvalidateMeasure();
+            }
+        }
+
+        public double ArrangeHeight
+        {
+            get => _arrangeHeight;
+            set
+            {
+                _arrangeHeight = value;
+                InvalidateArrange();
+            }
+        }
+
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            double width = double.IsFinite(availableSize.Width) ? availableSize.Width : 100;
+            _scroll.Measure(new BSize(width, _measureHeight));
+            return new BSize(width, _arrangeHeight);
+        }
+
+        protected override void ArrangeCore(BRect finalRect) =>
+            _scroll.Arrange(new BRect(finalRect.Left, finalRect.Top, finalRect.Width, _arrangeHeight));
     }
 
     /// <summary>Stacks its children top to bottom, each as tall as it was added with.</summary>

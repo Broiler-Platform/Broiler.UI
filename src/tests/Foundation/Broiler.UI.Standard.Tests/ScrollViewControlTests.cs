@@ -204,6 +204,31 @@ public sealed class ScrollViewControlTests
         Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.VerticalContentInset = double.PositiveInfinity);
     }
 
+    [Theory]
+    [InlineData(0.25, false)]
+    [InlineData(0.5, false)]
+    [InlineData(0.75, true)]
+    [InlineData(40, true)]
+    public void Standard_ScrollView_Shows_No_Bar_For_Content_Within_Half_A_DIP_Of_Its_Viewport(double overflow, bool scrolls)
+    {
+        var scrollView = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            Constraint = UiScrollConstraint.ConstrainWidth,
+        };
+        var content = new WidthFillingElement(100 + overflow);
+        scrollView.AddChild(content);
+
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out _);
+
+        // A rounding error in the content's height is no reason for a bar or for anything to scroll: the content
+        // keeps the full width, and the extent is the viewport's.
+        Assert.Equal(scrolls, scrollView.HasVerticalScrollbar);
+        Assert.Equal(scrolls ? 90 : 100, content.MeasuredWidth);
+        Assert.Equal(scrolls ? 100 + overflow : 100, scrollView.ExtentSize.Height);
+        Assert.Equal(scrolls, scrollView.ScrollToEnd());
+    }
+
     [Fact]
     public void Standard_ScrollView_Clicking_Vertical_Track_Pages_Content()
     {

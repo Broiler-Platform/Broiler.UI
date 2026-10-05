@@ -17,6 +17,10 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     // Whether the view was a FocusWhenScrollable stop when it was last drawn. Kept while it is hidden, so a view
     // shown again as no stop still hands on the focus it kept.
     private bool _wasScrollStop;
+    // Whether the content overflowed the viewport when the view was last arranged, as its bars were laid out.
+    // Measure records the viewport and the extent for the size it was offered, which need not be the one the view
+    // is given, and a measure that changes no desired size is followed by no arrange to correct them.
+    private bool _arrangedScrolls;
     private BSize _contentDesiredExtent;
     private BRect _verticalTrackBounds = BRect.Empty;
     private BRect _horizontalTrackBounds = BRect.Empty;
@@ -34,6 +38,10 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     private bool _isTouchDragging;
 
     private const double TouchDragThreshold = 6;
+
+    // Content that overflows its viewport by no more than this fits: a rounding error in its size or the viewport's
+    // shows no scrollbar, makes no keyboard stop and leaves nothing to scroll.
+    private const double OverflowTolerance = 0.5;
 
     public BColor Background { get; set; } = BColor.Transparent;
 
@@ -78,6 +86,9 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     /// it. Off by default, where only <see cref="UiElement.Focusable"/> decides.
     /// </summary>
     /// <remarks>
+    /// It has something to scroll while its content, as the view was last arranged, overflows the
+    /// viewport by more than half a DIP: the rule that shows a scrollbar set to
+    /// <see cref="UiScrollBarVisibility.Auto"/>, so the stop comes and goes with that bar.
     /// A scroll view whose content has a control of its own is left to that control, and one with
     /// nothing to scroll would take focus with nothing to do or announce. A view that stops being a
     /// stop while it has focus (its content shrinks, its viewport grows, a control inside it can take
@@ -280,7 +291,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
-            if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > outerSize.Height && thickness > 0)
+            if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > outerSize.Height + OverflowTolerance && thickness > 0)
             {
                 hasVertical = true;
                 contentWidth = Math.Max(1, availableWidth - thickness);
@@ -322,7 +333,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
-            if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > outerSize.Width && thickness > 0)
+            if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > outerSize.Width + OverflowTolerance && thickness > 0)
             {
                 hasHorizontal = true;
                 contentHeight = Math.Max(1, availableHeight - thickness);
@@ -385,7 +396,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
-            if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > finalRect.Height && thickness > 0)
+            if (VerticalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasVertical && extentHeight > finalRect.Height + OverflowTolerance && thickness > 0)
             {
                 hasVertical = true;
                 contentWidth = Math.Max(1, finalRect.Width - thickness);
@@ -422,7 +433,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
                 extentHeight = Math.Max(extentHeight, desired.Height + (2 * _verticalContentInset));
             }
 
-            if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > finalRect.Width && thickness > 0)
+            if (HorizontalScrollBarVisibility == UiScrollBarVisibility.Auto && !hasHorizontal && extentWidth > finalRect.Width + OverflowTolerance && thickness > 0)
             {
                 hasHorizontal = true;
                 contentHeight = Math.Max(1, finalRect.Height - thickness);
@@ -450,6 +461,15 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         _horizontalTrackBounds = layout.HorizontalTrackBounds;
         _scrollbarCornerBounds = layout.ScrollbarCornerBounds;
         SetViewportAndExtent(ContentBounds.Size, layout.ExtentSize);
+
+        // The extent exceeds the viewport only past the tolerance (CalculateLayout), as for a bar set to Auto.
+        bool scrolls = layout.ExtentSize.Width > ContentBounds.Width || layout.ExtentSize.Height > ContentBounds.Height;
+        if (scrolls != _arrangedScrolls)
+        {
+            _arrangedScrolls = scrolls;
+            // CanFocus follows it, and with it the ring and the keyboard focusability a host reads.
+            Invalidate(UiInvalidationKind.Semantic | UiInvalidationKind.Render);
+        }
 
         foreach (UiElement child in Children)
         {
@@ -604,8 +624,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         if (!IsShown())
             return false;
 
-        bool scrolls = ExtentSize.Height > ViewportSize.Height + 0.5 || ExtentSize.Width > ViewportSize.Width + 0.5;
-        return scrolls && !HasFocusableDescendant(this);
+        return _arrangedScrolls && !HasFocusableDescendant(this);
     }
 
     // The same visibility rules as UiElement.CanFocus, without its Focusable requirement.
@@ -856,7 +875,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 
         BSize contentSize = GetViewportSize(outerBounds.Size, hasVertical, hasHorizontal, thickness);
         BRect contentBounds = new(outerBounds.Left, outerBounds.Top, contentSize.Width, contentSize.Height);
-        BSize extentSize = new(Math.Max(desiredExtent.Width, contentSize.Width), Math.Max(desiredExtent.Height, contentSize.Height));
+        BSize extentSize = new(Fit(desiredExtent.Width, contentSize.Width), Fit(desiredExtent.Height, contentSize.Height));
         BRect verticalTrack = hasVertical
             ? new BRect(contentBounds.Right, outerBounds.Top, thickness, contentBounds.Height)
             : BRect.Empty;
@@ -875,6 +894,10 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
             Math.Max(0, outerSize.Width - (hasVertical ? thickness : 0)),
             Math.Max(0, outerSize.Height - (hasHorizontal ? thickness : 0)));
 
+    // The extent along an axis: the content's, unless it is within the tolerance of the viewport, which it then fills.
+    private static double Fit(double desiredLength, double viewportLength) =>
+        desiredLength > viewportLength + OverflowTolerance ? desiredLength : viewportLength;
+
     private static bool ResolveInitialVisibility(UiScrollBarVisibility visibility, double desiredLength, double outerLength, double thickness) =>
         ResolveVisibility(visibility, desiredLength, outerLength, outerLength, thickness);
 
@@ -883,7 +906,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
         if (thickness <= 0 || outerLength <= 0 || visibility == UiScrollBarVisibility.Hidden)
             return false;
 
-        return visibility == UiScrollBarVisibility.Visible || desiredLength > viewportLength;
+        return visibility == UiScrollBarVisibility.Visible || desiredLength > viewportLength + OverflowTolerance;
     }
 
     private BRect GetTrackBounds(ScrollbarAxis axis) =>
