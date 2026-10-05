@@ -155,8 +155,10 @@ opaque thumb (ADR 0032's rule). A translucent thumb, as in Light and Dark, adds 
   tall while the slot is twice as wide. The glyph starts `18 x` that ratio from the edge, and the text is clipped
   `22 x` that ratio short of it. At the default
   font this is 18 and 22, and the box draws exactly the commands it drew before. At 200 % it is 36 and 44: the
-  "v" ends 20.7 DIP from the edge and the "^" 14.1 DIP, and the text stops 8 DIP before the arrow. The tests
-  check that, at 150 % and 200 %, both margins grow at least as much as the font.
+  "v" ends 20.7 DIP from the edge and the "^" 14.1 DIP, and the text stops 8 DIP before the arrow. Those are
+  Segoe UI's widths. DejaVu Sans, the face a Linux test run measures with, draws a wider "^", which ends 4.6 DIP
+  from the edge at the default font and 9.2 DIP at 200 %. The tests check that, at 150 % and 200 %, both margins
+  grow at least as much as the font and the arrow ends inside the focus ring, not that it keeps a fixed distance.
 - The slot follows the font even when the application sets `PreferredSize`. A box with a fixed size, such as the
   file and font dialogs' boxes or Mail's, still keeps its arrow clear of the right edge of the frame. At a larger
   font its text gets less width. This is horizontal only: a box whose set height is shorter than a line of its
