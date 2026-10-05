@@ -10,8 +10,10 @@ using Broiler.UI.Standard;
 
 namespace Broiler.UI.ScrollView.Standard;
 
-public sealed class StandardScrollView : UiScrollView
+public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 {
+    private StandardThemeTokens _theme = StandardControlPaint.Theme;
+    private bool _focusWhenScrollable;
     private BSize _contentDesiredExtent;
     private BRect _verticalTrackBounds = BRect.Empty;
     private BRect _horizontalTrackBounds = BRect.Empty;
@@ -33,6 +35,52 @@ public sealed class StandardScrollView : UiScrollView
     public BColor ScrollbarTrack { get; set; } = BColor.FromArgb(0x33, 0x94, 0xA3, 0xB8);
 
     public BColor ScrollbarThumb { get; set; } = BColor.FromArgb(0xAA, 0x7D, 0x8D, 0xA3);
+
+    /// <summary>
+    /// The color of the ring drawn around the scroll view while it has focus and is a keyboard stop
+    /// (<see cref="CanFocus"/>, through <see cref="UiElement.Focusable"/> or
+    /// <see cref="FocusWhenScrollable"/>). Follows the theme's focus ring color; the ring's offset
+    /// and thickness come from the theme as well.
+    /// </summary>
+    public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
+
+    /// <summary>
+    /// Makes the scroll view a keyboard stop of its own while it has something to scroll and nothing
+    /// inside it can take focus, as for a read-only status area or message header: then
+    /// <see cref="CanFocus"/> is true, Tab reaches it, and the arrow, Page, Home and End keys scroll
+    /// it. Off by default, where only <see cref="UiElement.Focusable"/> decides.
+    /// </summary>
+    /// <remarks>
+    /// A scroll view whose content has a control of its own is left to that control, and one with
+    /// nothing to scroll would take focus with nothing to do or announce.
+    /// </remarks>
+    public bool FocusWhenScrollable
+    {
+        get => _focusWhenScrollable;
+        set
+        {
+            ThrowIfDisposed();
+            if (_focusWhenScrollable == value)
+                return;
+
+            _focusWhenScrollable = value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    public override bool CanFocus => base.CanFocus || (FocusWhenScrollable && IsKeyboardScrollStop());
+
+    /// <summary>
+    /// Re-derives the focus ring from <paramref name="theme"/>. The scrollbar colors keep their
+    /// values, so a themed session draws scrollbars exactly as before.
+    /// </summary>
+    public void ApplyTheme(StandardThemeTokens theme)
+    {
+        ArgumentNullException.ThrowIfNull(theme);
+        _theme = theme;
+        FocusRing = theme.FocusRing;
+        Invalidate(UiInvalidationKind.Render);
+    }
 
     public double ScrollbarThickness
     {
@@ -345,6 +393,17 @@ public sealed class StandardScrollView : UiScrollView
         context.RenderList.PopClip();
 
         RenderScrollbars(context);
+
+        // Over the scrollbars, so the ring is whole. Drawn whenever a keyboard stop has focus, as for an
+        // editor, since it shows where the arrow keys go; whatever the last input was. A view that is
+        // no stop draws none: a click on blank form space focuses the scroll view behind it, and a
+        // later shortcut key must not ring the whole form.
+        if (Session?.FocusedElement == this && CanFocus)
+        {
+            BRect ring = StandardControlPaint.Inset(Bounds, _theme.FocusRingOffset);
+            if (!ring.IsEmpty && _theme.FocusRingThickness > 0)
+                context.RenderList.StrokeRect(ring, FocusRing, _theme.FocusRingThickness);
+        }
     }
 
     protected override bool OnInput(UiInputEvent input)
@@ -413,6 +472,38 @@ public sealed class StandardScrollView : UiScrollView
 
     protected override bool ShouldHitTestChildren(BPoint point) =>
         ContentBounds.IsEmpty ? Bounds.Contains(point) : ContentBounds.Contains(point);
+
+    // The same area children are drawn and hit-tested in: the content bounds, beside the scrollbars.
+    protected override BRect? GetClipBoundsForChild(UiElement child) =>
+        ContentBounds.IsEmpty ? Bounds : ContentBounds;
+
+    // The same visibility rules as UiElement.CanFocus, without its Focusable requirement.
+    private bool IsKeyboardScrollStop()
+    {
+        if (IsDisposed || Session is null || Visibility != UiVisibility.Visible)
+            return false;
+        for (UiElement? ancestor = Parent; ancestor is not null; ancestor = ancestor.Parent)
+        {
+            if (ancestor.Visibility != UiVisibility.Visible)
+                return false;
+        }
+
+        bool scrolls = ExtentSize.Height > ViewportSize.Height + 0.5 || ExtentSize.Width > ViewportSize.Width + 0.5;
+        return scrolls && !HasFocusableDescendant(this);
+    }
+
+    private static bool HasFocusableDescendant(UiElement element)
+    {
+        foreach (UiElement child in element.Children)
+        {
+            if (child.Visibility != UiVisibility.Visible || child.IsHiddenFromAccessibility)
+                continue;
+            if (child.CanFocus || HasFocusableDescendant(child))
+                return true;
+        }
+
+        return false;
+    }
 
     private bool HandleWheel(UiInputEvent input)
     {

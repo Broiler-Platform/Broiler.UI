@@ -137,6 +137,25 @@ public sealed class TreeViewTests
     }
 
     [Fact]
+    public void A_Row_Reports_Exactly_One_Expansion_State_Only_When_It_Can_Expand()
+    {
+        var source = new CountingTreeSource();
+        source.Add("/", "/A", "/B", "/C");
+        source.Add("/A", "/A/one");
+        source.Add("/C", "/C/one");
+        using var tree = new StandardTreeView { DataSource = source, VisibleRowCapacity = 10 };
+        tree.Expand(new TreeNodeId("/A"));
+
+        IReadOnlyList<UiSemanticNode> rows = tree.GetSemanticNode().Children;
+        const UiSemanticState expansion = UiSemanticState.Expanded | UiSemanticState.Collapsed;
+
+        Assert.Equal(UiSemanticState.Expanded, rows[0].State & expansion);
+        Assert.Equal(UiSemanticState.None, rows[1].State & expansion);
+        Assert.Equal(UiSemanticState.None, rows[2].State & expansion);
+        Assert.Equal(UiSemanticState.Collapsed, rows[3].State & expansion);
+    }
+
+    [Fact]
     public void Expansion_And_Selection_Survive_A_Data_Source_Refresh()
     {
         CountingTreeSource source = BuildSolution(projects: 3, filesPerProject: 5);

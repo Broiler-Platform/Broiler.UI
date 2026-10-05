@@ -225,6 +225,7 @@ public abstract class UiListView : UiElement, IUiScrollable
         }
 
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        NotifyStructureChanged();
     }
 
     /// <summary>
@@ -365,10 +366,14 @@ public abstract class UiListView : UiElement, IUiScrollable
         return SelectItem(Items[index].Id);
     }
 
+    /// <summary>
+    /// The index of the item with <paramref name="itemId"/> (compared ordinally), or -1. A host that
+    /// keeps item peers by id resolves their current index with this after the items change.
+    /// </summary>
     // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
     // Broiler-Falsified-If: an id that differs from an item id only in letter case is reported as found
     // Broiler-Human:        PENDING
-    protected int IndexOf(string itemId)
+    public int IndexOf(string itemId)
     {
         for (int index = 0; index < Items.Count; index++)
         {
@@ -494,9 +499,6 @@ public abstract class UiListView : UiElement, IUiScrollable
             state |= UiSemanticState.Focused;
 
         BRect bounds = GetItemBoundsForAccessibility(index);
-        if (!ContentBoundsForAccessibility.Intersect(bounds).IsEmpty)
-            state |= UiSemanticState.Visible;
-
         if (ItemPresenter is not null)
         {
             var ctx = new UiListItemSemanticContext
@@ -506,10 +508,26 @@ public abstract class UiListView : UiElement, IUiScrollable
                 Bounds = bounds,
                 Index = index,
             };
-            return ItemPresenter.CreateSemanticNode(ctx);
+            return ClipItemSemanticNode(ItemPresenter.CreateSemanticNode(ctx), bounds);
         }
 
-        return new UiSemanticNode(UiSemanticRole.ListItem, item.Text, bounds, state, []);
+        return ClipItemSemanticNode(new UiSemanticNode(UiSemanticRole.ListItem, item.Text, bounds, state, []), bounds);
+    }
+
+    /// <summary>
+    /// Fits an item's node, as its presenter made it, to what can be seen. An item partly in view is
+    /// Visible with the part of <paramref name="itemBounds"/> inside the list's content area and its
+    /// ancestors' clips as its bounds. An item entirely out of view is Offscreen rather than Visible
+    /// and keeps its full bounds, which say where scrolling would bring it. The presenter's name and
+    /// other states are kept.
+    /// </summary>
+    protected UiSemanticNode ClipItemSemanticNode(UiSemanticNode node, BRect itemBounds)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        BRect visible = itemBounds.Intersect(ContentBoundsForAccessibility).Intersect(GetVisibleBounds());
+        return visible.IsEmpty
+            ? node with { Bounds = itemBounds, State = (node.State | UiSemanticState.Offscreen) & ~UiSemanticState.Visible }
+            : node with { Bounds = visible, State = (node.State | UiSemanticState.Visible) & ~UiSemanticState.Offscreen };
     }
 
     protected virtual double GetItemHeightForAnchoring() => 26.0;

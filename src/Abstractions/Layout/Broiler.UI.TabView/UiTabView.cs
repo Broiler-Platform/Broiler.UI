@@ -140,6 +140,7 @@ public abstract class UiTabView : UiElement
         UpdateContentAccessibility();
 
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        NotifyStructureChanged();
         return item;
     }
 
@@ -219,6 +220,7 @@ public abstract class UiTabView : UiElement
         TabRemoved?.Invoke(this, new UiTabChangedEventArgs(tab));
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange |
             UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        NotifyStructureChanged();
         return true;
     }
 
@@ -262,6 +264,7 @@ public abstract class UiTabView : UiElement
 
         UpdateContentAccessibility();
         Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        NotifyStructureChanged();
         return true;
     }
 
@@ -345,9 +348,17 @@ public abstract class UiTabView : UiElement
         }
     }
 
+    /// <summary>
+    /// Where the header of the tab at <paramref name="index"/> is drawn, or <see cref="BRect.Empty"/>
+    /// when the index is out of range, the view is not laid out, or it draws no header for the tab.
+    /// Tab semantic nodes use it as their bounds, and a host uses it to place and hit-test tab items.
+    /// </summary>
+    public virtual BRect GetTabHeaderBounds(int index) => BRect.Empty;
+
     private IReadOnlyList<UiSemanticNode> CreateTabSemanticNodes()
     {
         var nodes = new List<UiSemanticNode>(_tabs.Count);
+        BRect visible = GetVisibleBounds();
         for (int index = 0; index < _tabs.Count; index++)
         {
             UiTabItem tab = _tabs[index];
@@ -359,12 +370,26 @@ public abstract class UiTabView : UiElement
             if (index >= VisibleTabCapacity)
                 state |= UiSemanticState.Offscreen;
 
+            // A tab is placed at its header, clipped like the view; without a header, on the view. A
+            // header entirely out of view keeps its full bounds, like an item scrolled out of a list.
+            BRect bounds = Bounds;
+            BRect header = GetTabHeaderBounds(index);
+            if (!header.IsEmpty)
+            {
+                bounds = header.Intersect(visible);
+                if (bounds.IsEmpty)
+                {
+                    bounds = header;
+                    state |= UiSemanticState.Offscreen;
+                }
+            }
+
             // Dirty state is spoken, not just drawn. A marker a screen reader
             // cannot see is a marker half the users do not have.
             string name = tab.IsDirty
                 ? $"{tab.Header}, unsaved changes, {index + 1} of {_tabs.Count}"
                 : $"{tab.Header}, {index + 1} of {_tabs.Count}";
-            nodes.Add(new UiSemanticNode(UiSemanticRole.Generic, name, Bounds, state, []));
+            nodes.Add(new UiSemanticNode(UiSemanticRole.Generic, name, bounds, state, []));
         }
 
         return nodes;
