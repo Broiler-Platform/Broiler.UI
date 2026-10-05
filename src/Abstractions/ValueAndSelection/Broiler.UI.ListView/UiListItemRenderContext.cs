@@ -13,6 +13,7 @@ public sealed class UiListItemRenderContext
 {
     private BColor? _selectedForeground;
     private BColor? _selectedSecondaryForeground;
+    private BColor? _accentText;
 
     public required BRenderList RenderList { get; init; }
     public required BRect Bounds { get; init; }
@@ -49,6 +50,18 @@ public sealed class UiListItemRenderContext
     }
 
     /// <summary>
+    /// A shade of <see cref="Accent"/> chosen to read on <see cref="Background"/> and on
+    /// <see cref="SelectedBackground"/>, for a mark drawn in the accent where the accent itself does not stand
+    /// out from the fill under it, such as an unread dot on a selected row. It is <see cref="Accent"/> unless the
+    /// list gives it a color of its own.
+    /// </summary>
+    public BColor AccentText
+    {
+        get => _accentText ?? Accent;
+        init => _accentText = value;
+    }
+
+    /// <summary>
     /// A copy of this context that renders <paramref name="item"/> instead, with every color, font, bound
     /// and state carried over, including members added after the caller was written. A presenter that adapts
     /// the item it was given and hands it to another presenter should use this rather than copying the
@@ -73,6 +86,7 @@ public sealed class UiListItemRenderContext
             IsHighContrast = IsHighContrast,
             _selectedForeground = _selectedForeground,
             _selectedSecondaryForeground = _selectedSecondaryForeground,
+            _accentText = _accentText,
         };
     }
 }

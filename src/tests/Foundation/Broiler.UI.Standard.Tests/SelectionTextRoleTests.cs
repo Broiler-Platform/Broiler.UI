@@ -137,7 +137,10 @@ public sealed class SelectionTextRoleTests
         Assert.Equal(theme.Text, TextColor(renderList, "Ann"));
         Assert.Equal(theme.TextMuted, TextColor(renderList, "Agenda"));
         Assert.Equal(theme.TextMuted, TextColor(renderList, "09:00"));
-        Assert.Contains(renderList.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Rect.Width == 6 && fill.Color == theme.Accent);
+        // The dot is a mark, so it keeps the accent wherever that stands out from the selection fill. Dark's accent
+        // does not (2.76:1), so its dot takes the accent text shade (ADR 0034).
+        BColor dot = theme.Name == "Dark" ? theme.AccentText : theme.Accent;
+        Assert.Contains(renderList.Commands.OfType<BRenderCommand.FillRect>(), fill => fill.Rect.Width == 6 && fill.Color == dot);
 
         // A foreground the application sets after the theme still reaches the selected row, as it always has.
         BColor custom = BColor.FromArgb(0xFF, 0x80, 0x10, 0x10);
@@ -204,6 +207,7 @@ public sealed class SelectionTextRoleTests
             SelectedSecondaryForeground = BColor.Red,
             FocusRing = BColor.Blue,
             Accent = BColor.FromArgb(0xFF, 0xFF, 0xD7, 0x00),
+            AccentText = BColor.FromArgb(0xFF, 0xFF, 0xEE, 0x80),
             IsHighContrast = true,
         };
         var other = new UiListItem("b", "Bravo");
@@ -216,8 +220,8 @@ public sealed class SelectionTextRoleTests
         Assert.Equal(context.State, copy.State);
         Assert.Equal(context.Font, copy.Font);
         Assert.Equal(
-            [context.Foreground, context.SecondaryForeground, context.Background, context.SelectedBackground, context.SelectedForeground, context.SelectedSecondaryForeground, context.FocusRing, context.Accent],
-            [copy.Foreground, copy.SecondaryForeground, copy.Background, copy.SelectedBackground, copy.SelectedForeground, copy.SelectedSecondaryForeground, copy.FocusRing, copy.Accent]);
+            [context.Foreground, context.SecondaryForeground, context.Background, context.SelectedBackground, context.SelectedForeground, context.SelectedSecondaryForeground, context.FocusRing, context.Accent, context.AccentText],
+            [copy.Foreground, copy.SecondaryForeground, copy.Background, copy.SelectedBackground, copy.SelectedForeground, copy.SelectedSecondaryForeground, copy.FocusRing, copy.Accent, copy.AccentText]);
         Assert.True(copy.IsHighContrast);
 
         // Unset selected colors stay unset, so they keep following the copied foregrounds.
@@ -237,6 +241,7 @@ public sealed class SelectionTextRoleTests
         };
         Assert.Equal(BColor.Black, plain.WithItem(other).SelectedForeground);
         Assert.Equal(BColor.Green, plain.WithItem(other).SelectedSecondaryForeground);
+        Assert.Equal(plain.Accent, plain.WithItem(other).AccentText);
     }
 
     /// <summary>

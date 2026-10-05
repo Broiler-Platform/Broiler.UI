@@ -56,6 +56,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         FocusRing = theme.FocusRing;
         BorderColor = theme.Border;
         Accent = theme.Accent;
+        AccentText = theme.AccentText;
         ScrollbarTrack = theme.ScrollbarTrack;
         ScrollbarThumb = theme.ScrollbarThumb;
         // The token says so for the presets and system palettes; the luminance test still recognizes a
@@ -79,6 +80,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
     private BColor _focusRing = StandardControlPaint.Focus;
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _accent = StandardControlPaint.Accent;
+    private BColor _accentText = StandardControlPaint.AccentText;
     private BColor _scrollbarTrack = StandardControlPaint.ScrollbarTrack;
     private BColor _scrollbarThumb = StandardControlPaint.ScrollbarThumb;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
@@ -104,6 +106,23 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         {
             if (_accent == value) return;
             _accent = value;
+            Invalidate(UiInvalidationKind.Render);
+        }
+    }
+
+    /// <summary>
+    /// The shade of <see cref="Accent"/> a row presenter draws an accent mark in where the accent does not stand
+    /// out from the row's fill (<see cref="UiListItemRenderContext.AccentText"/>), as the two-line presenter's
+    /// unread dot on a selected row in Dark. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.AccentText"/>, which reads on the surface and on the selection fill.
+    /// </summary>
+    public BColor AccentText
+    {
+        get => _accentText;
+        set
+        {
+            if (_accentText == value) return;
+            _accentText = value;
             Invalidate(UiInvalidationKind.Render);
         }
     }
@@ -372,6 +391,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
                 SelectedSecondaryForeground = SelectedSecondaryForeground,
                 FocusRing = FocusRing,
                 Accent = Accent,
+                AccentText = AccentText,
                 IsHighContrast = _isHighContrast,
             };
 
