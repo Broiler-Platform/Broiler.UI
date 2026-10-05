@@ -9,7 +9,7 @@ namespace Broiler.UI.ComboBox;
 // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
 // Broiler-Falsified-If: SelectIndex stores an index below -1 or at least Items.Count as SelectedIndex
 // Broiler-Human:        PENDING
-public abstract class UiComboBox : UiElement
+public abstract class UiComboBox : UiElement, IUiExpandable
 {
     private IReadOnlyList<UiComboBoxItem> _items = [];
     private int _selectedIndex = -1;
@@ -216,8 +216,14 @@ public abstract class UiComboBox : UiElement
             state |= UiSemanticState.Enabled;
         if (Session?.FocusedElement == this)
             state |= UiSemanticState.Focused;
-        if (IsDropDownOpen)
-            state |= UiSemanticState.Expanded;
+        state |= IsDropDownOpen ? UiSemanticState.Expanded : UiSemanticState.Collapsed;
         return state;
     }
+
+    // The drop-down is the content a combo box shows and hides.
+    bool IUiExpandable.IsExpanded => IsDropDownOpen;
+
+    bool IUiExpandable.Expand() => OpenDropDown();
+
+    bool IUiExpandable.Collapse() => CloseDropDown();
 }

@@ -236,6 +236,13 @@ public abstract class UiScrollView : UiElement, IUiScrollable
         return false;
     }
 
+    /// <summary>
+    /// Children are clipped to the viewport: <see cref="ViewportSize"/> at the scroll view's origin.
+    /// Content scrolled out of it reports empty visible bounds and the Offscreen state.
+    /// </summary>
+    protected override BRect? GetClipBoundsForChild(UiElement child) =>
+        new BRect(Bounds.Left, Bounds.Top, ViewportSize.Width, ViewportSize.Height);
+
     // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=0; Fingerprint=TBF
     // Broiler-Falsified-If: an extent narrower than the viewport yields a negative maximum horizontal offset
     // Broiler-Human:        PENDING

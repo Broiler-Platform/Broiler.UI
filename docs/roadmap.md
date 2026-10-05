@@ -85,7 +85,11 @@ sequencing and exit gates are in
   reduced-motion behavior.
 - Complete semantic relationships and live regions, automated accessibility
   checks, screen-reader scripts, pseudo-localization, bidi/RTL, and fractional
-  DPI/reflow tests.
+  DPI/reflow tests. Names, labels, and hidden content (ADR
+  [0027](adr/0027-accessible-names-labels-and-hidden-content.md)) and disclosure
+  state, described-by and error relations, structure events, and clip-aware
+  bounds (ADR [0028](adr/0028-disclosure-validation-structure-and-visible-bounds.md))
+  are in place; host mapping and screen-reader evidence remain.
 - Publish the design-system, interaction, content, accessibility, and
   per-control maturity references after the behavior is enforceable.
 

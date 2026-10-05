@@ -40,4 +40,5 @@ Broiler.UI decisions, not product decisions: the product context is in
 | [0025](0025-host-window-breakout.md) | Host-window break-out for secondary windows |
 | [0026](0026-owner-drawn-window-chrome.md) | Owner-drawn window chrome and break-out by default |
 | [0027](0027-accessible-names-labels-and-hidden-content.md) | Accessible names, label relations, and hidden content |
+| [0028](0028-disclosure-validation-structure-and-visible-bounds.md) | Disclosure state, validation relations, structure events, and visible bounds |
 | [0029](0029-selection-text-high-contrast-and-text-fit.md) | Selection text, state fills, the high-contrast flag, and controls that fit larger text |

@@ -9,6 +9,13 @@ using Broiler.UI.Standard;
 namespace Broiler.UI.Forms.Standard;
 
 /// <summary>A labeled control with optional description and a persistent, literal validation message.</summary>
+/// <remarks>
+/// The control carries the field's semantics, since it is what takes focus: the label names it
+/// (<see cref="UiElement.LabeledBy"/>), the description describes it (<see cref="UiElement.DescribedBy"/>),
+/// and while <see cref="SetError"/> shows a message it is the control's
+/// <see cref="UiElement.ErrorMessage"/>, so the control reports Invalid and its semantic description
+/// starts with the error. See Broiler.UI ADR 0028.
+/// </remarks>
 public sealed class FormField : UiElement, IFormField, IStandardThemedControl
 {
     private readonly StandardPanel _layout = new() { Spacing = 4 };
@@ -29,18 +36,39 @@ public sealed class FormField : UiElement, IFormField, IStandardThemedControl
         _layout.AddChild(_description);
         _layout.AddChild(_error);
         AddChild(_layout);
+        if (description.Length > 0) control.DescribedBy ??= _description;
         if (control is StandardEdit edit) edit.TextChanged += (_, _) => SetError(null);
     }
 
     public StandardLabel Label { get; }
     public UiElement Control { get; }
     public string Error { get; private set; } = "";
+
+    /// <summary>
+    /// Whether the field must be filled in. This is the control's <see cref="UiElement.IsRequired"/>:
+    /// the control reports the Required state, the field group does not. Validation itself stays
+    /// with the application.
+    /// </summary>
+    public override bool IsRequired
+    {
+        get => Control.IsRequired;
+        set => Control.IsRequired = value;
+    }
+
     public void SetError(string? message)
     {
         if (IsDisposed || Error == (message ?? "")) return;
         Error = message ?? "";
         _error.Text = Error.Length == 0 ? "" : "Error: " + Error;
         _error.Visibility = Error.Length == 0 ? UiVisibility.Collapsed : UiVisibility.Visible;
+        // The error belongs to the control, which has the focus. It is not announced here: the form's
+        // own status reports the failure, and a second announcement would repeat it.
+        if (!Control.IsDisposed)
+        {
+            if (Error.Length > 0) Control.ErrorMessage = _error;
+            else if (Control.ErrorMessage == _error) Control.ErrorMessage = null;
+            Control.Invalidate(UiInvalidationKind.Semantic);
+        }
         Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
