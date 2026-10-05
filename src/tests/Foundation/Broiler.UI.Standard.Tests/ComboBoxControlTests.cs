@@ -122,11 +122,15 @@ public sealed class ComboBoxControlTests
 
             // The glyph is a glyph of the font and grows with it; the room beside it, to the frame on one side and
             // to the clipped text on the other, grows as much. A fixed slot let a 200 % arrow run to within 3 DIP
-            // of the frame, and an open one past it.
+            // of the frame, and an open one past it. How wide the glyph is depends on the platform's font: DejaVu
+            // Sans, which Linux falls back to, draws a "^" a fifth wider than Segoe UI, so the room is compared with
+            // the room at the default font and with the focus ring the box draws, not with a fixed distance.
             double margin = large.Bounds.Right - large.ArrowRight;
             double normalMargin = normal.Bounds.Right - normal.ArrowRight;
             Assert.True(margin >= normalMargin * growth - 0.05, $"{large.Arrow.Text.Text}: {margin:F2} DIP to the frame, {normalMargin:F2} at the default font");
-            Assert.True(large.ArrowRight <= large.Bounds.Right - 8, "The arrow stays well clear of the frame and the focus ring inside it.");
+            Assert.True(
+                large.ArrowRight <= large.FocusRing.Rect.Right - large.FocusRing.Thickness,
+                $"{large.Arrow.Text.Text} ends at {large.ArrowRight:F2}, the focus ring starts at {large.FocusRing.Rect.Right - large.FocusRing.Thickness:F2}");
 
             double gap = large.Arrow.Origin.X - large.TextClip.Right;
             double normalGap = normal.Arrow.Origin.X - normal.TextClip.Right;
@@ -134,14 +138,14 @@ public sealed class ComboBoxControlTests
         }
     }
 
-    private sealed record ArrowFrame(BRect Bounds, BRect TextClip, BRenderCommand.DrawText Arrow, BFontStyle Font)
+    private sealed record ArrowFrame(BRect Bounds, BRect TextClip, BRenderCommand.DrawText Arrow, BRenderCommand.StrokeRoundedRect FocusRing, BFontStyle Font)
     {
         public double ArrowRight => Arrow.Origin.X + BTextMeasurer.MeasureAdvance(Arrow.Text.Text, Font);
     }
 
     /// <summary>
-    /// Draws a 200 DIP combo box showing a long item, closed or with its drop-down open, and returns its bounds, the
-    /// clip its text is drawn in, and the arrow.
+    /// Draws a focused 200 DIP combo box showing a long item, closed or with its drop-down open, and returns its
+    /// bounds, the clip its text is drawn in, the arrow and the focus ring.
     /// </summary>
     private static ArrowFrame RenderArrow(StandardThemeTokens theme, bool open)
     {
@@ -154,6 +158,7 @@ public sealed class ComboBoxControlTests
         Assert.True(comboBox.SelectIndex(0));
         session.AddRoot(new WidthRoot(comboBox, 200));
         session.RenderFrame();
+        session.SetFocus(comboBox);
         if (open)
             Assert.True(comboBox.OpenDropDown());
 
@@ -172,7 +177,10 @@ public sealed class ComboBoxControlTests
         BRenderCommand.DrawText arrow = Assert.Single(
             renderList.Commands.OfType<BRenderCommand.DrawText>(),
             command => command.Text.Text is "v" or "^");
-        return new ArrowFrame(comboBox.Bounds, textClip.Value, arrow, comboBox.Font);
+        BRenderCommand.StrokeRoundedRect ring = Assert.Single(
+            renderList.Commands.OfType<BRenderCommand.StrokeRoundedRect>(),
+            command => command.Color == comboBox.FocusRing);
+        return new ArrowFrame(comboBox.Bounds, textClip.Value, arrow, ring, comboBox.Font);
     }
 
     private static BSize Measure(UiElement element)
