@@ -81,6 +81,68 @@ public sealed class ScrollViewControlTests
     }
 
     [Fact]
+    public void Standard_ScrollView_Leaves_Room_Beside_Width_Constrained_Content_Inside_Its_Clip()
+    {
+        var scrollView = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            Constraint = UiScrollConstraint.ConstrainWidth,
+            HorizontalContentInset = 2,
+        };
+        var content = new WidthFillingElement(300);
+        scrollView.AddChild(content);
+
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out BRenderList renderList);
+
+        // The viewport, the bar and the clip stay where they are; the content is 2 DIP short of each side.
+        Assert.True(scrollView.HasVerticalScrollbar);
+        Assert.False(scrollView.HasHorizontalScrollbar);
+        Assert.Equal(new BRect(0, 0, 90, 100), scrollView.ContentBounds);
+        Assert.Equal(86, content.MeasuredWidth);
+        Assert.Equal(new BRect(2, 0, 86, 300), content.Bounds);
+        Assert.Contains(renderList.Commands.OfType<BRenderCommand.PushClip>(), clip => clip.Rect == scrollView.ContentBounds);
+        Assert.Contains(renderList.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Rect == new BRect(90, 0, 10, 100));
+        Assert.Equal(90, scrollView.ExtentSize.Width);
+    }
+
+    [Fact]
+    public void Standard_ScrollView_Keeps_The_Room_At_Both_Ends_Of_Content_That_Scrolls_Sideways()
+    {
+        var scrollView = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            VerticalScrollBarVisibility = UiScrollBarVisibility.Hidden,
+            HorizontalContentInset = 3,
+        };
+        var content = new FixedElement(new BSize(140, 80));
+        scrollView.AddChild(content);
+
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out _);
+
+        Assert.Equal(146, scrollView.ExtentSize.Width);
+        Assert.Equal(new BRect(3, 0, 140, 90), content.Bounds);
+
+        scrollView.SetOffset(new BPoint(scrollView.ExtentSize.Width - scrollView.ViewportSize.Width, 0));
+        scrollView.Arrange(new BRect(0, 0, 100, 100));
+        Assert.Equal(scrollView.ContentBounds.Right - 3, content.Bounds.Right, 6);
+
+        // Brought into view, a rectangle at the content's left edge keeps the room beside it.
+        Assert.True(scrollView.MakeVisible(new BRect(content.Bounds.Left, 10, 20, 20)));
+        Assert.Equal(0, scrollView.HorizontalOffset);
+    }
+
+    [Fact]
+    public void Standard_ScrollView_Content_Inset_Is_Zero_Unless_Set_And_Never_Negative()
+    {
+        var scrollView = new StandardScrollView();
+
+        Assert.Equal(0, scrollView.HorizontalContentInset);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.HorizontalContentInset = -1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.HorizontalContentInset = double.NaN);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.HorizontalContentInset = double.PositiveInfinity);
+    }
+
+    [Fact]
     public void Standard_ScrollView_Clicking_Vertical_Track_Pages_Content()
     {
         var scrollView = new StandardScrollView
@@ -272,6 +334,18 @@ public sealed class ScrollViewControlTests
             InputDeviceId.FromOpaqueValue("mouse"),
             new InputTimestamp(sequence, TimeSpan.TicksPerSecond, "scrollview-test"),
             sequence);
+
+    /// <summary>As wide as it is offered, and records the width.</summary>
+    private sealed class WidthFillingElement(double height) : UiElement
+    {
+        public double MeasuredWidth { get; private set; }
+
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            MeasuredWidth = availableSize.Width;
+            return new BSize(availableSize.Width, height);
+        }
+    }
 
     private sealed class FixedElement : UiElement
     {
