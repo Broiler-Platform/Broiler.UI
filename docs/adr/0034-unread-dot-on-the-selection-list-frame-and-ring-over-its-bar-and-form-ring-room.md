@@ -38,6 +38,13 @@ build; the earlier whole-view focus ring hid some of them.
   stretch of its ring again; the list did not. Hosting's README records it as a known gap, and adds that "a
   selected row's highlight fill meets the thumb".
 
+A review of the first fixes found three more problems of the same kind, which this ADR also covers: the
+stretch of ring drawn again over the thumb was clipped to the thumb's rectangle, not its pill, and erased the
+ring beside the thumb's rounded ends (the scroll view had done so since ADR 0033); a field the keyboard
+brought into view was placed flush with the top or the bottom of the form's viewport, which cut the outer
+half of its ring there; and the list's accent text did not follow an accent the application set after the
+theme.
+
 ## Decision
 
 ### The unread dot stands out from the fill it is drawn on
@@ -46,7 +53,10 @@ build; the earlier whole-view focus ring hid some of them.
   `SelectedBackground`. Like the selected text colors (ADR 0029) it is not `required`: unless the caller sets it,
   it is `Accent`. `WithItem` copies it.
 - **`StandardListView.AccentText`** is passed to every row. `ApplyTheme` sets it to the theme's `AccentText`
-  (ADR 0031); an unthemed list takes the shared palette's.
+  (ADR 0031); an unthemed list takes the shared palette's. Either belongs to the accent it was chosen for, as
+  the theme token's does: once the application sets `Accent` to another color, `AccentText` is that accent,
+  so a brand accent is not paired with Dark's #7AB7FF, and a brand accent lost on the selection fill gives
+  the dot the row's text color. A value the application sets is its own until the next theme.
 - The two-line presenter picks the dot's color against the fill under it, the selection fill on a selected row
   and the list's background otherwise:
   1. on a selected row whose selection has a text color of its own, that color, as before;
@@ -95,10 +105,33 @@ build; the earlier whole-view focus ring hid some of them.
   | A full-width field beside the bar | 12 to 616 | 12 to 616 |
   | The field's ring, outer edges | 11 to 629, cut to 12 to 628 | 11 to 629, whole; beside the bar 11 to 617, whole |
 
-- A `FormViewport` used on its own lays its content out 1 DIP short of each side, 2 DIP narrower in all.
-- An application that wants the old geometry sets `Content.Scroll.HorizontalContentInset`, and that of the
-  feedback viewport (the surface's last `FormViewport` child), back to 0; `FormSurface` then places that
-  viewport in its margins as before.
+- **`StandardScrollView.VerticalContentInset`** (DIP, default 0) is the same room above and below the content.
+  The extent grows by it at each end, so the first and the last control keep it when scrolled to either end;
+  with `ConstrainHeight` the content is measured and arranged that much shorter. `MakeVisible` keeps it, so a
+  control the keyboard brings into view from below ends 1 DIP above the clip's bottom, and one brought in
+  from above starts 1 DIP below its top. At 0 the view lays out exactly as before.
+- **`FormViewport`** sets it to 1 DIP as well, and keeps it when it shows the focused control again after the
+  viewport shrinks. **`FormSurface.Reveal`** keeps it too.
+- **`FormSurface`** arranges both viewports 1 DIP taller at each end, into the space around them: the 12 DIP
+  top margin, the 8 DIP above the action strip, the 4 DIP above the feedback and the 12 DIP bottom margin
+  (never more than 4 DIP). The fields keep their places and the scroll range is unchanged, so a field brought
+  into view ends where it did, and only the clip and the vertical bar grow by 1 DIP at each end. At 640 x 480
+  with twelve fields and no feedback, before this ADR and now:
+
+  | | Before | Now |
+  |---|---|---|
+  | Form viewport, and its clip | y 12 to 418 | y 11 to 419 |
+  | The first field's edit, unscrolled | y 36 to 68 | y 36 to 68 |
+  | An edit brought into view from below (Tab) | y 386 to 418, ring to 419, cut at 418 | the same, ring whole |
+  | The last edit, scrolled to the end | y 386 to 418, ring cut | the same, ring whole |
+  | An edit brought into view from above (Shift+Tab) | y 12 to 44, ring from 11, cut at 12 | the same, ring whole |
+  | Shown feedback's viewport | from the strip's bottom to 12 DIP above the bottom | from 3 DIP below the strip to 11 DIP above the bottom; banners 4 DIP below the strip |
+
+- A `FormViewport` used on its own lays its content out 1 DIP short of each edge, 2 DIP narrower in all, and
+  1 DIP lower, with 2 DIP more to scroll.
+- An application that wants the old geometry sets `Content.Scroll.HorizontalContentInset` and
+  `VerticalContentInset`, and those of the feedback viewport (the surface's last `FormViewport` child), back
+  to 0; `FormSurface` then places that viewport in its margins as before.
 
 ### The list's frame over its bar
 
@@ -109,12 +142,15 @@ build; the earlier whole-view focus ring hid some of them.
   fill is inset 2 DIP).
 - The frame stays a 1 DIP stroke centered on the list's bounds. Where a neighbor painted later covers its outer
   half, as Mail's splitter does on the right, the inner half is what shows, on the bar as on every other side.
-- **The notch in Mail's toolbar line is not the list's.** `StandardToolbar` strokes its 1 DIP frame centered on
-  its bounds, so the lower half of its bottom line lies in the space below it. Mail docks its split container
-  there, and `StandardSplitter` fills its own bounds with `SurfaceAlt` after the toolbar is drawn. The list and
-  the reader pane stroke their own top frames over the line, so the notch shows only above the 8 DIP splitter
-  column. Removing it in the toolkit means stroking frames inside their bounds, which moves every framed control's
-  edge by 0.5 DIP, or a splitter that leaves its top row alone; neither is done here (see "Not covered").
+- **The notch in Mail's toolbar line is not the list's; it is the splitter's.** `StandardToolbar` strokes its
+  1 DIP frame centered on its bounds, so the lower half of its bottom line lies in the space below it.
+  `StandardSplitter` fills its whole bounds with `SurfaceAlt`, drawn after the toolbar, and so paints over that
+  half wherever a split container is docked directly under a toolbar. The list and the reader pane stroke their
+  own top frames over the line, so the notch shows only above the 8 DIP splitter column. Mail's arrangement, a
+  stock `StandardSplitContainer` docked under a stock `StandardToolbar`, is ordinary composition; every consumer
+  that docks one under the other gets the notch. It stays open here (see "Not covered"): a splitter that leaves
+  the outer half-DIP of its edges to its neighbors, or frames stroked inside their bounds, would remove it, and
+  either changes what every split container or every framed control draws.
 
 ### Space between the action strip and the feedback
 
@@ -126,11 +162,25 @@ build; the earlier whole-view focus ring hid some of them.
 
 ### The list's focus ring across an opaque thumb
 
-- After its ring, a focused list strokes the ring again clipped to the thumb, in
+- After its ring, a focused list strokes the ring again over the thumb, in
   `StandardControlPaint.FocusRingColor(FocusRing, ScrollbarThumb, Background)`: the list's background where the
-  ring is under 3:1 on an opaque thumb (ADR 0032's rule, as the scroll view applies it in ADR 0033). The clip
-  covers every stretch of the ring over the thumb, the right side and, with the thumb at either end, the corner and
-  the top or bottom line.
+  ring is under 3:1 on an opaque thumb (ADR 0032's rule, as the scroll view applies it in ADR 0033).
+- **The stretch is clipped to the thumb's pill, not its rectangle.** The thumb is filled with `PillRadius`, a
+  radius of 6 DIP on the 12 DIP bar, and the ring runs 2 DIP inside the right edge, where the rectangle's
+  corners lie outside the pill for 1.1 to 2.0 DIP at each end of the thumb. A clip to the rectangle redrew the
+  ring there over the track, in the background color, which is the track's color in the Hosting palettes and
+  the high-contrast presets: a gap of about 1.5 DIP at each end, and the same at the left end of the top or
+  bottom line with the thumb at either end of the track. The rectangle is the only clip a render list has, so
+  **`StandardControlPaint.PillAreasUnderRing(pill, ring, thickness)`** gives rectangles inside the pill whose
+  corners sit where the outer edge or the middle of a side of the ring crosses its outline (two with the thumb
+  part way down, four at either end), and the stretch is drawn in each. Nothing beside the pill is drawn over;
+  every point of the middle of the stroke that lies on the pill is drawn again, the corner arc included. Where
+  a side crosses a rounded end, a sliver at most half the stroke wide and about 0.5 DIP long (about 1 DIP for
+  the scroll view's 2 DIP ring) stays in the ring's color on the thumb, so at least half the ring's width shows
+  along the whole crossing.
+- **The scroll view does the same.** Its stretch over each thumb (ADR 0033) was clipped to the thumb's
+  rectangle too and left the same gaps in the high-contrast presets, whose track is the surface color; it now
+  takes the same clips, for an upright and a lying thumb.
 - Unlike the scroll view's, whose translucent Light and Dark thumbs never call for it, the list's opaque role
   thumbs in Light and Dark are mid tones that neither the ring nor the background reaches 3:1 on. The stretch is
   drawn again only where the background reaches 3:1 on the thumb, so the Light and Dark lists draw as before.
@@ -163,48 +213,71 @@ build; the earlier whole-view focus ring hid some of them.
   - Every `StandardListView` strokes its frame after its rows and its bar. In every palette the frame's right
     side is now drawn along the bar.
   - A focused list in a high-contrast preset or a Hosting contrast palette draws the stretch of its ring over the
-    thumb in the surface color.
+    thumb in the surface color, on the thumb's pill alone. A focused scroll view in a high-contrast preset now
+    clips its stretch to the pill too, and keeps its ring beside the thumb's rounded ends.
+  - The form's and the feedback's viewports also reach 1 DIP into the space above and below them; a field the
+    keyboard, `Reveal` or a shrinking viewport brings into view keeps 1 DIP for its ring at the edge it meets,
+    in the same place as before.
+  - A list given an `Accent` after its theme draws its accent marks in that accent or the row's text color, not
+    in the theme's accent text.
 - New API: `UiListItemRenderContext.AccentText`, `StandardListView.AccentText`,
-  `StandardScrollView.HorizontalContentInset`. All additive; the defaults keep the earlier behavior where noted.
+  `StandardScrollView.HorizontalContentInset`, `StandardScrollView.VerticalContentInset` and
+  `StandardControlPaint.PillAreasUnderRing`. All additive; the defaults keep the earlier behavior where noted.
 - Unchanged: scrollbar track and thumb colors, the splitter grip, input border colors, every ring's position and
   thickness, the list's bar geometry and hit testing, and `StandardScrollView` with no inset.
 - Tests: `UnreadDotContrastTests` (every preset, text-scaled copies, the four Hosting-shaped palettes and a dark
   highlight); `ListViewFrameAndFocusRingTests` (the frame over the bar in eight palettes, the ring across the thumb
   in the four Hosting-shaped palettes and both high-contrast presets, Light and Dark unchanged, the selection's
-  gap); `CompactFormsTests` (a full-width field's ring inside the clip with and without a bar, fields aligned with
-  the strip, the 4 DIP space and that Measure counts it); `ScrollViewControlTests` (the inset when constrained to
-  the width and when scrolling sideways, `MakeVisible`, argument checks). `HostingShapedPalettes` builds the
-  Windows 11 contrast palettes with the roles `WindowsTheme.CreateHighContrastTheme` gives them.
+  gap, with the thumb at the top, part way down and at the bottom, each clip inside the pill and the middle of the
+  ring on the pill all drawn again); `ScrollViewFocusTests` (the same for the scroll view's upright and lying
+  thumbs); `UnreadDotContrastTests` also covers an accent set after the theme and the accent text's pairing;
+  `CompactFormsTests` (a full-width field's ring inside the clip with and without a bar, fields aligned with
+  the strip, every field brought into view by Tab and Shift+Tab, by `Reveal` and by a shrinking viewport with its
+  whole ring, fields in their places, the 4 DIP space and that Measure counts it); `ScrollViewControlTests` (the
+  inset when constrained to the width or the height, when scrolling sideways or up and down, `MakeVisible`,
+  argument checks). `HostingShapedPalettes` builds the Windows 11 contrast palettes with the roles
+  `WindowsTheme.CreateHighContrastTheme` gives them; `PillGeometry` checks clips against a thumb's pill.
   `SelectionTextRoleTests.Presets_Draw_Selected_Rows_As_Before` now expects Dark's accent text dot, and
-  `TabViewHiddenContentLayoutTests` the wider viewport.
+  `TabViewHiddenContentLayoutTests` the wider viewport and the feedback viewport's room at the bottom.
 - Consumer follow-ups:
-  - **Broiler.Mail:** no code change is needed.
-    - `MailMessageItemPresenter` should hand its adapted row on with `context.WithItem(...)`, as the adoption
-      branch does, so the row keeps `AccentText`. A presenter that copies the members one by one drops it; the
-      Dark selected dot then falls back to the selected text color (#F2F4F8, 11.9:1), which still reads but is not
-      the accent.
+  - **Broiler.Mail:** one small code change, then tests and baselines.
+    - `MailMessageItemPresenter` on `main` (and every Mail worktree but the adoption branch) builds a new
+      `UiListItemRenderContext` member by member and drops `AccentText` (and the selected text colors). It should
+      hand its adapted row on with `context.WithItem(...)`, as the adoption branch
+      (`claude/ui-09-upstream-adoption`) already does. Until then the Dark selected unread dot falls back to the
+      row's text color (#F2F4F8, 11.9:1 on the selection), which reads but is not the accent. A native acceptance
+      pass should expect #7AB7FF only with the `WithItem` presenter, and #F2F4F8 without it.
     - Screenshot and pixel baselines change: the Dark selected unread dot, the message list's right edge and its
-      bottom-right corner (no stray arc), the form scrollbars (1 DIP to the right), the first banner (4 DIP lower)
-      and a focused full-width field's ring (whole). In the contrast themes, a focused list shows its ring across
-      the thumb.
-    - Layout tests that pin a form viewport's width (now 2 DIP wider) or its height with feedback shown (4 DIP
-      shorter) need the new values; field bounds are unchanged.
-    - The toolbar notch above the splitter is Mail's composition: Mail can leave at least 1 DIP between the inbox
-      toolbar and the split container (for example spacing on the docking panel) to keep the toolbar's bottom line
-      whole.
-  - **Broiler.Hosting:** once it is on a Broiler.UI release with this ADR, drop the known gap on the list's focus
-    ring from `README.md` and the `CreateHighContrastTheme` remarks; the claim that a selected row's highlight
-    fill meets the thumb can go too. Its theme tests may check that a focused list's ring crosses the thumb in
-    the window color.
+      bottom-right corner (no stray arc), the form scrollbars (1 DIP to the right, 2 DIP taller), the first banner
+      (4 DIP lower) and a focused full-width field's ring (whole, also at the top or the bottom of the form after
+      Tab or Shift+Tab). In the contrast themes, a focused list shows its ring across the thumb.
+    - Layout tests that pin a form viewport's bounds need the new values: 2 DIP wider and 2 DIP taller, starting
+      1 DIP higher, and 4 DIP shorter with feedback shown; the feedback viewport ends 11 DIP above the bottom.
+      Field bounds and scroll offsets are unchanged.
+    - The toolbar notch above the splitter is the toolkit's (see "The notch in Mail's toolbar line"), not Mail's.
+      If Mail wants it gone before the toolkit fixes it, 1 DIP between the inbox toolbar and the split container
+      (for example spacing on the docking panel) keeps the toolbar's bottom line whole; that is a workaround, not
+      a fix Mail owes.
+  - **Broiler.Hosting:** once it is on a Broiler.UI release with this ADR, replace the known gap on the list's focus
+    ring in `README.md` and the `CreateHighContrastTheme` remarks: the ring now crosses the thumb in the window
+    color and stays whole beside the thumb's rounded ends, with at most half its width showing for about 0.5 DIP
+    where it crosses each end. The claim that a selected row's highlight fill meets the thumb can go. Its theme
+    tests may check that a focused list's ring crosses the thumb in the window color.
 - Not covered:
   - In Light and Dark the list's ring stays at 1.83 and 2.92:1 where it crosses the thumb. The text color would
     read at 5.83 and 5.55:1 there, but changes what the presets draw; it belongs with the thumb colors ADR 0033
     leaves to the preset owners.
-  - The toolbar's bottom line is still notched wherever an element directly below it fills its bounds after it.
-    Stroking frames inside their bounds would cure that for every control at the cost of moving every frame by
-    0.5 DIP, a change to every preset left to the preset owners.
+  - **Open in the toolkit:** `StandardSplitter` fills its whole bounds after its neighbors and covers the outer
+    half of a neighbor's centered 1 DIP frame, so a toolbar's bottom line is notched above a split container's
+    splitter (Mail's inbox shows it). A splitter that leaves the outer half-DIP of its edges alone, or frames
+    stroked inside their bounds (moving every frame by 0.5 DIP in every preset), would cure it; both change what
+    every consumer draws and are left for a decision.
   - A neighbor drawn after the list still covers the outer half of the list's frame on that side.
-  - A field scrolled to the top or bottom of a form's viewport loses the outer edge of its ring there with the
-    rest of what is scrolled out; only the sides have room.
+  - A field the user scrolls part way out of a form's viewport loses the outer edge of its ring there with the
+    rest of what is scrolled out. A field brought into view, or at either end of the content, keeps room on every
+    side.
+  - Where a side of the ring crosses a thumb's rounded end, a sliver at most half the stroke wide and about
+    0.5 DIP long (1 DIP for the scroll view's 2 DIP ring) keeps the ring's color on the thumb; a render list
+    clips to rectangles only.
   - The scrollbar thumb and track colors, the splitter grip and the input border colors keep their values: their
     contrast in Light and Dark is a design decision for the preset owners.

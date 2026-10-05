@@ -146,7 +146,8 @@ both black (1.00:1). In `HighContrastDark` the ring is yellow on a white thumb (
 gap the length of the thumb. The view now draws the stretch over each thumb again, clipped to the thumb, in
 `StandardControlPaint.FocusRingColor(ring, thumb, surface)`: the surface color where the ring is under 3:1 on an
 opaque thumb (ADR 0032's rule). A translucent thumb, as in Light and Dark, adds nothing to the frame. ADR 0034
-makes the list do the same.
+makes the list do the same, and clips both to the thumb's pill rather than its rectangle, whose corners took in
+the ring over the track beside the thumb's rounded ends.
 
 ### A drop-down arrow that grows with the font
 
