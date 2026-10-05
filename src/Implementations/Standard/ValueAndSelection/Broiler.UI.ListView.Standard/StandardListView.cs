@@ -405,7 +405,33 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
         StandardControlPaint.StrokeRounded(context.RenderList, Bounds, BorderColor, CornerRadius, 1);
 
         if (Session?.FocusedElement == this)
-            StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
+        {
+            BRect ring = StandardControlPaint.Inset(Bounds, 2);
+            double radius = Math.Max(0, CornerRadius - 2);
+            StandardControlPaint.StrokeRounded(context.RenderList, ring, FocusRing, radius, 1);
+            RenderRingAcrossThumb(context, ring, radius);
+        }
+    }
+
+    /// <summary>
+    /// Draws the stretch of the focus ring that crosses an opaque thumb of too nearly its color again, clipped to
+    /// the thumb, in the list's background (<see cref="StandardControlPaint.FocusRingColor"/>), as the scroll view
+    /// does. The ring runs 2 DIP inside the right edge, through the bar. A palette built from a system contrast
+    /// theme draws the ring in the highlight and the thumb in the window text, 1.4:1 to 1.9:1 apart in the
+    /// Windows 11 contrast themes, and the high-contrast presets draw both in one color. Only a background that
+    /// stands out from the thumb (3:1) is drawn: the Light and Dark thumbs are mid tones that neither the ring nor
+    /// the background reaches 3:1 on, and there the ring is left as it was.
+    /// </summary>
+    private void RenderRingAcrossThumb(UiRenderContext context, BRect ring, double radius)
+    {
+        BColor across = StandardControlPaint.FocusRingColor(FocusRing, ScrollbarThumb, Background);
+        BRect thumb = GetScrollbarThumbBounds();
+        if (across == FocusRing || thumb.IsEmpty || StandardContrast.Ratio(across, ScrollbarThumb) < StandardContrast.AaLargeOrUi)
+            return;
+
+        context.RenderList.PushClip(thumb);
+        StandardControlPaint.StrokeRounded(context.RenderList, ring, across, radius, 1);
+        context.RenderList.PopClip();
     }
 
     protected override bool OnInput(UiInputEvent input)
