@@ -47,7 +47,7 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
 
     public BColor Foreground { get; set; } = StandardControlPaint.Text;
 
-    public BColor InlineCodeForeground { get; set; } = StandardControlPaint.Accent;
+    public BColor InlineCodeForeground { get; set; } = StandardControlPaint.AccentText;
 
     public BColor ParagraphCodeForeground { get; set; } = StandardControlPaint.Info;
 
@@ -143,7 +143,7 @@ public sealed class StandardFormatCodeView : UiFormatCodeView, IStandardThemedCo
         ArgumentNullException.ThrowIfNull(theme);
         Background = theme.SurfaceAlt;
         Foreground = theme.Text;
-        InlineCodeForeground = theme.Accent;
+        InlineCodeForeground = theme.AccentText;
         ParagraphCodeForeground = theme.Info;
         StructureCodeForeground = theme.Warning;
         EscapeForeground = theme.Danger;

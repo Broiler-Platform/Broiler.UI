@@ -153,10 +153,10 @@ public sealed class StateFillControlTests
         toggle.ApplyTheme(theme);
         using var harness = new Harness(toggle, new BRect(10, 10, 80, 30));
 
-        // Off, the label is the accent on the surface, and on the hover fill.
-        Assert.Equal((theme.Surface, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+        // Off, the label is the accent text on the surface, and on the hover fill.
+        Assert.Equal((theme.Surface, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
         harness.Move(Middle(toggle.Bounds));
-        Assert.Equal((theme.SurfaceAlt, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+        Assert.Equal((theme.SurfaceAlt, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
 
         harness.Press(Middle(toggle.Bounds));
         Assert.Equal((theme.StateFill, theme.StateText), Look(harness.Render(), toggle, "Bold"));
@@ -174,22 +174,38 @@ public sealed class StateFillControlTests
     [MemberData(nameof(Presets))]
     public void A_Preset_Draws_A_Checked_Or_Pressed_Toggle_Button_As_Before(StandardThemeTokens theme)
     {
+        // The label is the accent text, which is the accent in the high-contrast presets (ADR 0031). It reads on
+        // the soft accent fill: Light's accent did at 4.3:1 and Dark's at 2.8:1.
         var toggle = new StandardToggleButton { Text = "Bold", IsThreeState = true };
         toggle.ApplyTheme(theme);
         using var harness = new Harness(toggle, new BRect(10, 10, 80, 30));
 
         harness.Press(Middle(toggle.Bounds));
-        Assert.Equal((theme.AccentSoft, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+        AssertReadable((theme.AccentSoft, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
 
         harness.Release(Middle(toggle.Bounds));
-        Assert.Equal((theme.AccentSoft, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+        AssertReadable((theme.AccentSoft, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
 
         toggle.ToggleState = UiToggleState.Indeterminate;
-        Assert.Equal((theme.AccentSoft, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+        AssertReadable((theme.AccentSoft, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
 
         BColor custom = BColor.FromArgb(0xFF, 0x80, 0x10, 0x10);
         toggle.Foreground = custom;
         Assert.Equal((theme.AccentSoft, custom), Look(harness.Render(), toggle, "Bold"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Presets))]
+    public void A_Preset_Draws_An_Unchecked_Toggle_Label_That_Reads_On_The_Surface_And_The_Hover_Fill(StandardThemeTokens theme)
+    {
+        // Accent text, not the accent fill, which in Dark read at 3.4:1 on the surface and 3.0:1 hovered (ADR 0031).
+        var toggle = new StandardToggleButton { Text = "Bold" };
+        toggle.ApplyTheme(theme);
+        using var harness = new Harness(toggle, new BRect(10, 10, 80, 30));
+
+        AssertReadable((theme.Surface, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
+        harness.Move(Middle(toggle.Bounds));
+        AssertReadable((theme.SurfaceAlt, theme.AccentText), Look(harness.Render(), toggle, "Bold"));
     }
 
     [Fact]
@@ -202,7 +218,7 @@ public sealed class StateFillControlTests
         using var harness = new Harness(toggle, new BRect(10, 10, 30, 30));
 
         harness.Render();
-        Assert.Equal(theme.Accent, iconColor);
+        Assert.Equal(theme.AccentText, iconColor);
 
         toggle.ToggleState = UiToggleState.On;
         harness.Render();
@@ -235,6 +251,40 @@ public sealed class StateFillControlTests
         toggle.ToggleState = UiToggleState.Off;
         harness.Move(new BPoint(150, 70));
         Assert.Equal((theme.Surface, theme.Accent), Look(harness.Render(), toggle, "Bold"));
+    }
+
+    public static TheoryData<string, StandardThemeTokens> DarkCopiesWhoseAccentIsTheStateFill()
+    {
+        // A copy of Dark that maps its accent and its selection fill to a highlight, as a host's palette does,
+        // and one that also keeps Dark's accent text, chosen for Dark's surfaces, not for the highlight.
+        BColor highlight = BColor.FromArgb(0xFF, 0x00, 0x5A, 0x9E);
+        StandardThemeTokens copy = StandardThemeTokens.Dark with { Accent = highlight, AccentSoft = highlight };
+        return new()
+        {
+            { "accent text follows the accent", copy },
+            { "accent text set", copy with { AccentText = StandardThemeTokens.Dark.AccentText } },
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(DarkCopiesWhoseAccentIsTheStateFill))]
+    public void A_Toggle_Button_Whose_Accent_Is_The_State_Fill_Draws_Its_Label_In_The_State_Text_Whatever_Its_Accent_Text(string name, StandardThemeTokens theme)
+    {
+        Assert.Equal(theme.Text, theme.StateText);
+        Assert.Equal(theme.Accent, theme.StateFill);
+
+        var toggle = new StandardToggleButton { Text = "Bold", IsThreeState = true };
+        toggle.ApplyTheme(theme);
+        using var harness = new Harness(toggle, new BRect(10, 10, 80, 30));
+        (BColor, BColor) readable = (theme.StateFill, theme.StateText);
+
+        harness.Press(Middle(toggle.Bounds));
+        AssertReadable(readable, Look(harness.Render(), toggle, "Bold"));
+        harness.Release(Middle(toggle.Bounds));
+        AssertReadable(readable, Look(harness.Render(), toggle, "Bold"));
+        toggle.ToggleState = UiToggleState.Indeterminate;
+        AssertReadable(readable, Look(harness.Render(), toggle, "Bold"));
+        Assert.True(theme.StateText == toggle.CheckedForeground, name);
     }
 
     // --- Toolbar overflow --------------------------------------------------

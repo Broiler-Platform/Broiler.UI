@@ -84,7 +84,8 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
             StandardLabelRole.Warning => theme.Warning,
             StandardLabelRole.Danger => theme.Danger,
             StandardLabelRole.Success => theme.Success,
-            StandardLabelRole.Accent => theme.Accent,
+            // Accent text on a surface, not the accent fill: in Dark that read at 3.4:1.
+            StandardLabelRole.Accent => theme.AccentText,
             StandardLabelRole.Info => theme.Info,
             StandardLabelRole.Disabled => theme.TextDisabled,
             _ => theme.Text,

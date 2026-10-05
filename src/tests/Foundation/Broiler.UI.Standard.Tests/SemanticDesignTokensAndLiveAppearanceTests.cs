@@ -52,7 +52,7 @@ public sealed class SemanticDesignTokensAndLiveAppearanceTests : IDisposable
         Assert.Equal(StandardThemeTokens.Light.TextMuted, mutedLabel.Foreground);
         Assert.Equal(StandardThemeTokens.Light.Danger, dangerLabel.Foreground);
         Assert.Equal(StandardThemeTokens.Light.Success, successLabel.Foreground);
-        Assert.Equal(StandardThemeTokens.Light.Accent, accentLabel.Foreground);
+        Assert.Equal(StandardThemeTokens.Light.AccentText, accentLabel.Foreground);
         Assert.Equal(StandardThemeTokens.Light.Text, defaultLabel.Foreground);
 
         // Switch to Dark theme — semantic roles must retain their status colors, NOT revert to generic Text
@@ -67,7 +67,8 @@ public sealed class SemanticDesignTokensAndLiveAppearanceTests : IDisposable
         Assert.Equal(StandardThemeTokens.Dark.TextMuted, mutedLabel.Foreground);
         Assert.Equal(StandardThemeTokens.Dark.Danger, dangerLabel.Foreground);
         Assert.Equal(StandardThemeTokens.Dark.Success, successLabel.Foreground);
-        Assert.Equal(StandardThemeTokens.Dark.Accent, accentLabel.Foreground);
+        // Accent text, not the accent fill, which reads at only 3.4:1 on the dark surface (ADR 0031).
+        Assert.Equal(StandardThemeTokens.Dark.AccentText, accentLabel.Foreground);
         Assert.Equal(StandardThemeTokens.Dark.Text, defaultLabel.Foreground);
 
         // Switch to HighContrastDark theme

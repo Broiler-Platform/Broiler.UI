@@ -38,6 +38,51 @@ public sealed class DisclosureSemanticsTests
     }
 
     [Fact]
+    public void ASectionToggleCanSaySentenceCaseTextAndKeepsItsDisclosureSemantics()
+    {
+        // Composed, the title keeps its capital mid-phrase: "Show Keyboard shortcuts". ADR 0031.
+        using var section = new FormSection("Keyboard shortcuts", collapsible: true, expanded: false)
+        {
+            ShowText = "Show keyboard shortcuts",
+            HideText = "Hide keyboard shortcuts",
+        };
+        StandardButton toggle = section.Toggle!;
+
+        UiSemanticNode node = toggle.GetSemanticNode();
+        Assert.Equal("Show keyboard shortcuts", toggle.Text);
+        Assert.Equal("Show keyboard shortcuts", node.Name);
+        Assert.Equal(UiSemanticState.Collapsed, node.State & ExpandState);
+        Assert.Same(section, toggle.Discloses);
+        Assert.Same(section.Content, toggle.Controls);
+
+        toggle.Click();
+        node = toggle.GetSemanticNode();
+        Assert.Equal("Hide keyboard shortcuts", node.Name);
+        Assert.Equal(UiSemanticState.Expanded, node.State & ExpandState);
+        Assert.Equal("Keyboard shortcuts", section.GetSemanticNode().Name);
+        Assert.Equal(UiSemanticState.None, section.GetSemanticNode().State & ExpandState);
+
+        // A host acting through the disclosed target gets the same text.
+        Assert.True(((IUiExpandable)section).Collapse());
+        Assert.Equal("Show keyboard shortcuts", toggle.Text);
+
+        // Null or blank composes it again, at once.
+        section.ShowText = "  ";
+        Assert.Equal("Show Keyboard shortcuts", toggle.Text);
+        section.ShowText = null;
+        Assert.Equal("Show Keyboard shortcuts", toggle.Text);
+        Assert.True(section.Expand());
+        Assert.Equal("Hide keyboard shortcuts", toggle.Text);
+        section.HideText = null;
+        Assert.Equal("Hide Keyboard shortcuts", toggle.GetSemanticNode().Name);
+
+        // A section that cannot collapse has no toggle to name.
+        using var fixedSection = new FormSection("Server") { ShowText = "Show server" };
+        Assert.Null(fixedSection.Toggle);
+        Assert.Equal("Show server", fixedSection.ShowText);
+    }
+
+    [Fact]
     public void TheSectionGroupReportsNoExpandState()
     {
         using var section = new FormSection("Advanced", collapsible: true, expanded: false);

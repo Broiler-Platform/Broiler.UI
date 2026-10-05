@@ -18,6 +18,8 @@ public sealed class FormSection : UiElement, IFormSection, IUiExpandable
     private readonly StandardPanel _layout = new() { Spacing = 8 };
     private readonly string _title;
     private readonly Broiler.UI.Label.Standard.StandardLabel _summary = FormField.Text("");
+    private string? _showText;
+    private string? _hideText;
     public FormSection(string title, string description = "", bool collapsible = false, bool expanded = true)
     {
         _title = title;
@@ -45,6 +47,33 @@ public sealed class FormSection : UiElement, IFormSection, IUiExpandable
     }
     public StandardPanel Content { get; } = new() { Spacing = 12 };
     public StandardButton? Toggle { get; }
+
+    /// <summary>
+    /// The toggle's text while the content is hidden. Null or blank (the default) composes "Show " and the
+    /// title, which keeps the title's capital in the middle of the phrase ("Show Keyboard shortcuts"); an
+    /// application whose labels are in sentence case gives its own, such as "Show keyboard shortcuts". The
+    /// text is the toggle's accessible name; its state and relations are the same either way.
+    /// </summary>
+    public string? ShowText
+    {
+        get => _showText;
+        set
+        {
+            _showText = value;
+            UpdateToggleText(IsExpanded);
+        }
+    }
+
+    /// <summary>The toggle's text while the content is shown, as <see cref="ShowText"/> is while it is hidden.</summary>
+    public string? HideText
+    {
+        get => _hideText;
+        set
+        {
+            _hideText = value;
+            UpdateToggleText(IsExpanded);
+        }
+    }
     public string Summary
     {
         get => _summary.Text;
@@ -66,12 +95,19 @@ public sealed class FormSection : UiElement, IFormSection, IUiExpandable
             Content.Visibility = value ? UiVisibility.Visible : UiVisibility.Collapsed;
             if (Toggle is not null)
             {
-                Toggle.Text = $"{(value ? "Hide" : "Show")} {_title}";
+                UpdateToggleText(value);
                 // The toggle reports this section's state, so its semantics change with it.
                 Toggle.Invalidate(UiInvalidationKind.Semantic);
             }
             Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
+    }
+
+    private void UpdateToggleText(bool expanded)
+    {
+        if (Toggle is null) return;
+        string? text = expanded ? _hideText : _showText;
+        Toggle.Text = string.IsNullOrWhiteSpace(text) ? $"{(expanded ? "Hide" : "Show")} {_title}" : text;
     }
 
     /// <summary>Shows the content.</summary>
