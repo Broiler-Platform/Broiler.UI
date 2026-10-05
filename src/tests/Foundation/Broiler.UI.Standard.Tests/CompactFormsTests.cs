@@ -308,6 +308,32 @@ public sealed class CompactFormsTests
         Assert.Equal(628, feedback.Bounds.Right, 6);
     }
 
+    [Theory]
+    [InlineData(0.25)]
+    [InlineData(0.5)]
+    public void ALastFieldAFractionOfADipBelowTheViewportShowsItsWholeRingWhenTabbedTo(double overflow)
+    {
+        // The form, with the room above and below it, is a fraction of a DIP taller than its viewport: too little
+        // for a bar, but the last field's ring still needs that fraction of room at the bottom.
+        var edit = new StandardEdit();
+        var fields = new StandardPanel { Spacing = 0 };
+        fields.AddChild(new Block(200));
+        fields.AddChild(edit);
+        var viewport = new FormViewport(fields);
+        double natural = fields.Measure(new BSize(638, double.PositiveInfinity)).Height;
+        using var session = new StandardUiSessionBuilder().Build(new Host(640, natural + (2 * viewport.Scroll.VerticalContentInset) - overflow));
+        session.AddRoot(viewport);
+        session.RenderFrame();
+        Assert.False(viewport.Scroll.HasVerticalScrollbar);
+
+        Assert.True(new StandardFocusScope(session).TryFocus(edit));
+        BRenderList renderList = session.RenderFrame();
+
+        (BRenderCommand.StrokeRoundedRect ring, BRect clip) = StrokeAndClip(renderList, stroke => stroke.Rect == edit.Bounds && stroke.Thickness == 2);
+        Assert.Equal(overflow, viewport.Scroll.VerticalOffset, 6);
+        Assert.True(clip.Bottom >= ring.Rect.Bottom + (ring.Thickness / 2), $"The ring around {ring.Rect} is clipped to {clip}.");
+    }
+
     [Fact]
     public void AFieldTheKeyboardBringsIntoViewShowsItsWholeFocusRing()
     {
@@ -453,7 +479,14 @@ public sealed class CompactFormsTests
             foreach (var nested in Descendants(child)) yield return nested;
     }
 
-    private sealed class Host(int width, int height) : IUiHost
+    /// <summary>As tall as it is made, and as wide as it is offered.</summary>
+    private sealed class Block(double height) : UiElement
+    {
+        protected override BSize MeasureCore(BSize availableSize) =>
+            new(double.IsFinite(availableSize.Width) ? availableSize.Width : 0, height);
+    }
+
+    private sealed class Host(double width, double height) : IUiHost
     {
         public BSize ViewportSize => new(width, height);
         public double Scale => 1;

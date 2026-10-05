@@ -22,7 +22,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     // a measure that changes no desired size is followed by no arrange to correct them.
     private bool _arranged;
     // Whether the content overflowed the viewport by more than the tolerance when the view was last arranged, as a
-    // bar set to Auto shows.
+    // bar set to Auto shows. The extent alone does not tell, since it keeps an overflow within the tolerance.
     private bool _arrangedScrolls;
     private BSize _contentDesiredExtent;
     private BRect _verticalTrackBounds = BRect.Empty;
@@ -44,7 +44,8 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
     private const double TouchDragThreshold = 6;
 
     // Content that overflows its viewport by no more than this fits: a rounding error in its size or the viewport's
-    // shows no scrollbar, makes no keyboard stop and leaves nothing to scroll.
+    // shows no Auto scrollbar and makes no keyboard stop. The extent keeps it, so what lies at the content's edge,
+    // such as the outer half of a focus ring, can still be scrolled into view.
     private const double OverflowTolerance = 0.5;
 
     public BColor Background { get; set; } = BColor.Transparent;
@@ -916,7 +917,7 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 
         BSize contentSize = GetViewportSize(outerBounds.Size, hasVertical, hasHorizontal, thickness);
         BRect contentBounds = new(outerBounds.Left, outerBounds.Top, contentSize.Width, contentSize.Height);
-        BSize extentSize = new(Fit(desiredExtent.Width, contentSize.Width), Fit(desiredExtent.Height, contentSize.Height));
+        BSize extentSize = new(Math.Max(desiredExtent.Width, contentSize.Width), Math.Max(desiredExtent.Height, contentSize.Height));
         // Past the tolerance, as for a bar set to Auto, whether or not a bar can show.
         bool scrolls = desiredExtent.Width > contentSize.Width + OverflowTolerance || desiredExtent.Height > contentSize.Height + OverflowTolerance;
         // A shown bar keeps its place at the view's edge; the gap beside it comes out of the content, and a bar
@@ -947,10 +948,6 @@ public sealed class StandardScrollView : UiScrollView, IStandardThemedControl
 
     private double Gap(double length, double thickness) =>
         thickness <= 0 ? 0 : Math.Min(_scrollbarGap, Math.Max(0, length - thickness));
-
-    // The extent along an axis: the content's, unless it is within the tolerance of the viewport, which it then fills.
-    private static double Fit(double desiredLength, double viewportLength) =>
-        desiredLength > viewportLength + OverflowTolerance ? desiredLength : viewportLength;
 
     private static bool ResolveInitialVisibility(UiScrollBarVisibility visibility, double desiredLength, double outerLength, double thickness) =>
         ResolveVisibility(visibility, desiredLength, outerLength, outerLength, thickness);
