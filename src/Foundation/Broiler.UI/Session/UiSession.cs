@@ -554,7 +554,7 @@ public sealed class UiSession : IDisposable
     /// </summary>
     private static UiElement? HitTestOverlay(UiElement element, BPoint point)
     {
-        if (element.Visibility != UiVisibility.Visible)
+        if (element.Visibility != UiVisibility.Visible || element.IsHiddenByContainer)
             return null;
 
         for (int index = element.Children.Count - 1; index >= 0; index--)
@@ -573,8 +573,10 @@ public sealed class UiSession : IDisposable
 
         for (int index = element.Children.Count - 1; index >= 0; index--)
         {
+            // Content its container hides while keeping it alive (an inactive tab) keeps its last
+            // bounds, which lie under what is shown in its place.
             UiElement child = element.Children[index];
-            if (child.Visibility == UiVisibility.Visible && child.Bounds.Contains(point))
+            if (child.Visibility == UiVisibility.Visible && !child.IsHiddenByContainer && child.Bounds.Contains(point))
                 return HitTest(child, point) ?? child;
         }
 

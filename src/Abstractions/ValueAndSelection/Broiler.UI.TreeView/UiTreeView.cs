@@ -56,8 +56,11 @@ public abstract class UiTreeView : UiElement
     private BSize _preferredSize = new(280, 400);
     private TreeNodeId _focused = TreeNodeId.None;
     private int _firstVisibleRow;
+    private int _visibleRowCapacity = 20;
     private TreeSecondaryLabelPlacement _secondaryLabelPlacement;
     private bool _rowsValid;
+    private (int Position, int Count)[] _levelPlaces = [];
+    private bool _levelPlacesValid;
 
     protected UiTreeView()
     {
@@ -179,12 +182,39 @@ public abstract class UiTreeView : UiElement
             if (_firstVisibleRow == clamped)
                 return;
             _firstVisibleRow = clamped;
-            Invalidate(UiInvalidationKind.Render);
+
+            // Semantic as well: the rows in view are the tree's semantic children, so scrolling (the
+            // wheel, the bar, a row brought into view) changes them, and a host that only heard about
+            // a render kept exposing the rows that had scrolled away.
+            Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         }
     }
 
     /// <summary>How many rows the current bounds can show.</summary>
-    public int VisibleRowCapacity { get; set; } = 20;
+    public int VisibleRowCapacity
+    {
+        get => _visibleRowCapacity;
+        set
+        {
+            if (_visibleRowCapacity == value)
+                return;
+            int shownBefore = RowsInViewCount();
+            _visibleRowCapacity = value;
+
+            // The rows in view are the semantic children, so a resize that shows more or fewer of
+            // them changes the children as a scroll does. Room the rows do not fill changes none of
+            // them and says nothing: StandardTreeView sets this from inside its arrange, at every
+            // first layout among others, and a host told then compares the rows mid-layout and
+            // paints another frame for nothing. Rows not built yet cannot be counted, so a change
+            // then is reported, as any change was before.
+            if (!_rowsValid || RowsInViewCount() != shownBefore)
+                Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
+
+    /// <summary>How many rows <see cref="GetSemanticNodeCore"/> describes, counted the same way.</summary>
+    private int RowsInViewCount() =>
+        Math.Max(0, Math.Min(_rows.Count, _firstVisibleRow + VisibleRowCapacity) - _firstVisibleRow);
 
     /// <summary>
     /// Where a row draws its secondary label. See
@@ -503,6 +533,17 @@ public abstract class UiTreeView : UiElement
     // Broiler-Human:        PENDING
     private (int Position, int Count) PositionWithinLevel(int rowIndex, int depth)
     {
+        // A host describes every row in view after each scroll, and walking
+        // each row's siblings made that cost grow with the size of its level,
+        // so the places are worked out once for each set of rows. A row and
+        // index that do not match, which only a derived DescribeRow can pass,
+        // are still walked.
+        if ((uint)rowIndex < (uint)_rows.Count && _rows[rowIndex].Depth == depth)
+        {
+            EnsureLevelPlaces();
+            return _levelPlaces[rowIndex];
+        }
+
         // Counted by walking outwards over siblings at the same depth, which
         // stops at the first shallower row in each direction.
         int position = 1;
@@ -520,6 +561,51 @@ public abstract class UiTreeView : UiElement
         }
 
         return (position, count);
+    }
+
+    /// <summary>
+    /// Every row's place within its level, in one pass each way: forwards a
+    /// row is one more than the rows at its depth since the last shallower row,
+    /// and backwards its level holds as many rows as the last of them is.
+    /// </summary>
+    private void EnsureLevelPlaces()
+    {
+        if (_levelPlacesValid)
+            return;
+
+        if (_levelPlaces.Length != _rows.Count)
+            _levelPlaces = new (int Position, int Count)[_rows.Count];
+
+        // One entry per depth from the root down to the row's own. A row
+        // ends the runs of every deeper level, so those entries are dropped.
+        var open = new List<int>();
+        for (int i = 0; i < _rows.Count; i++)
+        {
+            int depth = _rows[i].Depth;
+            OpenLevel(open, depth);
+            open[depth]++;
+            _levelPlaces[i].Position = open[depth];
+        }
+
+        open.Clear();
+        for (int i = _rows.Count - 1; i >= 0; i--)
+        {
+            int depth = _rows[i].Depth;
+            OpenLevel(open, depth);
+            if (open[depth] == 0)
+                open[depth] = _levelPlaces[i].Position;
+            _levelPlaces[i].Count = open[depth];
+        }
+
+        _levelPlacesValid = true;
+
+        static void OpenLevel(List<int> open, int depth)
+        {
+            if (open.Count > depth + 1)
+                open.RemoveRange(depth + 1, open.Count - depth - 1);
+            while (open.Count <= depth)
+                open.Add(0);
+        }
     }
 
     // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=5; Fingerprint=TBF
@@ -571,6 +657,7 @@ public abstract class UiTreeView : UiElement
         if (_dataSource is not null)
             AppendChildren(_dataSource.Root, depth: 0);
         _rowsValid = true;
+        _levelPlacesValid = false;
         _firstVisibleRow = Math.Clamp(_firstVisibleRow, 0, Math.Max(0, _rows.Count - 1));
     }
 

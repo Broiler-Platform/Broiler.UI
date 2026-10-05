@@ -40,6 +40,30 @@ public sealed class LayoutAndTextCorrectnessTests
     }
 
     [Fact]
+    public void ScrollView_In_A_Tab_Moves_Its_Content_After_A_Layout_Chose_Its_Pane_While_Arranging()
+    {
+        // Broiler.Mail's compact inbox: a layout that picks its pane while arranging, inside a tab.
+        // The next frame measured it to the reader's size, which left it arrange-invalid under the
+        // tab view, and a later scroll of the reader changed the offset but never moved the text.
+        var text = new FixedElement(new BSize(300, 2000));
+        var reader = new StandardScrollView { Constraint = UiScrollConstraint.ConstrainWidth, PreferredSize = new BSize(2000, 2000) };
+        reader.AddChild(text);
+        var layout = new ChoosesPaneWhileArranging(new FixedElement(new BSize(2000, 3000)), reader);
+        using var tabView = new StandardTabView();
+        tabView.AddTab("inbox", "Inbox", layout);
+        using UiSession session = new StandardUiSessionBuilder().Build(new TestHost(new BSize(640, 480)));
+        session.AddRoot(tabView);
+        session.RenderFrame();
+        session.RenderFrame();
+        double top = text.Bounds.Top;
+
+        Assert.True(reader.ScrollBy(0, 100));
+        session.RenderFrame();
+
+        Assert.Equal(top - 100, text.Bounds.Top);
+    }
+
+    [Fact]
     public void ScrollView_ConstrainWidth_Wraps_Content_To_Viewport_Without_Oscillation()
     {
         using var scrollView = new StandardScrollView
@@ -291,6 +315,40 @@ public sealed class LayoutAndTextCorrectnessTests
         private readonly BSize _size;
         public FixedElement(BSize size) => _size = size;
         protected override BSize MeasureCore(BSize availableSize) => _size;
+    }
+
+    /// <summary>Shows one of two panes, and switches to the second on its first arrange.</summary>
+    private sealed class ChoosesPaneWhileArranging : UiElement
+    {
+        private readonly UiElement _first;
+        private readonly UiElement _second;
+        private bool _chosen;
+
+        public ChoosesPaneWhileArranging(UiElement first, UiElement second)
+        {
+            _first = first;
+            _second = second;
+            _second.Visibility = UiVisibility.Collapsed;
+            AddChild(first);
+            AddChild(second);
+        }
+
+        private UiElement Shown => _chosen ? _second : _first;
+
+        protected override BSize MeasureCore(BSize availableSize) => Shown.Measure(availableSize);
+
+        protected override void ArrangeCore(BRect finalRect)
+        {
+            if (!_chosen)
+            {
+                _chosen = true;
+                _first.Visibility = UiVisibility.Collapsed;
+                _second.Visibility = UiVisibility.Visible;
+            }
+
+            Shown.Measure(finalRect.Size);
+            Shown.Arrange(finalRect);
+        }
     }
 
     private sealed class TestHost : IUiHost

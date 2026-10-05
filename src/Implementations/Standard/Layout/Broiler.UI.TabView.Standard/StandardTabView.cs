@@ -46,6 +46,12 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
 
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
 
+    // The size measure last offered every tab's content, and the shown content when arrange measured
+    // it again at its own rectangle since then.
+    private BSize _contentMeasureSize;
+    private UiElement? _remeasuredContent;
+    private BSize _remeasuredSize;
+
     public double HeaderHeight { get; set; } = 32;
 
     /// <summary>
@@ -68,6 +74,8 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
             ? Math.Max(0, availableSize.Height - EffectiveHeaderHeight)
             : double.PositiveInfinity;
         BSize contentAvailableSize = new(availableContentWidth, availableContentHeight);
+        _contentMeasureSize = contentAvailableSize;
+        _remeasuredContent = null;
 
         double maxContentWidth = 0;
         double maxContentHeight = 0;
@@ -110,19 +118,45 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
                 ? UiVisibility.Collapsed
                 : UiVisibility.Visible;
 
-            if (index == SelectedIndex)
+            // A hidden tab keeps the arrangement it was last shown with. Arranging it at an empty
+            // rectangle laid a hidden form out at no width and clamped its scroll positions, so the
+            // user came back to a tab that was not as they had left it. It is neither drawn nor hit.
+            if (index != SelectedIndex)
+                continue;
+
+            // Measured at the rectangle it is given. That is usually the size measure already used,
+            // and the content's measure cache makes this free. When it is not, in either dimension
+            // (a tab shown again after the window was resized, or a tab view measured at an unbounded
+            // height), the content is laid out at the size it really has rather than the width alone.
+            if (double.IsFinite(contentRect.Width) && double.IsFinite(contentRect.Height) && !FitsAsMeasured(content, contentRect.Size))
             {
-                if (double.IsFinite(contentRect.Width) && Math.Abs(content.Bounds.Width - contentRect.Width) > 0.001 && Math.Abs(content.DesiredSize.Width - contentRect.Width) > 0.001)
-                {
-                    content.Measure(contentRect.Size);
-                }
-                content.Arrange(contentRect);
+                content.Measure(contentRect.Size);
+                _remeasuredContent = content;
+                _remeasuredSize = contentRect.Size;
             }
-            else
-            {
-                content.Arrange(BRect.Empty);
-            }
+            content.Arrange(contentRect);
         }
+    }
+
+    /// <summary>
+    /// Whether the content is already laid out for a rectangle no taller than the one it was last
+    /// measured at: the same width, and a height between what it asked for and what it was offered.
+    /// A parent that stacks the tab view arranges it at the height it asked for, not the height it
+    /// offered, and measuring the content again there would measure it twice on every layout pass,
+    /// at two sizes, changing nothing. Content that is not measured, was offered an unbounded height,
+    /// does not fit, or is given more room than it was offered is measured again.
+    /// </summary>
+    private bool FitsAsMeasured(UiElement content, BSize size)
+    {
+        const double Tolerance = 0.001;
+        // Only the tab view measures its content: every tab at what measure offered, then the shown
+        // one again here when it did not fit.
+        BSize measuredAt = ReferenceEquals(_remeasuredContent, content) ? _remeasuredSize : _contentMeasureSize;
+        return content.IsMeasureValid
+            && Math.Abs(measuredAt.Width - size.Width) <= Tolerance
+            && double.IsFinite(measuredAt.Height)
+            && size.Height <= measuredAt.Height + Tolerance
+            && content.DesiredSize.Height <= size.Height + Tolerance;
     }
 
     protected override void RenderCore(UiRenderContext context)
@@ -184,6 +218,13 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
     private bool HandleKeyboard(UiInputEvent input)
     {
         if (input.KeyTransition != KeyboardKeyTransition.Down || Tabs.Count == 0)
+            return false;
+
+        // The strip's keys, read only while the strip has focus. A key the focused control inside a
+        // tab leaves unhandled (Right on a button) bubbles up to here, and switching tabs for it took
+        // the user out of the tab they were working in. A key that reaches the view while nothing has
+        // focus was not aimed at the strip either.
+        if (Session?.FocusedElement != this)
             return false;
 
         if (IsKey(input, BVirtualKey.Right, "Right"))

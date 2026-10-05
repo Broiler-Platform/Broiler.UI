@@ -377,6 +377,138 @@ public sealed class SelectiveLayoutAndSchedulingTests
         Assert.Equal(60, leaf.Bounds.Height);
     }
 
+    [Fact]
+    public void An_Offset_Change_Below_An_Element_Left_Arrange_Invalid_Under_A_Valid_Parent_Still_Moves_The_Content()
+    {
+        var host = new TestHost(new BSize(800, 600));
+        using var session = new UiSession(host, new ImmediateUiDispatcher(), new ManualClock());
+
+        // The middle element invalidates its child's arrange while arranging, so the child is left
+        // arrange-invalid under an arrange-valid parent, as Broiler.Mail's compact inbox left its
+        // content under the tab view.
+        var leaf = new SizedElement { Size = new BSize(100, 20) };
+        var scroller = new OffsetElement(leaf);
+        var child = new TestContainer();
+        child.AddChild(scroller);
+        var middle = new InvalidatesChildArrangeWhileArranging(child);
+        var root = new TestContainer();
+        root.AddChild(middle);
+        session.AddRoot(root);
+        session.RenderFrame();
+        Assert.True(middle.IsArrangeValid);
+        Assert.False(child.IsArrangeValid);
+        double top = leaf.Bounds.Top;
+
+        // Stopping the arrange walk at the already-invalid child left the root valid: the offset
+        // changed, and the content stayed where it was until a resize.
+        scroller.Offset = 30;
+        session.RenderFrame();
+        Assert.Equal(top - 30, leaf.Bounds.Top);
+    }
+
+    [Fact]
+    public void An_Element_Whose_Desired_Size_Changes_Is_Arranged_Again_Under_A_Parent_That_Keeps_Its_Size()
+    {
+        var host = new TestHost(new BSize(800, 600));
+        using var session = new UiSession(host, new ImmediateUiDispatcher(), new ManualClock());
+
+        // Like a layout that chooses its mode while arranging: the first arrange changes what it
+        // will measure to, so the next frame measures it taller. Its parent fills the window, so the
+        // parent's size, and with it the parent's arrange, did not change.
+        var adaptive = new GrowsAfterFirstArrange(new BSize(100, 20), new BSize(100, 60));
+        var root = new TopAlignedFill();
+        root.AddChild(adaptive);
+        session.AddRoot(root);
+        session.RenderFrame();
+        Assert.Equal(20, adaptive.Bounds.Height);
+
+        session.RenderFrame();
+        Assert.Equal(60, adaptive.DesiredSize.Height);
+        Assert.Equal(60, adaptive.Bounds.Height);
+        Assert.True(adaptive.IsArrangeValid);
+    }
+
+    private sealed class OffsetElement : UiElement
+    {
+        private double _offset;
+
+        public OffsetElement(UiElement content) => AddChild(content);
+
+        public double Offset
+        {
+            get => _offset;
+            set { _offset = value; InvalidateArrange(); }
+        }
+
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            foreach (UiElement child in Children)
+                child.Measure(availableSize);
+            return new BSize(availableSize.Width, 100);
+        }
+
+        protected override void ArrangeCore(BRect finalRect)
+        {
+            foreach (UiElement child in Children)
+                child.Arrange(new BRect(finalRect.Left, finalRect.Top - _offset, finalRect.Width, child.DesiredSize.Height));
+        }
+    }
+
+    private sealed class InvalidatesChildArrangeWhileArranging : UiElement
+    {
+        private readonly UiElement _child;
+
+        public InvalidatesChildArrangeWhileArranging(UiElement child)
+        {
+            _child = child;
+            AddChild(child);
+        }
+
+        protected override BSize MeasureCore(BSize availableSize) => _child.Measure(availableSize);
+
+        protected override void ArrangeCore(BRect finalRect)
+        {
+            _child.Arrange(finalRect);
+            _child.InvalidateArrange();
+        }
+    }
+
+    private sealed class GrowsAfterFirstArrange(BSize before, BSize after) : UiElement
+    {
+        private bool _arranged;
+
+        protected override BSize MeasureCore(BSize availableSize) => _arranged ? after : before;
+
+        protected override void ArrangeCore(BRect finalRect)
+        {
+            if (_arranged)
+                return;
+            _arranged = true;
+            InvalidateMeasure();
+        }
+    }
+
+    /// <summary>Fills what it is given and stacks its children from the top at their desired heights.</summary>
+    private sealed class TopAlignedFill : UiElement
+    {
+        protected override BSize MeasureCore(BSize availableSize)
+        {
+            foreach (UiElement child in Children)
+                child.Measure(availableSize);
+            return availableSize;
+        }
+
+        protected override void ArrangeCore(BRect finalRect)
+        {
+            double y = finalRect.Top;
+            foreach (UiElement child in Children)
+            {
+                child.Arrange(new BRect(finalRect.Left, y, finalRect.Width, child.DesiredSize.Height));
+                y += child.DesiredSize.Height;
+            }
+        }
+    }
+
     private sealed class SizedElement : UiElement
     {
         private BSize _size;

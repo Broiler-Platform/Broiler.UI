@@ -3,6 +3,7 @@ using Broiler.Graphics.Geometry;
 using Broiler.Graphics.Windowing;
 using Broiler.Input;
 using Broiler.Input.Keyboard;
+using Broiler.Input.Mouse;
 using Broiler.Input.Text;
 
 namespace Broiler.UI.FormatCodeView.Standard.Tests;
@@ -205,5 +206,69 @@ public sealed class StandardFormatCodeViewInputTests
 
         Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -2)));
         Assert.True(scene.View.VerticalScrollOffset > 0);
+    }
+
+    [Fact]
+    public void A_Wheel_Tilted_Right_Scrolls_Right_And_Tilted_Left_Scrolls_Back()
+    {
+        using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
+            new BSize(160, 70),
+            FormatCodeViewStandardHarness.Project(string.Join('\n', Enumerable.Repeat("a long line that is much wider than the view", 3))));
+        scene.View.Wrapping = FormatCodeViewWrapping.NoWrap;
+        scene.Session.RenderFrame();
+
+        // Win32 reports a wheel tilted right (WM_MOUSEHWHEEL) as a positive notch.
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, 1, MouseWheelAxis.Horizontal)));
+        double right = scene.View.HorizontalScrollOffset;
+        Assert.True(right > 0);
+        Assert.Equal(0, scene.View.VerticalScrollOffset);
+
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -1, MouseWheelAxis.Horizontal)));
+        Assert.True(scene.View.HorizontalScrollOffset < right);
+    }
+
+    [Theory]
+    [InlineData(MouseWheelAxis.Vertical)]
+    [InlineData(MouseWheelAxis.Horizontal)]
+    public void Shift_With_The_Wheel_Turned_Towards_The_User_Scrolls_Right_However_The_Host_Reports_It(MouseWheelAxis axis)
+    {
+        // Broiler.Input and Broiler.Graphics report Shift with the wheel as a vertical notch with Shift;
+        // Broiler.Hosting.Windows turns it into a horizontal one that keeps Shift and the vertical sign.
+        using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
+            new BSize(160, 70),
+            FormatCodeViewStandardHarness.Project(string.Join('\n', Enumerable.Repeat("a long line that is much wider than the view", 30))));
+        scene.View.Wrapping = FormatCodeViewWrapping.NoWrap;
+        scene.Session.RenderFrame();
+
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -1, axis, InputModifiers.Shift)));
+        double right = scene.View.HorizontalScrollOffset;
+        Assert.True(right > 0);
+        Assert.Equal(0, scene.View.VerticalScrollOffset);
+
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, 1, axis, InputModifiers.Shift)));
+        Assert.True(scene.View.HorizontalScrollOffset < right);
+        Assert.Equal(0, scene.View.VerticalScrollOffset);
+    }
+
+    [Fact]
+    public void A_Tilt_Leaves_A_Wrapped_View_Where_It_Is()
+    {
+        // The default: lines wrap, so there is nothing to scroll sideways.
+        using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
+            new BSize(160, 70),
+            FormatCodeViewStandardHarness.Project(string.Join('\n', Enumerable.Repeat("line", 30))));
+        Assert.Equal(FormatCodeViewWrapping.Wrap, scene.View.Wrapping);
+        scene.Session.RenderFrame();
+        Assert.True(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, -2)));
+        double top = scene.View.VerticalScrollOffset;
+        Assert.True(top > 0);
+
+        // Neither tilt moves the lines, and both are left for a scroller outside the view.
+        foreach (double notches in new[] { -1.0, 1.0 })
+        {
+            Assert.False(scene.Route.Dispatch(FormatCodeViewStandardHarness.Wheel(20, 20, notches, MouseWheelAxis.Horizontal)));
+            Assert.Equal(top, scene.View.VerticalScrollOffset);
+            Assert.Equal(0, scene.View.HorizontalScrollOffset);
+        }
     }
 }

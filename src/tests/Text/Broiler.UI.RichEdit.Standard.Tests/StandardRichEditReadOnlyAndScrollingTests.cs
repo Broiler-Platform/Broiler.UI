@@ -232,7 +232,7 @@ public sealed class StandardRichEditReadOnlyAndScrollingTests
     }
 
     [Fact]
-    public void A_Horizontal_Wheel_Scrolls_Sideways_Like_Shift_Wheel()
+    public void A_Wheel_Tilted_Right_Scrolls_Right_Like_Shift_With_The_Wheel_Turned_Down()
     {
         string text = string.Join("\n", Enumerable.Range(0, 5).Select(i => $"long line {i} with lots and lots of text to induce horizontal scrolling"));
         RichEditScene scene = Focused(text, new BSize(150, 100));
@@ -240,11 +240,72 @@ public sealed class StandardRichEditReadOnlyAndScrollingTests
         scene.Edit.HorizontalScrollPolicy = RichEditScrollPolicy.Auto;
         scene.Session.RenderFrame();
 
+        // Win32 reports a wheel tilted right (WM_MOUSEHWHEEL) as a positive notch.
+        scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Horizontal, 1, InputEventSource.Synthetic));
+        double tilted = scene.Edit.HorizontalScrollOffset;
+        Assert.True(tilted > 0);
+        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+
+        // Shift with the wheel turned towards the user (a negative notch) scrolls right as well.
+        scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Vertical, -1, InputEventSource.Synthetic, InputModifiers.Shift));
+        double shifted = scene.Edit.HorizontalScrollOffset;
+        Assert.True(shifted > tilted);
+        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+
         scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
             MouseButtons.None, MouseWheelAxis.Horizontal, -1, InputEventSource.Synthetic));
+        Assert.True(scene.Edit.HorizontalScrollOffset < shifted);
+        scene.Session.Dispose();
+    }
 
-        Assert.True(scene.Edit.HorizontalScrollOffset > 0);
+    [Fact]
+    public void Shift_With_The_Wheel_Scrolls_The_Same_Way_When_The_Host_Has_Already_Turned_It_Sideways()
+    {
+        string text = string.Join("\n", Enumerable.Range(0, 5).Select(i => $"long line {i} with lots and lots of text to induce horizontal scrolling"));
+        RichEditScene scene = Focused(text, new BSize(150, 100));
+        scene.Edit.Wrapping = RichEditWrapping.NoWrap;
+        scene.Edit.HorizontalScrollPolicy = RichEditScrollPolicy.Auto;
+        scene.Session.RenderFrame();
+
+        // Broiler.Hosting.Windows reports Shift with the wheel as a horizontal notch that keeps Shift
+        // and the vertical sign: turned towards the user, it arrives as Horizontal -1 with Shift.
+        Assert.True(scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Horizontal, -1, InputEventSource.Synthetic, InputModifiers.Shift)));
+        double right = scene.Edit.HorizontalScrollOffset;
+        Assert.True(right > 0);
         Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+
+        Assert.True(scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Horizontal, 1, InputEventSource.Synthetic, InputModifiers.Shift)));
+        Assert.True(scene.Edit.HorizontalScrollOffset < right);
+        Assert.Equal(0, scene.Edit.VerticalScrollOffset);
+        scene.Session.Dispose();
+    }
+
+    [Fact]
+    public void A_Tilt_Leaves_An_Editor_That_Does_Not_Scroll_Sideways_Where_It_Is()
+    {
+        // The default: no horizontal scrolling.
+        string text = string.Join("\n", Enumerable.Range(0, 60).Select(i => $"line {i}"));
+        RichEditScene scene = Focused(text, new BSize(150, 100));
+        Assert.Equal(RichEditScrollPolicy.Never, scene.Edit.HorizontalScrollPolicy);
+        scene.Session.RenderFrame();
+        Assert.True(scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+            MouseButtons.None, MouseWheelAxis.Vertical, -3, InputEventSource.Synthetic)));
+        double top = scene.Edit.VerticalScrollOffset;
+        Assert.True(top > 0);
+
+        // Neither tilt moves the lines, and both are left for a scroller outside the editor.
+        foreach (double notches in new[] { -1.0, 1.0 })
+        {
+            Assert.False(scene.Route.Dispatch(new MouseWheelEvent(Header("mouse"), InputPoint.ClientDeviceIndependentPixels(50, 50),
+                MouseButtons.None, MouseWheelAxis.Horizontal, notches, InputEventSource.Synthetic)));
+            Assert.Equal(top, scene.Edit.VerticalScrollOffset);
+            Assert.Equal(0, scene.Edit.HorizontalScrollOffset);
+        }
+
         scene.Session.Dispose();
     }
 

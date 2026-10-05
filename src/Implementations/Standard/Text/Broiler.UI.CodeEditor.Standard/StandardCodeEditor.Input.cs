@@ -144,10 +144,14 @@ public sealed partial class StandardCodeEditor
     /// </summary>
     private bool OnPointerWheel(UiInputEvent input)
     {
-        bool sideways = input.WheelAxis == MouseWheelAxis.Horizontal ||
-            input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+        // Shift turns the wheel sideways, whether it arrives as a vertical notch
+        // or as one a host has already turned (Broiler.Hosting.Windows keeps
+        // Shift and the vertical sign); only a horizontal notch without Shift is
+        // a wheel that tilts.
+        bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
+        bool tilted = input.WheelAxis == MouseWheelAxis.Horizontal && !shift;
 
-        if (sideways)
+        if (shift || tilted)
         {
             if (!Scrollbars.Horizontal.IsVisible)
                 return false;
@@ -160,7 +164,7 @@ public sealed partial class StandardCodeEditor
 
             // A wheel tilted right scrolls right; a wheel turned up with shift
             // scrolls left, which is the same sign the vertical axis uses.
-            double next = input.WheelAxis == MouseWheelAxis.Horizontal
+            double next = tilted
                 ? Viewport.HorizontalOffset + moved
                 : Viewport.HorizontalOffset - moved;
 

@@ -139,12 +139,12 @@ internal static class TreeStandardHarness
             InputEventSource.Synthetic);
 
     /// <summary>A wheel notch over a point, optionally with Shift for the sideways axis.</summary>
-    public static MouseWheelEvent MouseWheel(double x, double y, double notches, bool shift = false) =>
+    public static MouseWheelEvent MouseWheel(double x, double y, double notches, bool shift = false, MouseWheelAxis axis = MouseWheelAxis.Vertical) =>
         new(
             Header("mouse"),
             InputPoint.ClientDeviceIndependentPixels(x, y),
             MouseButtons.None,
-            MouseWheelAxis.Vertical,
+            axis,
             notches,
             InputEventSource.Synthetic,
             shift ? InputModifiers.Shift : InputModifiers.None);
