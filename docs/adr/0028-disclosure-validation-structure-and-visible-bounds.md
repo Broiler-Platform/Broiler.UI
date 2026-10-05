@@ -149,7 +149,9 @@ that start in Broiler.UI, not in the host bridge (ADR 0008):
   keyboard focusability, and whether an unnamed scroll view is layout only, by `CanFocus`. The
   existing arrow, Page, Home, and End handling scrolls the view once it is focused. An application
   that makes such a stop by its own policy and calls `SetFocus` on a view that is not `CanFocus` gets
-  no ring until it opts into `FocusWhenScrollable`.
+  no ring until it opts into `FocusWhenScrollable`. ADR 0034 decides it on the view as last arranged,
+  with the tolerance a bar set to Auto now uses, so with Auto bars the stop exists exactly while a bar
+  shows.
 
 ## Consequences
 

@@ -202,6 +202,110 @@ public sealed class ScrollViewControlTests
         Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.VerticalContentInset = -1);
         Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.VerticalContentInset = double.NaN);
         Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.VerticalContentInset = double.PositiveInfinity);
+        Assert.Equal(0, scrollView.ScrollbarGap);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.ScrollbarGap = -1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.ScrollbarGap = double.NaN);
+        Assert.Throws<ArgumentOutOfRangeException>(() => scrollView.ScrollbarGap = double.PositiveInfinity);
+    }
+
+    [Fact]
+    public void Standard_ScrollView_Leaves_A_Gap_Between_Width_Constrained_Content_And_A_Shown_Bar()
+    {
+        var scrollView = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            Constraint = UiScrollConstraint.ConstrainWidth,
+            HorizontalContentInset = 1,
+            ScrollbarGap = 2,
+        };
+        var content = new WidthFillingElement(300);
+        scrollView.AddChild(content);
+
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out BRenderList renderList);
+
+        // The bar keeps its place at the edge; the content area, and the clip with it, ends 2 DIP short of it, and
+        // the content is measured and arranged inside that, with its own room.
+        Assert.True(scrollView.HasVerticalScrollbar);
+        Assert.Equal(new BRect(0, 0, 88, 100), scrollView.ContentBounds);
+        Assert.Equal(86, content.MeasuredWidth);
+        Assert.Equal(new BRect(1, 0, 86, 300), content.Bounds);
+        Assert.Contains(renderList.Commands.OfType<BRenderCommand.PushClip>(), clip => clip.Rect == scrollView.ContentBounds);
+        Assert.Contains(renderList.Commands.OfType<BRenderCommand.FillRoundedRect>(), fill => fill.Rect == new BRect(90, 0, 10, 100) && fill.Color == scrollView.ScrollbarTrack);
+        BRect thumb = renderList.Commands.OfType<BRenderCommand.FillRoundedRect>().Single(fill => fill.Color == scrollView.ScrollbarThumb).Rect;
+        Assert.Equal(90, thumb.Left);
+        Assert.Equal(88, scrollView.ExtentSize.Width);
+
+        // Content that fits shows no bar and loses nothing to the gap.
+        var fits = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            Constraint = UiScrollConstraint.ConstrainWidth,
+            HorizontalContentInset = 1,
+            ScrollbarGap = 2,
+        };
+        var fitting = new WidthFillingElement(60);
+        fits.AddChild(fitting);
+        using UiSession other = AttachAndRender(fits, new BSize(100, 100), out _);
+        Assert.False(fits.HasVerticalScrollbar);
+        Assert.Equal(new BRect(0, 0, 100, 100), fits.ContentBounds);
+        Assert.Equal(98, fitting.MeasuredWidth);
+    }
+
+    [Fact]
+    public void Standard_ScrollView_Leaves_The_Gap_Beside_Both_Bars_Which_Keep_Their_Places()
+    {
+        var scrollView = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            ScrollbarGap = 2,
+        };
+        scrollView.AddChild(new FixedElement(new BSize(140, 180)));
+
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out BRenderList renderList);
+
+        // The tracks and the corner are where they are without a gap; each bar runs past the gap beside the other.
+        Assert.True(scrollView.HasVerticalScrollbar);
+        Assert.True(scrollView.HasHorizontalScrollbar);
+        Assert.Equal(new BRect(0, 0, 88, 88), scrollView.ContentBounds);
+        Assert.Equal(new BSize(88, 88), scrollView.ViewportSize);
+        IEnumerable<BRenderCommand.FillRoundedRect> roundedFills = renderList.Commands.OfType<BRenderCommand.FillRoundedRect>();
+        Assert.Contains(roundedFills, command => command.Rect == new BRect(90, 0, 10, 90) && command.Color == scrollView.ScrollbarTrack);
+        Assert.Contains(roundedFills, command => command.Rect == new BRect(0, 90, 90, 10) && command.Color == scrollView.ScrollbarTrack);
+        Assert.Contains(renderList.Commands.OfType<BRenderCommand.FillRect>(), command => command.Rect == new BRect(90, 90, 10, 10) && command.Color == scrollView.ScrollbarTrack);
+
+        // The track is still where a press pages the content, and the gap is not part of it.
+        Assert.True(scrollView.DispatchInput(MouseDown(95, 80, 1)));
+        Assert.True(scrollView.VerticalOffset > 0);
+        double offset = scrollView.VerticalOffset;
+        Assert.False(scrollView.DispatchInput(MouseDown(89, 80, 2)));
+        Assert.Equal(offset, scrollView.VerticalOffset);
+    }
+
+    [Theory]
+    [InlineData(0.25, false)]
+    [InlineData(0.5, false)]
+    [InlineData(0.75, true)]
+    [InlineData(40, true)]
+    public void Standard_ScrollView_Shows_A_Bar_Only_Past_Half_A_DIP_Of_Overflow(double overflow, bool bar)
+    {
+        var scrollView = new StandardScrollView
+        {
+            ScrollbarThickness = 10,
+            Constraint = UiScrollConstraint.ConstrainWidth,
+        };
+        var content = new WidthFillingElement(100 + overflow);
+        scrollView.AddChild(content);
+
+        using UiSession session = AttachAndRender(scrollView, new BSize(100, 100), out _);
+
+        // A rounding error in the content's height is no reason for a bar: the content keeps the full width.
+        Assert.Equal(bar, scrollView.HasVerticalScrollbar);
+        Assert.Equal(bar ? 90 : 100, content.MeasuredWidth);
+
+        // Nothing is lost to it either: the extent is the content's, and the end of it can still be brought into view.
+        Assert.Equal(100 + overflow, scrollView.ExtentSize.Height);
+        Assert.True(scrollView.ScrollToEnd());
+        Assert.Equal(overflow, scrollView.VerticalOffset, 6);
     }
 
     [Fact]

@@ -46,4 +46,4 @@ Broiler.UI decisions, not product decisions: the product context is in
 | [0031](0031-tab-view-page-clip-header-marks-accent-text-and-toggle-text.md) | Tab view page clip, header focus and selection marks, accent text, and disclosure toggle text |
 | [0032](0032-focus-rings-on-the-drawn-fill-and-focus-hand-off-from-scroll-stops.md) | Focus rings on the fill they are drawn on, and focus hand-off from a scroll stop |
 | [0033](0033-scrollbar-theme-roles-and-a-drop-down-arrow-that-grows-with-the-font.md) | Scrollbar theme roles, and a drop-down arrow that grows with the font |
-| [0034](0034-unread-dot-on-the-selection-list-frame-and-ring-over-its-bar-and-form-ring-room.md) | The unread dot on the selection, the list's frame and ring over its bar, and room for rings and feedback in forms |
+| [0034](0034-unread-dot-on-the-selection-list-frame-and-ring-over-its-bar-and-form-ring-room.md) | The unread dot on the selection, the list's frame and ring over its bar, room for rings and feedback in forms, and a scroll stop that follows the view as arranged |

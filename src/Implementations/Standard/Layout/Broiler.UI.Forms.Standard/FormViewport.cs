@@ -12,7 +12,8 @@ namespace Broiler.UI.Forms.Standard;
 /// viewport (<see cref="StandardScrollView.HorizontalContentInset"/> and
 /// <see cref="StandardScrollView.VerticalContentInset"/>), so a field as wide as the form, or one the
 /// keyboard brings into view at the top or the bottom, shows its whole focus ring rather than losing
-/// the outer half to the clip.
+/// the outer half to the clip. While a scrollbar shows, a further 2 DIP lie between that room and the
+/// bar (<see cref="StandardScrollView.ScrollbarGap"/>), so a ring beside the bar does not meet its thumb.
 /// </summary>
 public sealed class FormViewport : UiElement
 {
@@ -22,11 +23,18 @@ public sealed class FormViewport : UiElement
     /// </summary>
     private const double FocusRingRoom = 1;
 
+    /// <summary>
+    /// The space between the ring's room and a shown bar, as a list keeps between its selection and its
+    /// thumb. A contrast palette draws the thumb in its text color, which a ring that met it would merge with.
+    /// </summary>
+    private const double GapBesideBar = 2;
+
     public StandardScrollView Scroll { get; } = new()
     {
         Constraint = UiScrollConstraint.ConstrainWidth,
         HorizontalContentInset = FocusRingRoom,
         VerticalContentInset = FocusRingRoom,
+        ScrollbarGap = GapBesideBar,
     };
 
     public FormViewport(UiElement content)

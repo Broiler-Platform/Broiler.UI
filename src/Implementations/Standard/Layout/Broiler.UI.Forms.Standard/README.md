@@ -55,8 +55,12 @@ or `Reveal` brings into view at the top or the bottom, would otherwise lose the 
 half of the ring to the viewport's clip. In a `FormSurface` the viewports reach 1 DIP
 into the space around them (the margins, the gap above the action strip and the gap
 above the feedback), so fields and banners keep their places and the action strip's
-edges. Shown feedback starts 4 DIP below the action strip, as far as banners stacked
-in a `StandardPanel { Spacing = 4 }` sit apart. See ADR 0034.
+edges. While a viewport shows its scrollbar, a further 2 DIP lie between the content's
+ring room and the bar (`StandardScrollView.ScrollbarGap`), so the ring of a field beside
+the bar does not run into a thumb drawn in the text color, as a contrast palette draws
+it; the bar keeps its place, and the fields beside it are 2 DIP narrower. Without a bar
+nothing changes. Shown feedback starts 4 DIP below the action strip, as far as banners
+stacked in a `StandardPanel { Spacing = 4 }` sit apart. See ADR 0034.
 An unconstrained measure uses a finite 640×480 fallback. The persistent action bar is
 intended for application-sized viewports; products must choose a practical minimum
 size for their action labels and fonts.

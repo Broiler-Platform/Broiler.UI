@@ -1,4 +1,4 @@
-# ADR 0034 - The unread dot on the selection, the list's frame and ring over its bar, and room for rings and feedback in forms
+# ADR 0034 - The unread dot on the selection, the list's frame and ring over its bar, room for rings and feedback in forms, and a scroll stop that follows the view as arranged
 
 **Status:** Proposed  
 **Date:** 2026-10-05
@@ -44,6 +44,16 @@ ring beside the thumb's rounded ends (the scroll view had done so since ADR 0033
 brought into view was placed flush with the top or the bottom of the form's viewport, which cut the outer
 half of its ring there; and the list's accent text did not follow an accent the application set after the
 theme.
+
+A final screenshot review on that build found two more, which this ADR covers as well:
+
+- **A scroll stop with nothing to scroll.** Mail's inbox notice, a `FocusWhenScrollable` view, showed all its
+  lines with no scrollbar at 1100 x 720 with 200 % text, yet was a Tab stop in some runs: it drew its ring around
+  an unscrolled banner, and a key pressed there acted elsewhere once the next layout ended the stop.
+- **A field's ring against the form's thumb.** With the form's bar shown, a focused full-width field's ring ended
+  exactly where the bar began (the table below: ring to 617, bar from 617). The contrast palettes draw the thumb
+  in their text color (ADR 0033), so the ring's right side merged with the thumb, and the ring read as open on
+  that side. The fields' and buttons' rounded corners joined the thumb the same way.
 
 ## Decision
 
@@ -105,6 +115,8 @@ theme.
   | A full-width field beside the bar | 12 to 616 | 12 to 616 |
   | The field's ring, outer edges | 11 to 629, cut to 12 to 628 | 11 to 629, whole; beside the bar 11 to 617, whole |
 
+  Beside a shown bar the field now ends 2 DIP sooner; see "Space between a form's content and its bar".
+
 - **`StandardScrollView.VerticalContentInset`** (DIP, default 0) is the same room above and below the content.
   The extent grows by it at each end, so the first and the last control keep it when scrolled to either end;
   with `ConstrainHeight` the content is measured and arranged that much shorter. `MakeVisible` keeps it, so a
@@ -132,6 +144,72 @@ theme.
 - An application that wants the old geometry sets `Content.Scroll.HorizontalContentInset` and
   `VerticalContentInset`, and those of the feedback viewport (the surface's last `FormViewport` child), back
   to 0; `FormSurface` then places that viewport in its margins as before.
+
+### Space between a form's content and its bar
+
+- **`StandardScrollView.ScrollbarGap`** (DIP, default 0) is space left between the content and a scrollbar while
+  that bar shows. It comes out of the content beside the bar: `ContentBounds`, and the clip with it, ends that much
+  short of the bar, and content constrained to the width (or the height) is measured and arranged that much
+  narrower (or shorter). The tracks, the thumbs and the corner keep their places at the view's edges, a bar runs on
+  past the gap beside the other bar to the corner, and a press in the gap is not a press on the track. The gap is
+  never more than the side has room for beside the bar. With no bar, or at 0, the view lays out as before.
+- **`FormViewport`** sets it to 2 DIP, as far as a list keeps its selection fill from its thumb. The bar stays
+  where it was and the fields beside it are 2 DIP narrower; the ring's room stays inside the clip. At 640 DIP wide
+  with the form's bar shown:
+
+  | | Before | Now |
+  |---|---|---|
+  | The vertical bar | 617 to 629 | 617 to 629 |
+  | The form's clip | 11 to 617 | 11 to 615 |
+  | A full-width field | 12 to 616 | 12 to 614 |
+  | Its ring, outer edges | 11 to 617, against the bar | 11 to 615, whole, 2 DIP from the bar |
+  | A field with no bar shown | 12 to 628 | 12 to 628 |
+
+- The feedback viewport is a `FormViewport` too: banners beside its bar end 2 DIP sooner.
+- In `HighContrastLight` a focused field beside the bar now shows a black ring, 2 DIP of white and a black thumb,
+  instead of one black band; the Hosting contrast palettes likewise show their window color between the ring and
+  the thumb.
+
+### A scroll stop that follows the view as arranged
+
+- **The cause.** `StandardScrollView` recorded `ViewportSize` and `ExtentSize` in `MeasureCore`, for the size it is
+  measured at clamped to its `PreferredSize` (160 x 120 DIP unless set), and again in `ArrangeCore`, for the
+  rectangle it is given. `UiElement.Measure` invalidates an arrange only when the desired size changes. Mail's
+  `BoundedScrollArea` measures the notice's scroll view at a cap and then at its content's height, both of which
+  clamp to the same 160 x 120, and gives it that height, where the content fits. When the area was measured again,
+  for example after its split moved, the view was not arranged again and kept the measured viewport, which its
+  content overflows. The bars, laid out by the last arrange, showed none, but `FocusWhenScrollable` read the
+  recorded sizes, and the view was a stop until the next arrange. The review measured no sub-pixel overflow: the
+  notice's 5 lines take 346 of 364 px.
+- **The sizes.** Once the view has been arranged, `ViewportSize` and `ExtentSize` are those of its last arrange, for
+  the rectangle it was given; a measure records them only before the first arrange. A measure at another size no
+  longer moves them, so the bars, the thumb, the largest offset, the page `PageDown` scrolls by and code that reads
+  the sizes (Mail's own stop rule) all describe the same viewport, and a measure no longer clamps the offset to a
+  viewport the view was not given (a view scrolled to its end went back to the start). An arrange that follows a
+  measure at a new size, which `UiElement.Measure` brings about whenever the view's or its content's desired size
+  changes, records the new sizes.
+- **The rule.** The stop is decided on the view as it was last arranged: `ArrangeCore` records whether the content
+  overflows the viewport, from the same layout that places the bars, and `CanFocus` reads that. It is recorded
+  before the sizes, so a host told that they changed reads the stop that goes with them, and a change to it
+  invalidates the view's semantics and rendering even where the sizes do not change, as on a first frame, whose
+  measure recorded them already.
+- **One tolerance.** The stop already ignored an overflow of up to half a DIP, but a bar set to `Auto` showed for
+  any overflow, so content 0.25 DIP taller than its viewport showed a bar and was no stop. Now an overflow of no
+  more than 0.5 DIP shows no `Auto` bar (in the layout of the bars, and in the width- and height-constrained
+  measure and arrange, which decide on it whether to measure the content narrower or shorter) and makes no stop.
+  With `Auto` bars a stop exists exactly while a bar shows. The extent stays the content's, so that fraction of a
+  DIP can still be scrolled into view: a form's last field, brought into view by Tab or `Reveal`, keeps the outer
+  half of its ring (see "Room for a field's focus ring in a form"), and `ScrollToEnd` and the wheel reach it too,
+  with no bar to show it. A view whose bars are `Hidden` or not shown is a stop while its content overflows by
+  more, since the keys are the only way to scroll it; a `Visible` bar shows whatever the content.
+
+  | Content taller than its viewport by | Bar, before | Stop, before | Bar and stop, now |
+  |---|---|---|---|
+  | 0 | no | no | no |
+  | 0.25 or 0.5 DIP | yes | no | no (it still scrolls by that much) |
+  | 0.75 DIP or more | yes | yes | yes |
+  | nothing as arranged, but more as last measured | no | yes, until the next arrange | no |
+  | more as arranged, but nothing as last measured | yes | no, and its keys scrolled nothing, until the next arrange | yes, and its keys scroll it |
 
 ### The list's frame over its bar
 
@@ -206,7 +284,8 @@ theme.
   - In Dark, a selected unread row's dot is #7AB7FF instead of #2673CE. Other presets and Hosting's palettes draw
     the dot as before. A custom palette whose accent is under 3:1 on its surface or selection fill now draws the
     dot in its accent text shade or its text color there.
-  - Fields and banners in a `FormSurface` keep their bounds; the form's and the feedback's viewports are 2 DIP
+  - Fields and banners in a `FormSurface` keep their bounds while no bar shows (beside a shown bar they are 2 DIP
+    narrower; see "Space between a form's content and its bar"); the form's and the feedback's viewports are 2 DIP
     wider, their clips reach 1 DIP into the margins, and a vertical bar sits 1 DIP further right. A full-width
     field's focus ring and frame are whole on every side.
   - While feedback shows, the form's viewport is 4 DIP shorter and the feedback starts 4 DIP below the strip.
@@ -220,11 +299,23 @@ theme.
     in the same place as before.
   - A list given an `Accent` after its theme draws its accent marks in that accent or the row's text color, not
     in the theme's accent text.
+  - While a form's or its feedback's bar shows, the content beside it (fields, strips, banners) is 2 DIP
+    narrower, and the clip ends 2 DIP before the bar. Without a bar nothing moves.
+  - Every `StandardScrollView`: content within 0.5 DIP of its viewport shows no `Auto` bar and, width- or
+    height-constrained, is measured at the full width or height, but can still be scrolled by that fraction; a
+    `FocusWhenScrollable` view is a stop only while its content overflows by more as last arranged, so never while
+    an `Auto` bar that can show is not shown, and a change to that decision is reported as a semantic change.
+  - Every `StandardScrollView` that has been arranged: `ViewportSize` and `ExtentSize` are those of its last arrange,
+    and a measure at another size neither moves them nor clamps the offset to them. Before its first arrange a
+    measure records them as before.
 - New API: `UiListItemRenderContext.AccentText`, `StandardListView.AccentText`,
-  `StandardScrollView.HorizontalContentInset`, `StandardScrollView.VerticalContentInset` and
-  `StandardControlPaint.PillAreasUnderRing`. All additive; the defaults keep the earlier behavior where noted.
-- Unchanged: scrollbar track and thumb colors, the splitter grip, input border colors, every ring's position and
-  thickness, the list's bar geometry and hit testing, and `StandardScrollView` with no inset.
+  `StandardScrollView.HorizontalContentInset`, `StandardScrollView.VerticalContentInset`,
+  `StandardScrollView.ScrollbarGap` and `StandardControlPaint.PillAreasUnderRing`. All additive; the defaults keep
+  the earlier behavior where noted.
+- Unchanged: scrollbar track and thumb colors, the splitter grip, input border colors, every ring's position
+  relative to its control and its thickness, the list's bar geometry and hit testing, and the layout of a
+  `StandardScrollView` with no inset and no gap, but for content within 0.5 DIP of its viewport. Its
+  `FocusWhenScrollable` decision, and the sizes it records once arranged, follow its last arrange (above).
 - Tests: `UnreadDotContrastTests` (every preset, text-scaled copies, the four Hosting-shaped palettes and a dark
   highlight); `ListViewFrameAndFocusRingTests` (the frame over the bar in eight palettes, the ring across the thumb
   in the four Hosting-shaped palettes and both high-contrast presets, Light and Dark unchanged, the selection's
@@ -239,6 +330,17 @@ theme.
   `WindowsTheme.CreateHighContrastTheme` gives them; `PillGeometry` checks clips against a thumb's pill.
   `SelectionTextRoleTests.Presets_Draw_Selected_Rows_As_Before` now expects Dark's accent text dot, and
   `TabViewHiddenContentLayoutTests` the wider viewport and the feedback viewport's room at the bottom.
+  For the final review: `CompactFormsTests` (a focused field beside the bar 2 DIP from the thumb in
+  `HighContrastLight`, the bar in its place, the feedback's bar likewise, and a form without a bar laid out as
+  before; `AFocusedFieldAsWideAsTheFormShowsItsWholeFocusRing` now expects the field 2 DIP narrower beside the bar);
+  `ScrollViewControlTests` (the gap beside a width-constrained content's bar and beside both bars, the tracks and the
+  corner in their places, a press in the gap, a bar only past 0.5 DIP of overflow with the extent and the end still
+  reached within it, argument checks); `ScrollViewFocusTests` (a stop exactly while the bar shows, from no overflow to
+  200 DIP; no stop, and sizes that say so, after a measure at another size that is not arranged, as Mail's bounded
+  notice is measured; the reverse, a view measured taller than it is given, which stays a stop whose keys scroll it
+  and keeps its offset; becoming a stop reported to the host when the sizes a measure recorded do not change, and
+  every change reported with new sizes reading the new stop); `CompactFormsTests` also tabs to a last field a
+  quarter and a half DIP below a form's viewport, which shows no bar, and finds its ring whole.
 - Consumer follow-ups:
   - **Broiler.Mail:** one small code change, then tests and baselines.
     - `MailMessageItemPresenter` on `main` (and every Mail worktree but the adoption branch) builds a new
@@ -253,7 +355,18 @@ theme.
       Tab or Shift+Tab). In the contrast themes, a focused list shows its ring across the thumb.
     - Layout tests that pin a form viewport's bounds need the new values: 2 DIP wider and 2 DIP taller, starting
       1 DIP higher, and 4 DIP shorter with feedback shown; the feedback viewport ends 11 DIP above the bottom.
-      Field bounds and scroll offsets are unchanged.
+      Field bounds while no bar shows, and scroll offsets, are unchanged; beside a shown bar, see the next item.
+    - With the final review's fixes: fields, strips and banners beside a shown form or feedback bar end 2 DIP
+      sooner (at 1100 x 720 and 150 % display scale, as the acceptance screenshots are taken, also in the 200 %
+      text runs: 3 px of surface between a focused field's ring and the thumb), and layout tests that pin a
+      field's width beside the bar need it 2 DIP narrower. The inbox notice is no Tab stop while it shows all its
+      lines; the tab cycles in the acceptance results lose that stop where it showed no bar.
+    - `MailKeyboardNavigation.Scrolls` (main, on the published preview.17) reads `ExtentSize` and `ViewportSize`
+      with the same half-DIP tolerance. On preview.17 a measure records them for the size it is offered, and the
+      rule makes the same dead stop; with this release they are the last arrange's, and the rule agrees with
+      `FocusWhenScrollable` and with an `Auto` bar. Using `FocusWhenScrollable`, as the adoption branch does,
+      still drops Mail's copy of the rule. The workarounds the review suggested in `BoundedScrollArea` (an
+      `InvalidateArrange` after its measures, or a `PreferredSize`) are not needed with this release.
     - The toolbar notch above the splitter is the toolkit's (see "The notch in Mail's toolbar line"), not Mail's.
       If Mail wants it gone before the toolkit fixes it, 1 DIP between the inbox toolbar and the split container
       (for example spacing on the docking panel) keeps the toolbar's bottom line whole; that is a workaround, not
@@ -281,3 +394,10 @@ theme.
     clips to rectangles only.
   - The scrollbar thumb and track colors, the splitter grip and the input border colors keep their values: their
     contrast in Light and Dark is a design decision for the preset owners.
+  - Code that measures an arranged `StandardScrollView` at a new size and reads `ViewportSize` or `ExtentSize`
+    before arranging it gets the last arrange's sizes, not the measure's. The toolkit does not, nor does Mail on
+    `main`: its preview reads them after its scroll view's arrange or on input.
+  - Content that overflows by no more than 0.5 DIP can be scrolled by that much, by the wheel as by `MakeVisible`,
+    with no bar to show it.
+  - `ScrollbarGap` lies between the content and a bar, not at the ends of a track: the reader's body thumb in
+    Mail still starts at the top of its track, under Mail's own header divider.
