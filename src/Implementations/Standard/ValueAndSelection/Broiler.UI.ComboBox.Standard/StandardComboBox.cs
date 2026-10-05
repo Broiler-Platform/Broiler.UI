@@ -27,6 +27,8 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         Foreground = theme.Text;
         BorderColor = theme.Border;
         SelectedBackground = theme.AccentSoft;
+        // The highlighted item keeps following Foreground unless the theme gives the selection a text color of its own.
+        SetSelectedForeground(theme.SelectionText == theme.Text ? null : theme.SelectionText);
         PopupBackground = theme.Surface;
         FocusRing = theme.FocusRing;
     }
@@ -38,11 +40,13 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
     private BColor _foreground = StandardControlPaint.Text;
     private BColor _borderColor = StandardControlPaint.Border;
     private BColor _selectedBackground = StandardControlPaint.AccentSoft;
+    private BColor? _selectedForeground;
     private BColor _popupBackground = StandardControlPaint.Surface;
     private BColor _focusRing = StandardControlPaint.Focus;
     private BFontStyle _font = StandardControlPaint.Theme.FontBody;
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
-    private double _itemHeight = 28;
+    private double _itemHeight = DefaultItemHeight;
+    private bool _itemHeightExplicit;
     private double _cornerRadius = StandardControlPaint.ControlRadius;
 
     public BColor Background
@@ -89,6 +93,25 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         }
     }
 
+    /// <summary>
+    /// The color of the highlighted drop-down item's text, drawn on <see cref="SelectedBackground"/>. Until it
+    /// is set it is <see cref="Foreground"/>. <see cref="ApplyTheme"/> sets it to the theme's
+    /// <see cref="StandardThemeTokens.SelectionText"/> when that differs from the theme's text color, and
+    /// otherwise lets it follow <see cref="Foreground"/> again.
+    /// </summary>
+    public BColor SelectedForeground
+    {
+        get => _selectedForeground ?? Foreground;
+        set => SetSelectedForeground(value);
+    }
+
+    private void SetSelectedForeground(BColor? value)
+    {
+        if (_selectedForeground == value) return;
+        _selectedForeground = value;
+        Invalidate(UiInvalidationKind.Render);
+    }
+
     public BColor PopupBackground
     {
         get => _popupBackground;
@@ -122,13 +145,22 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         }
     }
 
+    /// <summary>The drop-down row height at the default font.</summary>
+    private const double DefaultItemHeight = 28;
+
+    /// <summary>
+    /// The height of a drop-down row. Until it is set it follows <see cref="Font"/>: 28 at the default font,
+    /// and at a larger font tall enough for the text with the same margin around it. A value the application
+    /// sets is kept whatever the font.
+    /// </summary>
     public double ItemHeight
     {
-        get => _itemHeight;
+        get => _itemHeightExplicit ? _itemHeight : HeightForFont(DefaultItemHeight);
         set
         {
-            if (_itemHeight == value) return;
+            if (_itemHeight == value && _itemHeightExplicit) return;
             _itemHeight = value;
+            _itemHeightExplicit = true;
             Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render);
         }
     }
@@ -151,8 +183,26 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
     /// <summary>The list, while it is down. It is drawn outside the control and worked outside it too.</summary>
     public override BRect OverlayBounds => IsDropDownOpen ? PopupBounds : BRect.Empty;
 
-    protected override BSize MeasureCore(BSize availableSize) =>
-        new(ClampDesired(PreferredSize.Width, availableSize.Width), ClampDesired(PreferredSize.Height, availableSize.Height));
+    /// <summary>
+    /// <see cref="UiComboBox.PreferredSize"/>, except that until the application sets it the box is as tall
+    /// as its font needs: the default height at the default font, and the same margin around a larger font,
+    /// such as a text-scaled theme's.
+    /// </summary>
+    protected override BSize MeasureCore(BSize availableSize)
+    {
+        double height = IsPreferredSizeSet ? PreferredSize.Height : HeightForFont(PreferredSize.Height);
+        return new(ClampDesired(PreferredSize.Width, availableSize.Width), ClampDesired(height, availableSize.Height));
+    }
+
+    /// <summary>
+    /// <paramref name="defaultHeight"/>, or more when <see cref="Font"/> is taller than the default font:
+    /// enough for a line of it with the margin <paramref name="defaultHeight"/> leaves around a default line.
+    /// </summary>
+    private double HeightForFont(double defaultHeight)
+    {
+        double defaultLine = BTextMeasurer.GetLineHeight(BFontStyle.Default);
+        return Math.Max(defaultHeight, Math.Ceiling(BTextMeasurer.GetLineHeight(Font) + Math.Max(0, defaultHeight - defaultLine)));
+    }
 
     protected override void ArrangeCore(BRect finalRect)
     {
@@ -321,9 +371,11 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
         for (int index = 0; index < visible; index++)
         {
             BRect itemRect = new(PopupBounds.Left, PopupBounds.Top + index * ItemHeight, PopupBounds.Width, ItemHeight);
-            if (index == _highlightedIndex)
+            bool highlighted = index == _highlightedIndex;
+            if (highlighted)
                 context.RenderList.FillRect(StandardControlPaint.Inset(itemRect, 2), SelectedBackground);
-            context.RenderList.DrawText(new BTextRun(Items[index].Text, Font, Foreground), new BPoint(itemRect.Left + 8, itemRect.Top + Math.Max(0, (itemRect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            BColor foreground = highlighted ? SelectedForeground : Foreground;
+            context.RenderList.DrawText(new BTextRun(Items[index].Text, Font, foreground), new BPoint(itemRect.Left + 8, itemRect.Top + Math.Max(0, (itemRect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
         }
         context.RenderList.PopClip();
     }

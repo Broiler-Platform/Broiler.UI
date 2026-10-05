@@ -37,6 +37,16 @@ public sealed record CodeEditorPalette
 
     public BColor InactiveSelection { get; init; } = new BColor(0xDC, 0xE3, 0xEB);
 
+    /// <summary>
+    /// The colour of selected text on <see cref="Selection"/>, while the editor has focus, or <c>null</c> (the
+    /// default) to draw selected text in its classification colours, exactly as it is drawn without a
+    /// selection. When set, it replaces the classification colours on the selection, since they are chosen
+    /// for <see cref="Background"/> rather than for the selection fill; emphasis and slant are kept. The
+    /// unfocused <see cref="InactiveSelection"/> is a muted surface the classification colours read on, so
+    /// it does not apply there.
+    /// </summary>
+    public BColor? SelectionForeground { get; init; }
+
     public BColor Caret { get; init; } = new BColor(0x1F, 0x23, 0x28);
 
     public BColor BracketMatch { get; init; } = new BColor(0xC8, 0xE1, 0xC8);

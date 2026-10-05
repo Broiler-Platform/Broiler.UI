@@ -36,8 +36,12 @@ public static class StandardCodeEditorPalette
             CurrentLineBackground = tokens.SurfaceAlt,
             Selection = tokens.AccentSoft,
             InactiveSelection = tokens.SurfaceDisabled,
+
+            // Only a theme that gives selected text a colour of its own recolours it.
+            SelectionForeground = tokens.SelectionText == tokens.Text ? null : tokens.SelectionText,
             Caret = tokens.Text,
-            BracketMatch = tokens.AccentSoft,
+            // A matching bracket is marked, not selected, so it takes the state fill.
+            BracketMatch = tokens.StateFill,
             CompositionUnderline = tokens.Text,
 
             Comment = Adjust(tokens.Success, dark),
@@ -63,11 +67,13 @@ public static class StandardCodeEditorPalette
     }
 
     /// <summary>
-    /// A theme whose surface and text sit at the extremes is a high-contrast
-    /// theme, whatever it is named.
+    /// A theme that says it is high contrast is one, and so is a theme whose
+    /// surface and text sit at the extremes, whatever it is named.
     /// </summary>
     private static bool IsHighContrast(StandardThemeTokens tokens)
     {
+        if (tokens.IsHighContrast)
+            return true;
         double surface = Luminance(tokens.Surface);
         double text = Luminance(tokens.Text);
         return Math.Abs(surface - text) > 0.9;

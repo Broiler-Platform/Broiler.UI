@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Broiler.Graphics;
+using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.Graphics.Text;
@@ -14,6 +15,9 @@ namespace Broiler.UI.ListView.Standard;
 public sealed class DefaultListItemPresenter : IUiListItemPresenter
 {
     public static readonly DefaultListItemPresenter Instance = new();
+
+    /// <summary>What <see cref="TruncateWithEllipsis"/> appends to text it shortens.</summary>
+    internal const string Ellipsis = "...";
 
     public double GetItemHeight(UiListItem? item, UiDensity density, double availableWidth) =>
         density switch
@@ -54,13 +58,34 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
         string trimmed = TruncateWithEllipsis(context.Item.Text, context.Font, maxTextWidth);
         if (!string.IsNullOrEmpty(trimmed))
         {
-            list.DrawText(new BTextRun(trimmed, context.Font, context.Foreground), new BPoint(textLeft, textTop));
+            BColor foreground = context.State.IsSelected ? context.SelectedForeground : context.Foreground;
+            list.DrawText(new BTextRun(trimmed, context.Font, foreground), new BPoint(textLeft, textTop));
         }
 
         if (context.State.IsFocused && context.State.IsSelected)
         {
-            list.StrokeRect(StandardControlPaint.Inset(bounds, 2), context.FocusRing, 1);
+            StrokeFocusRing(context);
         }
+    }
+
+    /// <summary>
+    /// The focus ring of a focused, selected row, 2 DIP inside the row. In high contrast it is drawn 2 DIP
+    /// inside the selection outline instead of over it, so both cues stay visible, and in the selected text
+    /// color when the focus ring color does not stand out against the selection fill, as when a palette built
+    /// from a system highlight pair uses the highlight for both.
+    /// </summary>
+    internal static void StrokeFocusRing(UiListItemRenderContext context)
+    {
+        if (!context.IsHighContrast)
+        {
+            context.RenderList.StrokeRect(StandardControlPaint.Inset(context.Bounds, 2), context.FocusRing, 1);
+            return;
+        }
+
+        BColor ring = StandardContrast.Ratio(context.FocusRing, context.SelectedBackground) >= StandardContrast.AaLargeOrUi
+            ? context.FocusRing
+            : context.SelectedForeground;
+        context.RenderList.StrokeRect(StandardControlPaint.Inset(context.Bounds, 4), ring, 1);
     }
 
     public UiSemanticNode CreateSemanticNode(UiListItemSemanticContext context)
@@ -88,8 +113,7 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
         if (BTextMeasurer.MeasureAdvance(text, font) <= maxWidth)
             return text;
 
-        const string ellipsis = "...";
-        double ellipsisWidth = BTextMeasurer.MeasureAdvance(ellipsis, font);
+        double ellipsisWidth = BTextMeasurer.MeasureAdvance(Ellipsis, font);
         if (ellipsisWidth > maxWidth)
             return string.Empty;
 
@@ -105,6 +129,6 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
             result = candidate;
         }
 
-        return result + ellipsis;
+        return result + Ellipsis;
     }
 }
