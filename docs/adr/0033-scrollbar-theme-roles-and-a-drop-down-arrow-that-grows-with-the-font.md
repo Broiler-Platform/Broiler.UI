@@ -53,29 +53,43 @@ The list, tree and code editor draw the roles in every theme. Unless a theme set
 the colors these controls drew before.
 
 The scroll view, rich edit and formatting code view keep their translucent bars until the theme gives scrollbars
-colors of their own. A theme does that when it is high contrast (`IsHighContrast`), or when either role differs
-from the role it follows. **`StandardControlPaint.ScrollbarColors(theme, track, thumb)`** applies this rule:
+colors of their own. **`StandardControlPaint.ScrollbarColors(theme, track, thumb)`** applies this rule. A theme
+gives scrollbars colors when:
 
-- It returns the theme's pair, or the control's own pair. It never mixes them: a theme that sets only the thumb
+- it sets either role, even to the very color the role would follow. Whether a role was set is recorded on the
+  tokens and kept by every copy, so `Light with { ScrollbarThumb = Light.BorderStrong }` reaches all six controls;
+- it says it is high contrast (`IsHighContrast`), as every contrast preset and Hosting's system palette do; or
+- its surface and text sit at the extremes of lightness. This is the test the list, the tree and the code
+  editor's palette already make for their own high-contrast cues (the weighted channel average of `Surface` and
+  `Text` more than 0.9 apart). A black-and-white palette built with the four-color constructor, which does not
+  set the flag, therefore draws every bar in its roles, as the list always did. Light (0.87) and Dark (0.83) are
+  below the threshold.
+
+The rule:
+
+- returns the theme's pair, or the control's own pair. It never mixes them: a theme that sets only the thumb
   gets that thumb on the theme's track, not on the translucent one.
-- `ApplyTheme` writes the pair every time, so a theme that says nothing about scrollbars, applied after a contrast
-  theme, brings the translucent bars back.
+- `ApplyTheme` moves each bar color on to the new theme's while it still holds the color the last theme gave it,
+  the way `StandardThemeFonts.Follow` treats a font. A theme that says nothing about scrollbars, applied after a
+  contrast theme, brings the translucent bars back. A color the application set on `ScrollbarTrack` or
+  `ScrollbarThumb` is kept by every later theme, as ADR 0028 kept it; only the color it left alone follows.
 - A control that is built under the shared palette and never themed takes the pair from the shared palette, as
   the list already does.
 
 This is ADR 0029's selection rule applied to scrollbars. Drawing the roles in these three controls under every
 theme would change the Light and Dark presets. In Light, for example, the translucent bars composite to a #A1ADBD
-thumb on #EAEDF1, while the roles are #8DA0B6 on #F1F4F8. The rule reads the `IsHighContrast` flag. Every preset
-and Hosting's system palette set it. The rule does not repeat the luminance fallback that the list and tree use
-for their high-contrast cues. A custom palette at the extremes that does not set the flag can set the roles.
+thumb on #EAEDF1, while the roles are #8DA0B6 on #F1F4F8. So under Light and Dark one window still shows two
+scrollbar looks, the translucent one and the role one, and `ScrollbarTrack`, `ScrollbarThumb` and
+`ScrollbarThumbContrast` describe only the second. Their XML documentation says so. Unifying the two is a preset
+change and is listed below as a follow-up that needs a design decision.
 
 Every control that draws scrollbars:
 
 | Control | Bars | Colors | Before | Now |
 |---|---|---|---|---|
-| `StandardScrollView` | vertical, horizontal, corner | `ScrollbarTrack`, `ScrollbarThumb` | translucent pair; `ApplyTheme` left them | `ScrollbarColors` |
-| `StandardRichEdit` | vertical, horizontal | `ScrollbarTrack`, `ScrollbarThumb` | translucent pair; not themed | `ScrollbarColors` |
-| `StandardFormatCodeView` | vertical, horizontal | `ScrollbarTrack`, `ScrollbarThumb` | translucent pair; not themed | `ScrollbarColors` |
+| `StandardScrollView` | vertical, horizontal, corner | `ScrollbarTrack`, `ScrollbarThumb` | translucent pair; `ApplyTheme` left them | `ScrollbarColors`, app colors kept; ring whole over the thumb |
+| `StandardRichEdit` | vertical, horizontal | `ScrollbarTrack`, `ScrollbarThumb` | translucent pair over the text; not themed | `ScrollbarColors`, app colors kept; opaque bars beside the text |
+| `StandardFormatCodeView` | vertical, horizontal | `ScrollbarTrack`, `ScrollbarThumb` | translucent pair over the text; not themed | `ScrollbarColors`, app colors kept; opaque bars beside the text |
 | `StandardListView` | vertical | `ScrollbarTrack`, `ScrollbarThumb` | `SurfaceDisabled`, `BorderStrong` | the roles |
 | `StandardTreeView` | vertical, horizontal (`StandardScrollbars`) | `StandardScrollbars.ApplyPaint` | `SurfaceDisabled`, `BorderStrong` | the roles |
 | `StandardCodeEditor` | vertical, horizontal (`StandardScrollbars`) | `StandardScrollbars.ApplyPaint` | `SurfaceDisabled`, `BorderStrong` | the roles |
@@ -100,17 +114,53 @@ bar (WCAG ratios; the translucent pair is composited over the surface):
 The list, tree and code editor draw what they drew before in every palette: 2.43 / 2.68 in Light, 2.21 / 2.66 in
 Dark, and the window text on the window color in the contrast palettes.
 
+### Opaque bars are drawn beside the text, not over it
+
+The rich edit and the formatting code view draw their bars over the edge of their text. The rich edit's vertical
+bar covers the last 12 DIP of its text column, and its horizontal bar the bottom 12 DIP of the window onto the
+text. The formatting code view's bars run along the very edge of the box and cover the 4 DIP of text inside the
+right padding and 6 DIP inside the bottom one. With the translucent pair the text showed through (a track at
+20 %). An opaque pair, as high contrast gives them, would hide it. In `HighContrastLight` and `HighContrastDark`
+the track is the surface color, so the text would end without a visible edge. The scroll view, the list, the tree
+and the code editor already carve their bars out of the content and are not affected.
+
+So once the track or the thumb is fully opaque (alpha 255), whether from a theme or set by the application:
+
+- The rich edit keeps a strip of `ScrollbarThickness` beside the text for each bar its policy allows
+  (`VerticalScrollPolicy`, `HorizontalScrollPolicy` not `Never`). It keeps the strip whether or not the bar shows,
+  so the bar coming and going never rewraps the document, which is why the bar overlays the text in the first
+  place (`RichEditScrollMetrics`). The text column, the page and the padding are laid out in the box less the
+  strips, and the bar is drawn in its strip at the same place as before. Each bar stops at the other's strip, so
+  they no longer overlap at the corner. A box that is sized to its text (`VerticalScrollPolicy.Never`) grows by
+  the horizontal strip.
+- The formatting code view ends its text where the bar starts: the text's right edge is `ScrollbarThickness` from
+  the box's edge instead of `PaddingX`, and with `NoWrap` its bottom edge likewise. The edge is kept whether or
+  not the bar shows.
+- Translucent bars keep overlaying the text, so the Light and Dark presets lay out and draw exactly as before.
+
+### A focus ring that crosses an opaque thumb
+
+A focused scroll view that is a keyboard stop strokes its ring 2 DIP inside its bounds, after the bars, so the
+ring runs through the vertical bar (and the horizontal one). In `HighContrastLight` the ring and the thumb are
+both black (1.00:1). In `HighContrastDark` the ring is yellow on a white thumb (1.07:1). Either way the ring had a
+gap the length of the thumb. The view now draws the stretch over each thumb again, clipped to the thumb, in
+`StandardControlPaint.FocusRingColor(ring, thumb, surface)`: the surface color where the ring is under 3:1 on an
+opaque thumb (ADR 0032's rule). A translucent thumb, as in Light and Dark, adds nothing to the frame.
+
 ### A drop-down arrow that grows with the font
 
 - The arrow sits in a slot at the right edge that grows with `Font` by the ratio of a line of the font to a
-  default line, never less than 1. This is the ratio the box's height already grows by (ADR 0029). The glyph
-  starts `18 x` that ratio from the edge, and the text is clipped `22 x` that ratio short of it. At the default
+  default line, never less than 1. The glyph's width keeps that ratio. The box's height grows differently
+  (ADR 0029): by the extra height of the line, keeping the default margin, so at 200 % the box is 1.625 times as
+  tall while the slot is twice as wide. The glyph starts `18 x` that ratio from the edge, and the text is clipped
+  `22 x` that ratio short of it. At the default
   font this is 18 and 22, and the box draws exactly the commands it drew before. At 200 % it is 36 and 44: the
   "v" ends 20.7 DIP from the edge and the "^" 14.1 DIP, and the text stops 8 DIP before the arrow. The tests
   check that, at 150 % and 200 %, both margins grow at least as much as the font.
 - The slot follows the font even when the application sets `PreferredSize`. A box with a fixed size, such as the
-  file and font dialogs' boxes or Mail's, still keeps its arrow clear of the frame. At a larger font its text gets
-  less width.
+  file and font dialogs' boxes or Mail's, still keeps its arrow clear of the right edge of the frame. At a larger
+  font its text gets less width. This is horizontal only: a box whose set height is shorter than a line of its
+  font still draws its text and arrow past its bottom edge (see "Not covered").
 - The arrow stays a glyph rather than a drawn chevron. The default rendering is unchanged, and the glyph keeps
   the font's weight and color. The slot is scaled from the line height and does not measure the glyph. A family
   whose "v" is much wider for its line than the default font's comes closer to the frame. A drawn chevron sized
@@ -119,12 +169,21 @@ Dark, and the window text on the window color in the contrast palettes.
 ## Consequences
 
 - With the Light and Dark presets, every scrollbar and every combo box draws exactly as before. The tests pin
-  both kinds of scrollbar colors in Light, Dark and a scaled Dark, and the combo box's arrow and text clip at the
-  default font. In the high-contrast presets, the scroll view, rich edit and formatting code view now draw the
-  text color as the thumb on a track of the surface color (21:1). The list, tree and code editor are unchanged.
-- `ApplyTheme` on the scroll view, rich edit and formatting code view now writes `ScrollbarTrack` and
-  `ScrollbarThumb`, as it writes every other themed color. Before, it left them alone. An application that colors
-  those bars sets the colors after theming, or sets the roles on its palette.
+  both kinds of scrollbar colors in Light, Dark and a scaled Dark, the overlay geometry of the rich edit and the
+  formatting code view in Light, and the combo box's arrow and text clip at the default font. In the
+  high-contrast presets, the scroll view, rich edit and formatting code view now draw the text color as the thumb
+  on a track of the surface color (21:1). The list, tree and code editor are unchanged.
+- In high contrast, and whenever an application sets an opaque bar color, the rich edit's text column is
+  `ScrollbarThickness` (12 DIP) narrower while its vertical policy allows a bar, and the formatting code view's is
+  4 DIP narrower. Text wraps earlier there; nothing is hidden under a bar. Tests check, for left- and
+  right-aligned wrapped prose and for unwrapped lines scrolled to the end, that no text and no text clip reaches
+  into an opaque bar.
+- `ApplyTheme` on the scroll view, rich edit and formatting code view now moves `ScrollbarTrack` and
+  `ScrollbarThumb` to the theme's pair while they still hold the last theme's. A color the application set is
+  kept, as before this ADR. Tests set a thumb and apply Light, a contrast theme and Dark in turn.
+- A palette that sets the roles to the colors they follow, or a black-and-white palette that does not set
+  `IsHighContrast`, now draws the scroll view, rich edit and formatting code view in its roles, as the list, tree
+  and code editor already did.
 - `Broiler.UI.Standard.Tests` now references `Broiler.UI.TreeView.Standard`, `Broiler.UI.RichEdit.Standard` and
   `Broiler.UI.FormatCodeView.Standard`, so that one test can cover every scrollbar. This affects the tests only.
 - Consumer follow-ups:
@@ -134,8 +193,10 @@ Dark, and the window text on the window color in the contrast palettes.
   - **Broiler.Mail:** no code change. Once Mail is on the first Broiler.UI release that contains this ADR, its
     scroll views take the window text color for the thumb in a contrast theme. These include the form surfaces,
     the status and notice areas, and the message header. The composer body and the reading pane (both
-    `StandardRichEdit`) do the same. Screenshots or pixel baselines taken in a contrast theme change where a bar
-    shows. `AppearanceController.Apply` sizes combo boxes from the font with an explicit `PreferredSize`. That
+    `StandardRichEdit`) do the same, and in a contrast theme their text wraps 12 DIP short of the bar instead of
+    running under it. Screenshots or pixel baselines taken in a contrast theme change where a bar shows and where
+    those two wrap. A visual check of the composer and the reading pane in a Windows contrast theme, with text
+    long enough to scroll, belongs to the next native acceptance pass. `AppearanceController.Apply` sizes combo boxes from the font with an explicit `PreferredSize`. That
     sizing still works, and the arrow slot follows the font regardless, so Mail's account and settings choices
     keep their arrows clear of the frame at 200 %. ADR 0029 lets Mail drop that sizing. This ADR adds nothing to
     remove.
@@ -143,5 +204,15 @@ Dark, and the window text on the window color in the contrast palettes.
   - The Light and Dark presets keep thumbs below 3:1 on their tracks. These are both the translucent bars (1.94
     and 2.30) and the role colors (2.43 and 2.21). Raising them changes a preset and is left as a follow-up. A
     theme can already set the roles.
+  - Under Light and Dark the scroll view, rich edit and formatting code view still draw a different scrollbar
+    from the list, tree and code editor. Giving every bar one look means choosing which of the two the presets
+    keep, or a third. That is a design decision for the preset owners, left as a follow-up.
+  - The list, the tree, the code editor's palette and `ScrollbarColors` each make the extremes-of-lightness test
+    on their own. Sharing one helper is a refactor left for later.
+  - A combo box whose app-set height is shorter than a line of its font draws its text and arrow past its bottom
+    edge, as it did before this ADR. The file dialog's boxes (30 and 26 DIP tall) and the font dialog's (28 DIP)
+    set their heights and take a text-scaled theme from their dialog, so at 200 % (a 40 DIP line) their text and
+    arrow run up to 14 DIP below the frame. Sizing those boxes from the font, as ADR 0029 does for a box without
+    a set size, is left as a follow-up.
   - Scrollbars have no hover, pressed or disabled look in any control.
   - A combo box narrower than its arrow slot draws its arrow over its left edge, as it did at the default font.

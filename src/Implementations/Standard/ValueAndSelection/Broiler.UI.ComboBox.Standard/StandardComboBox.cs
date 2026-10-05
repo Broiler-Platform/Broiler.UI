@@ -224,9 +224,10 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
     private const double DefaultArrowInset = 18;
 
     /// <summary>
-    /// How much the arrow's slot grows with <see cref="Font"/>: a line of it over a default line, as the box's
-    /// height grows (<see cref="HeightForFont"/>), and never less than 1. The arrow is a glyph of the font, so at
-    /// twice the text size it is twice as wide; a slot of fixed width let it run up to the frame.
+    /// How much the arrow's slot grows with <see cref="Font"/>: a line of it over a default line, never less than 1.
+    /// The arrow is a glyph of the font, whose width keeps that ratio, so at twice the text size it is twice as wide;
+    /// a slot of fixed width let it run up to the frame. The box's height grows differently: by the extra height of
+    /// the line, with the default margin kept (<see cref="HeightForFont"/>).
     /// </summary>
     private double ArrowScale =>
         Math.Max(1, BTextMeasurer.GetLineHeight(Font) / BTextMeasurer.GetLineHeight(BFontStyle.Default));
