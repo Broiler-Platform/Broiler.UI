@@ -5,6 +5,21 @@ families, RichEdit, Formatting Codes view, component directory topology, and
 preview packages exist. This file replaces completed phase records with the work
 that is still open.
 
+## Release candidate 0.1.0-preview.18 (2026-10-05)
+
+`claude/roadmap-integration` at `fd7657f` holds the next preview: ADRs 0028 to
+0034, all still Proposed. It was verified by the test suite and, through local
+packs, in Broiler.Hosting's test suite and in Broiler.Mail (test suite and native
+acceptance). It is not published, and no pull request exists for it.
+
+- [Release notes](release-notes-0.1.0-preview.18.md): what changed per ADR, what
+  renders differently in the presets, compatibility notes for consumers, how it
+  was verified, and the release steps (publish before Broiler.Hosting
+  0.1.0-preview.7).
+- [Open follow-ups of 2026-10-05](open-follow-ups-2026-10-05.md): every item the
+  round left open in Broiler.UI, with the design decisions for the owner. Among
+  them, `Broiler.UI.Win32.Demo` builds but fails at startup.
+
 ## Remove temporary host and Graphics integration
 
 - Migrate remaining Writer/demo users of `StandardLegacyGraphicsInputAdapter` to
