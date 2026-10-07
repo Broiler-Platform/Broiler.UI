@@ -37,8 +37,7 @@ public sealed class StandardRadioButton : UiRadioButton, IStandardThemedControl
     private BColor _accent = StandardControlPaint.Accent;
     private BColor _disabledForeground = StandardControlPaint.TextDisabled;
     private BColor _focusRing = StandardControlPaint.Focus;
-    private BFontStyle _font = StandardControlPaint.Theme.FontBody;
-    private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
+    private BFontStyle _font = StandardControlPaint.Theme.FontBody;    private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
     private double _markSize = 18;
     private double _spacing = 8;
     private double _paddingX = 6;
@@ -189,11 +188,12 @@ public sealed class StandardRadioButton : UiRadioButton, IStandardThemedControl
         StandardControlPaint.StrokeRounded(context.RenderList, mark, border, StandardControlPaint.PillRadius, 1);
         if (IsChecked)
         {
+            // The dot greys with the ring while disabled; in the accent, a disabled radio looked enabled.
             double inset = Math.Max(3, MarkSize * 0.28);
             StandardControlPaint.FillRounded(
                 context.RenderList,
                 new BRect(mark.Left + inset, mark.Top + inset, Math.Max(1, mark.Width - inset * 2), Math.Max(1, mark.Height - inset * 2)),
-                Accent,
+                IsEnabled ? Accent : DisabledForeground,
                 StandardControlPaint.PillRadius);
         }
 
