@@ -25,7 +25,6 @@ Broiler.UI/
 ├── .github/workflows/          # GitHub Actions CI and Publish workflows
 ├── docs/                       # Architecture Decision Records (ADRs) and roadmap
 ├── eng/                        # Build scripts and packaging metadata
-│   ├── Broiler.Dependencies.props # Central package version pins for Broiler dependencies
 │   ├── Broiler.Packaging.props    # Shared NuGet packaging metadata
 │   ├── pack.ps1                   # Packs and validates all shipping packages
 │   ├── resolve-preview-version.mjs # Resolves the next preview version against NuGet.org
@@ -45,6 +44,7 @@ Broiler.UI/
 │   └── tests/                     # xUnit test suites grouped by domain
 ├── Broiler.UI.slnx             # Solution over all projects
 ├── Directory.Build.props       # Root build properties and compiler configurations
+├── Directory.Packages.props    # Central package versions (NuGet CPM) for every project
 ├── HUMAN_REVIEW.md             # Attributable human sign-off status
 ├── NuGet.config                # NuGet restore configuration (NuGet.org only)
 └── README.md                   # End-user introduction and package list
@@ -101,7 +101,7 @@ node --test eng/resolve-preview-version.test.mjs
 
 ### Centralized Dependency Versions
 
-External Broiler dependencies (`Broiler.Graphics`, `Broiler.Input`, `Broiler.Documents`) are defined centrally in [`eng/Broiler.Dependencies.props`](file:///d:/Broiler.UI/eng/Broiler.Dependencies.props):
+Every package version is defined centrally in [`Directory.Packages.props`](../Directory.Packages.props) (NuGet Central Package Management); project files declare `PackageReference` items without a `Version`. External Broiler dependencies (`Broiler.Graphics`, `Broiler.Input`, `Broiler.Documents`) share family version properties there:
 
 ```xml
 <PropertyGroup>
@@ -113,7 +113,7 @@ External Broiler dependencies (`Broiler.Graphics`, `Broiler.Input`, `Broiler.Doc
 </PropertyGroup>
 ```
 
-Test package versions (`Microsoft.NET.Test.Sdk`, `xunit`, `xunit.runner.visualstudio`) are managed across all test projects via [`src/tests/Directory.Build.props`](file:///d:/Broiler.UI/src/tests/Directory.Build.props).
+Test packages (`Microsoft.NET.Test.Sdk`, `xunit`, `xunit.runner.visualstudio`) are referenced for all test projects by [`src/tests/Directory.Build.props`](../src/tests/Directory.Build.props); their versions are in `Directory.Packages.props` too.
 
 ### Feed Configuration
 
@@ -173,7 +173,8 @@ Triggers on push to `main`, pull requests, workflow dispatch, and calls from the
 5. Runs test suites with `eng/run-tests.ps1` (enforcing nonempty TRX report generation).
 6. Uploads test report artifacts.
 7. Packs and verifies all 60 packages via `eng/pack.ps1`.
-8. Uploads packages as workflow artifacts.
+8. Verifies a fresh consumer restore from NuGet.org via `eng/verify-feed.ps1` (the no-push pack dry run).
+9. Uploads packages as workflow artifacts.
 
 ### Publish Workflow (`.github/workflows/publish.yml`)
 
@@ -181,7 +182,7 @@ Triggers via manual dispatch or push of a `v*` tag:
 1. **Version Resolution**: Runs [`eng/resolve-preview-version.mjs`](file:///d:/Broiler.UI/eng/resolve-preview-version.mjs) against `https://api.nuget.org/v3/index.json`. It queries existing versions of all 60 package IDs on NuGet.org and computes the next numerical preview version (e.g. `0.1.0-preview.10`), or validates the specified tag/suffix.
 2. **Validation & Packaging**: Invokes `ci.yml` passing the resolved version to build and pack all packages.
 3. **Consumer Verification**: Runs `eng/verify-feed.ps1 -Target nuget` to verify package restore.
-4. **Push to NuGet.org**: In non-dry-run mode, pushes all `.nupkg` packages to `https://api.nuget.org/v3/index.json` using the `NUGET_TOKEN` secret.
+4. **Push to NuGet.org**: Always pushes (there is no dry-run mode) all `.nupkg` packages to `https://api.nuget.org/v3/index.json` using the `NUGET_TOKEN` secret.
 
 ---
 

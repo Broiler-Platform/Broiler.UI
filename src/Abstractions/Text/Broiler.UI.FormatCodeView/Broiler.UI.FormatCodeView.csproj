@@ -23,8 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Documents.FormatCodes" Version="$(BroilerDocumentsPackageVersion)" />
-    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Documents.FormatCodes" />
+    <PackageReference Include="Broiler.Graphics" />
   </ItemGroup>
 
 </Project>

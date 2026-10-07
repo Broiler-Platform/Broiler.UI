@@ -18,7 +18,6 @@
   </Folder>
   <Folder Name="/solution items/eng/">
     <File Path="eng/Broiler.Packaging.props" />
-    <File Path="eng/Broiler.Dependencies.props" />
     <File Path="src/tests/Directory.Build.props" />
   </Folder>
   <Folder Name="/solution items/docs/">

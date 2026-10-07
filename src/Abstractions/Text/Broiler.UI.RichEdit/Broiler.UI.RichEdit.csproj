@@ -35,8 +35,8 @@
     <InternalsVisibleTo Include="Broiler.UI.RichEdit.Standard.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Broiler.Documents.Model" Version="$(BroilerDocumentsPackageVersion)" />
-    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Documents.Model" />
+    <PackageReference Include="Broiler.Graphics" />
   </ItemGroup>
 
 </Project>

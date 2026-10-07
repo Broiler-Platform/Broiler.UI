@@ -231,7 +231,7 @@ docs/                            Developer guide, roadmap, and ADRs
 Broiler.UI.slnx                  Solution over every project in src/
 ```
 
-`eng/Broiler.Dependencies.props` holds centralized version pins for external Broiler dependencies. Shared test SDK and xUnit references live in `src/tests/Directory.Build.props`.
+`Directory.Packages.props` (NuGet Central Package Management) holds every package version, including the pins for external Broiler dependencies; project files declare `PackageReference` items without versions. Shared test SDK and xUnit references live in `src/tests/Directory.Build.props`.
 
 ## Building and Testing
 
@@ -282,7 +282,7 @@ dotnet build Broiler.UI.slnx -c Release
 
 ## Continuous Integration and Releases
 
-- **CI**: Runs on every push to `main` and pull requests. Executes graph checks, builds `Release`, runs all test suites with TRX generation, and packs all 60 NuGet packages.
+- **CI**: Runs on every push to `main` and pull requests. Executes graph checks, builds `Release`, runs all test suites with TRX generation, packs all 60 NuGet packages, and verifies a fresh consumer restore from NuGet.org without pushing.
 - **Publishing**: The publish workflow (`publish.yml`) resolves the next preview version against **NuGet.org** using `eng/resolve-preview-version.mjs`, validates consumer restore using `eng/verify-feed.ps1 -Target nuget`, and pushes packages directly to **NuGet.org** using the `NUGET_TOKEN` secret. GitHub Packages is not used.
 
 ## Documentation
