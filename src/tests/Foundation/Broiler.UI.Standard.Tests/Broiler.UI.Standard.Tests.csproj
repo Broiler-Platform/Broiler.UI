@@ -40,6 +40,8 @@
     <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.FormatCodeView.Standard\Broiler.UI.FormatCodeView.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.RichEdit.Standard\Broiler.UI.RichEdit.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.TreeView.Standard\Broiler.UI.TreeView.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.CheckBox.Standard\Broiler.UI.CheckBox.Standard.csproj" />
+    <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.RadioButton.Standard\Broiler.UI.RadioButton.Standard.csproj" />
   </ItemGroup>
 
   <ItemGroup>

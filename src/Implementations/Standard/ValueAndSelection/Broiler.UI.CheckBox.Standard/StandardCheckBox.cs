@@ -45,7 +45,6 @@ public sealed class StandardCheckBox : UiCheckBox, IStandardThemedControl
     public BColor FocusRing { get; set; } = StandardControlPaint.Focus;
 
     public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;
-
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
 
     public double BoxSize { get; set; } = 18;
@@ -74,13 +73,17 @@ public sealed class StandardCheckBox : UiCheckBox, IStandardThemedControl
         BRect box = GetBoxRect();
         BColor foreground = IsEnabled ? Foreground : DisabledForeground;
         BColor border = IsEnabled ? BorderColor : DisabledForeground;
+        // A checked or indeterminate box is filled, and its white mark drawn over the fill: in the accent,
+        // or in the disabled colour while disabled. A disabled box was filled with the surface, which its
+        // white mark vanished into, so a disabled checked box looked unchecked.
+        bool marked = CheckState != UiCheckState.Unchecked;
+        BColor markFill = IsEnabled ? Accent : DisabledForeground;
 
         if (!Background.IsEmpty && Background.A > 0)
             context.RenderList.FillRect(Bounds, Background);
 
-        BColor boxFill = IsEnabled && CheckState != UiCheckState.Unchecked ? Accent : StandardControlPaint.Surface;
-        StandardControlPaint.FillRounded(context.RenderList, box, boxFill, CornerRadius);
-        StandardControlPaint.StrokeRounded(context.RenderList, box, IsEnabled && CheckState != UiCheckState.Unchecked ? Accent : border, CornerRadius, 1);
+        StandardControlPaint.FillRounded(context.RenderList, box, marked ? markFill : StandardControlPaint.Surface, CornerRadius);
+        StandardControlPaint.StrokeRounded(context.RenderList, box, marked ? markFill : border, CornerRadius, 1);
 
         if (CheckState == UiCheckState.Checked)
             DrawCenteredText(context, box, "\u2713", BColor.White);
