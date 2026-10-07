@@ -16,7 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics.Windows" Version="$(BroilerSampleGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Graphics.Windows" />
   </ItemGroup>
 
   <ItemGroup>

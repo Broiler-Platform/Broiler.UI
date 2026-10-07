@@ -10,7 +10,6 @@
 
   <!-- Broiler NuGet packaging metadata (vendored; do not edit by hand). -->
   <Import Project="$(MSBuildThisFileDirectory)eng\Broiler.Packaging.props" />
-  <Import Project="$(MSBuildThisFileDirectory)eng\Broiler.Dependencies.props" />
 
   <!-- The solution declares six configurations. Debug/Release build the
        platform-neutral set; the -Linux and -Windows variants add the sample

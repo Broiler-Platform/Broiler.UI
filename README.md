@@ -231,7 +231,7 @@ docs/                            Developer guide, roadmap, and ADRs
 Broiler.UI.slnx                  Solution over every project in src/
 ```
 
-`eng/Broiler.Dependencies.props` holds centralized version pins for external Broiler dependencies. Shared test SDK and xUnit references live in `src/tests/Directory.Build.props`.
+`Directory.Packages.props` (NuGet Central Package Management) holds every package version, including the pins for external Broiler dependencies; project files declare `PackageReference` items without versions. Shared test SDK and xUnit references live in `src/tests/Directory.Build.props`.
 
 ## Building and Testing
 

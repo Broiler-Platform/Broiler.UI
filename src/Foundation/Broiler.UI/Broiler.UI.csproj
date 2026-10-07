@@ -13,13 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
-    <PackageReference Include="Broiler.Input" Version="$(BroilerInputPackageVersion)" />
-    <PackageReference Include="Broiler.Input.Keyboard" Version="$(BroilerInputPackageVersion)" />
-    <PackageReference Include="Broiler.Input.Mouse" Version="$(BroilerInputPackageVersion)" />
-    <PackageReference Include="Broiler.Input.Pen" Version="$(BroilerInputPackageVersion)" />
-    <PackageReference Include="Broiler.Input.Text" Version="$(BroilerInputPackageVersion)" />
-    <PackageReference Include="Broiler.Input.Touch" Version="$(BroilerInputPackageVersion)" />
+    <PackageReference Include="Broiler.Graphics" />
+    <PackageReference Include="Broiler.Input" />
+    <PackageReference Include="Broiler.Input.Keyboard" />
+    <PackageReference Include="Broiler.Input.Mouse" />
+    <PackageReference Include="Broiler.Input.Pen" />
+    <PackageReference Include="Broiler.Input.Text" />
+    <PackageReference Include="Broiler.Input.Touch" />
   </ItemGroup>
 
 </Project>

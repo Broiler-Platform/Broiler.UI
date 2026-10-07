@@ -87,7 +87,7 @@ original failure modes.
   still defaults to the synchronous provider.
 - Completed: shared test SDK/xUnit references now live in
   `src/tests/Directory.Build.props`, which imports the component build defaults.
-  Broiler dependency pins now live in `eng/Broiler.Dependencies.props`, retaining
+  Broiler dependency pins now live in `Directory.Packages.props`, retaining
   the intentional differences between runtime and sample versions. Projects
   still declare their own dependencies, preserving per-control assembly boundaries.
 

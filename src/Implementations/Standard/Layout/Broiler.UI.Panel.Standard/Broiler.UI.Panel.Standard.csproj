@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Graphics" />
   </ItemGroup>
 
   <ItemGroup>

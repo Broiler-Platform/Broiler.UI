@@ -11,7 +11,7 @@
     <Description>Standard platform-neutral implementation of Broiler about dialog.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
+    <PackageReference Include="Broiler.Graphics" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\Abstractions\Shell\Broiler.UI.AboutDialog\Broiler.UI.AboutDialog.csproj" />
