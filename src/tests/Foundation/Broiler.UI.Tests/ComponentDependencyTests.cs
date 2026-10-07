@@ -15,6 +15,12 @@ public sealed class ComponentDependencyTests
             .ToArray();
         Assert.True(projects.Length >= 50, "Expected the complete shipping project set.");
 
+        // Versions are managed centrally: every package needs an entry in Directory.Packages.props.
+        var centralVersions = XDocument.Load(Path.Combine(repository, "Directory.Packages.props"))
+            .Descendants("PackageVersion")
+            .Select(version => (string)version.Attribute("Include")!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         foreach (string path in projects)
         {
             XDocument project = XDocument.Load(path);
@@ -36,7 +42,8 @@ public sealed class ComponentDependencyTests
                 Assert.DoesNotContain("Linux", id, StringComparison.OrdinalIgnoreCase);
                 Assert.DoesNotContain("WebAssembly", id, StringComparison.OrdinalIgnoreCase);
                 Assert.DoesNotContain("Direct2D", id, StringComparison.OrdinalIgnoreCase);
-                Assert.False(string.IsNullOrWhiteSpace((string?)package.Attribute("Version")), $"Unversioned dependency: {path} -> {id}");
+                Assert.Null(package.Attribute("Version"));
+                Assert.True(centralVersions.Contains(id), $"Unversioned dependency: {path} -> {id}");
             }
         }
     }
