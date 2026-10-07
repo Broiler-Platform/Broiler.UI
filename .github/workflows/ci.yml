@@ -77,6 +77,10 @@ jobs:
         shell: pwsh
         run: ./eng/pack.ps1 -Version $env:PACKAGE_VERSION
 
+      - name: Verify consumer restore from nuget.org (dry run)
+        shell: pwsh
+        run: ./eng/verify-feed.ps1
+
       - name: Upload packages
         uses: actions/upload-artifact@v7
         with:
