@@ -173,7 +173,8 @@ Triggers on push to `main`, pull requests, workflow dispatch, and calls from the
 5. Runs test suites with `eng/run-tests.ps1` (enforcing nonempty TRX report generation).
 6. Uploads test report artifacts.
 7. Packs and verifies all 60 packages via `eng/pack.ps1`.
-8. Uploads packages as workflow artifacts.
+8. Verifies a fresh consumer restore from NuGet.org via `eng/verify-feed.ps1` (the no-push pack dry run).
+9. Uploads packages as workflow artifacts.
 
 ### Publish Workflow (`.github/workflows/publish.yml`)
 
@@ -181,7 +182,7 @@ Triggers via manual dispatch or push of a `v*` tag:
 1. **Version Resolution**: Runs [`eng/resolve-preview-version.mjs`](file:///d:/Broiler.UI/eng/resolve-preview-version.mjs) against `https://api.nuget.org/v3/index.json`. It queries existing versions of all 60 package IDs on NuGet.org and computes the next numerical preview version (e.g. `0.1.0-preview.10`), or validates the specified tag/suffix.
 2. **Validation & Packaging**: Invokes `ci.yml` passing the resolved version to build and pack all packages.
 3. **Consumer Verification**: Runs `eng/verify-feed.ps1 -Target nuget` to verify package restore.
-4. **Push to NuGet.org**: In non-dry-run mode, pushes all `.nupkg` packages to `https://api.nuget.org/v3/index.json` using the `NUGET_TOKEN` secret.
+4. **Push to NuGet.org**: Always pushes (there is no dry-run mode) all `.nupkg` packages to `https://api.nuget.org/v3/index.json` using the `NUGET_TOKEN` secret.
 
 ---
 
