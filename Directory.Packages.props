@@ -2,7 +2,6 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-
   <!-- Dependency versions are independent of the version being published for UI.
        The sample hosts pin their platform backends separately from the versions the
        runtime libraries build against. -->
@@ -13,28 +12,25 @@
     <BroilerSampleGraphicsPackageVersion>0.1.0-preview.7</BroilerSampleGraphicsPackageVersion>
     <BroilerSampleInputPackageVersion>0.1.0-preview.5</BroilerSampleInputPackageVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <!-- Broiler component packages used by the runtime libraries -->
-    <PackageVersion Include="Broiler.Documents.FormatCodes" Version="$(BroilerDocumentsPackageVersion)" />
-    <PackageVersion Include="Broiler.Documents.Model" Version="$(BroilerDocumentsPackageVersion)" />
-    <PackageVersion Include="Broiler.Documents.Rtf" Version="$(BroilerDocumentsPackageVersion)" />
-    <PackageVersion Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
-    <PackageVersion Include="Broiler.Input" Version="$(BroilerInputPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Keyboard" Version="$(BroilerInputPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Mouse" Version="$(BroilerInputPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Pen" Version="$(BroilerInputPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Text" Version="$(BroilerInputPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Touch" Version="$(BroilerInputPackageVersion)" />
-
+    <PackageVersion Include="Broiler.Documents.FormatCodes" Version="0.1.0-preview.22" />
+    <PackageVersion Include="Broiler.Documents.Model" Version="0.1.0-preview.22" />
+    <PackageVersion Include="Broiler.Documents.Rtf" Version="0.1.0-preview.22" />
+    <PackageVersion Include="Broiler.Graphics" Version="0.1.0-preview.12" />
+    <PackageVersion Include="Broiler.Input" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Input.Keyboard" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Input.Mouse" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Input.Pen" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Input.Text" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Input.Touch" Version="0.1.0-preview.6" />
     <!-- Platform backends used only by the sample hosts -->
-    <PackageVersion Include="Broiler.Graphics.Linux.OpenGL" Version="$(BroilerSampleGraphicsPackageVersion)" />
-    <PackageVersion Include="Broiler.Graphics.Windows" Version="$(BroilerSampleGraphicsPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Camera.Windows" Version="$(BroilerSampleInputPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Keyboard.Linux" Version="$(BroilerSampleInputPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Microphone.Windows" Version="$(BroilerSampleInputPackageVersion)" />
-    <PackageVersion Include="Broiler.Input.Mouse.Linux" Version="$(BroilerSampleInputPackageVersion)" />
-
+    <PackageVersion Include="Broiler.Graphics.Linux.OpenGL" Version="0.1.0-preview.12" />
+    <PackageVersion Include="Broiler.Graphics.Windows" Version="0.1.0-preview.12" />
+    <PackageVersion Include="Broiler.Input.Camera.Windows" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Input.Microphone.Windows" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.6" />
     <!-- Test dependencies (referenced for every test project by src/tests/Directory.Build.props) -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
