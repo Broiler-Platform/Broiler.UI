@@ -239,6 +239,29 @@ public sealed class PrintControlTests
         Assert.Null(host.LastJob.Pages);
     }
 
+    [Fact]
+    public async Task The_Whole_Flow_Prints_What_The_Closed_Dialog_Was_Accepted_With()
+    {
+        var host = new ImageTestHost(new BSize(1000, 800));
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+        var printer = new FakePrintHost();
+
+        Task<UiPrintResult> printing = UiPrintDialog.PrintAsync(printer, Document(3), () => new StandardPrintDialog(), owner);
+        StandardPrintDialog dialog = Assert.IsType<StandardPrintDialog>(session.ModalElement);
+        dialog.PagesEdit.Text = "2";
+        Assert.True(dialog.AcceptPrint());
+
+        UiPrintResult result = await printing;
+
+        // Accepting closed the dialog, and a closed window is disposed; the job outlives it.
+        Assert.True(dialog.IsDisposed);
+        Assert.Equal(UiPrintOutcome.Printed, result.Outcome);
+        Assert.Same(dialog.AcceptedJob, printer.LastJob);
+        Assert.Equal([1], printer.LastJob!.Settings.SelectPages(3));
+    }
+
     private static TestDocument Document(int pages, BPageSetup? preferred = null) => new(pages, preferred ?? BPageSetup.Default);
 
     private static BPage PageWithImage()

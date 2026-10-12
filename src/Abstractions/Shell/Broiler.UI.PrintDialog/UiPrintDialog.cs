@@ -38,6 +38,7 @@ public abstract class UiPrintDialog : UiDialog
     private IBPageSource? _pages;
     private BPageSetup? _paginatedFor;
     private string? _paginationError;
+    private UiPrintJob? _acceptedJob;
     private bool _updating;
 
     protected UiPrintDialog()
@@ -225,8 +226,29 @@ public abstract class UiPrintDialog : UiDialog
     public Task<UiDialogResult> ShowPrintModal(UiWindow owner, BRect placement = default) =>
         ShowModal(owner, placement);
 
-    /// <summary>Accepts the dialog when it can print, with the chosen printer's name as the result value.</summary>
-    public bool AcceptPrint() => CanPrint && Accept(_settings.PrinterName);
+    /// <summary>
+    /// The job the dialog was accepted with, or null before it is. Kept past the dialog's close:
+    /// a closed window is disposed, and whoever awaited the dialog reads the job afterwards.
+    /// </summary>
+    public UiPrintJob? AcceptedJob => _acceptedJob;
+
+    /// <summary>
+    /// Accepts the dialog when it can print, with the chosen printer's name as the result value,
+    /// and keeps the job it was accepted with in <see cref="AcceptedJob"/>.
+    /// </summary>
+    public bool AcceptPrint()
+    {
+        if (!CanPrint)
+            return false;
+
+        // Taken before Accept, which closes - and so disposes - the dialog.
+        _acceptedJob = CreateJob();
+        if (Accept(_settings.PrinterName))
+            return true;
+
+        _acceptedJob = null;
+        return false;
+    }
 
     /// <summary>The job the current choices make, printing exactly the pages the dialog previewed.</summary>
     public UiPrintJob CreateJob()
@@ -267,10 +289,10 @@ public abstract class UiPrintDialog : UiDialog
             dialog.Settings = initial;
 
         UiDialogResult result = await dialog.ShowModal(owner, placement).ConfigureAwait(true);
-        if (result.Kind != UiDialogResultKind.Accepted)
+        if (result.Kind != UiDialogResultKind.Accepted || dialog.AcceptedJob is not UiPrintJob job)
             return UiPrintResult.Cancelled;
 
-        return await host.PrintAsync(dialog.CreateJob(), cancellationToken).ConfigureAwait(true);
+        return await host.PrintAsync(job, cancellationToken).ConfigureAwait(true);
     }
 
     /// <summary>Called when <see cref="Settings"/> changed, before <see cref="SettingsChanged"/>.</summary>
