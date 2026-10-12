@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Broiler.UI.PrintPreview</RootNamespace>
+    <AssemblyName>Broiler.UI.PrintPreview</AssemblyName>
+    <PackageId>Broiler.UI.PrintPreview</PackageId>
+    <Description>Platform-neutral Broiler print preview abstraction: shows laid-out pages one at a time.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Broiler.Graphics" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Broiler.UI\Broiler.UI.csproj" />
+  </ItemGroup>
+
+</Project>

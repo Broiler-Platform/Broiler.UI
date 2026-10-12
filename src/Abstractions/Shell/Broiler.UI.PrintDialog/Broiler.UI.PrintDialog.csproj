@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Broiler.UI.PrintDialog</RootNamespace>
+    <AssemblyName>Broiler.UI.PrintDialog</AssemblyName>
+    <PackageId>Broiler.UI.PrintDialog</PackageId>
+    <Description>Platform-neutral Broiler print dialog abstraction: printer, copies, pages, paper and orientation, with the document re-paginated for the page chosen.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Broiler.Graphics" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Broiler.UI.Dialog\Broiler.UI.Dialog.csproj" />
+  </ItemGroup>
+
+</Project>
