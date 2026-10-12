@@ -418,6 +418,46 @@ public abstract class UiRichEdit : UiElement, IUiScrollable
     protected bool DeleteForward() => RunEditorEdit(static editor => editor.Delete());
 
     /// <summary>
+    /// Inserts text the user typed, replacing the selection. This is the
+    /// <see cref="RichEditCommand.InsertText"/> command, and it raises
+    /// <see cref="CommandExecuted"/> as that command, with one difference: text
+    /// typed straight after earlier typing joins that undo step, so undo takes
+    /// back a word rather than a character. Paste and hosts keep using the
+    /// command, which is always a step of its own.
+    /// </summary>
+    // Broiler-AI:           Origin=AI; IP=Low; Security=Medium; Resources=3; Fingerprint=TBF
+    // Broiler-Falsified-If: TypeText changes Document on a rich edit whose IsReadOnly is true or IsEnabled is false
+    // Broiler-Human:        PENDING
+    protected bool TypeText(string text)
+    {
+        ThrowIfDisposed();
+        if (!GetCommandState(RichEditCommand.InsertText).IsEnabled)
+            return false;
+
+        RichTextDocument oldDocument = _editor.Document;
+        RichTextRange oldSelection = _editor.Selection;
+        bool changed = _editor.TypeText(text ?? string.Empty);
+        RaiseStateChanges(oldDocument, oldSelection);
+        CommandExecuted?.Invoke(this, new RichEditCommandExecutedEventArgs(RichEditCommand.InsertText, changed));
+        return changed;
+    }
+
+    /// <summary>
+    /// Ends the current run of typing or deleting, so the next keystroke is an
+    /// undo step of its own. The control ends runs itself when the caret moves
+    /// or the text is clicked. A host calls this for what the control cannot
+    /// see, such as a save or focus moving to another control.
+    /// </summary>
+    // Broiler-AI:           Origin=AI; IP=None; Security=Low; Resources=0; Fingerprint=TBF
+    // Broiler-Falsified-If: two words typed either side of a BreakUndoGroup call are both removed by a single Undo
+    // Broiler-Human:        PENDING
+    public void BreakUndoGroup()
+    {
+        ThrowIfDisposed();
+        _editor.BreakUndoGroup();
+    }
+
+    /// <summary>
     /// True while an IME composition is in progress. The abstraction has no input
     /// pipeline, so it never composes; the standard implementation overrides this
     /// so composition state reaches the semantic text projection.

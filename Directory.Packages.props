@@ -14,9 +14,9 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Broiler component packages used by the runtime libraries -->
-    <PackageVersion Include="Broiler.Documents.FormatCodes" Version="0.1.0-preview.22" />
-    <PackageVersion Include="Broiler.Documents.Model" Version="0.1.0-preview.22" />
-    <PackageVersion Include="Broiler.Documents.Rtf" Version="0.1.0-preview.22" />
+    <PackageVersion Include="Broiler.Documents.FormatCodes" Version="0.1.0-preview.23" />
+    <PackageVersion Include="Broiler.Documents.Model" Version="0.1.0-preview.23" />
+    <PackageVersion Include="Broiler.Documents.Rtf" Version="0.1.0-preview.23" />
     <PackageVersion Include="Broiler.Graphics" Version="0.1.0-preview.12" />
     <PackageVersion Include="Broiler.Input" Version="0.1.0-preview.6" />
     <PackageVersion Include="Broiler.Input.Keyboard" Version="0.1.0-preview.6" />
