@@ -36,6 +36,10 @@ public sealed partial class StandardRichEdit
             if (TryBeginScrollbarInteraction(input.Position))
                 return true;
 
+            // Putting the caret somewhere is a deliberate move even when it lands
+            // where it already was, as it does when the user clicks back into the
+            // text after working in another control.
+            BreakUndoGroup();
             RichTextPosition position = PositionFromPoint(input.Position);
             if (Session is not null && _clicks.IsDoubleClick(Session.Clock.Now, input.Position))
             {
@@ -209,7 +213,7 @@ public sealed partial class StandardRichEdit
         if (text.Length == 0)
             return false;
 
-        bool changed = ExecuteCommand(RichEditCommand.InsertText, text);
+        bool changed = TypeText(text);
         EnsureCaretVisible();
         return changed;
     }
