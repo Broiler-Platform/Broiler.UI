@@ -102,9 +102,9 @@ Each control type ships as a contract package and a `.Standard` implementation
 
 | Family | Controls |
 | --- | --- |
-| Shell | `Window`, `Dialog`, `AboutDialog`, `Tooltip`, `FileDialog`, `FontDialog` |
+| Shell | `Window`, `Dialog`, `AboutDialog`, `Tooltip`, `FileDialog`, `FontDialog`, `PrintDialog` |
 | Layout | `Panel`, `ScrollView`, `Splitter`, `TabView` |
-| Content | `Label`, `ImageView`, `ProgressBar` |
+| Content | `Label`, `ImageView`, `ProgressBar`, `PrintPreview` |
 | Commands | `Button`, `ToggleButton`, `Toolbar`, `Menu` |
 | Value and selection | `CheckBox`, `RadioButton`, `Slider`, `SpinBox`, `ListView`, `ComboBox`, `TreeView` |
 | Text | `Edit`, `CodeEditor`, `RichEdit`, `FormatCodeView` |
