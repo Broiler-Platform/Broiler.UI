@@ -63,7 +63,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
     public BColor BorderColor { get; set; } = StandardControlPaint.Border;
 
-    public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;
+    public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;
 
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
 
@@ -79,10 +79,49 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
     public IReadOnlyList<BRect> TopLevelBounds => _topLevelBounds;
 
+    /// <summary>
+    /// The glyph or text drawn on the trigger button in <see cref="UiMenuPresentationMode.Overflow"/> mode.
+    /// Defaults to the vertical ellipsis "⋮".
+    /// </summary>
+    public string OverflowGlyph { get; set; } = "⋮";
+
+    public override BRect OverlayBounds
+    {
+        get
+        {
+            if (!IsOpen)
+                return BRect.Empty;
+
+            if (PresentationMode == UiMenuPresentationMode.BottomSheet)
+            {
+                BSize viewport = Session?.Host.ViewportSize ?? Bounds.Size;
+                return new BRect(0, 0, viewport.Width, viewport.Height);
+            }
+
+            if (!TryGetFirstPopupLevel(out IReadOnlyList<UiMenuItem> level, out BPoint origin, out _))
+                return BRect.Empty;
+
+            return GetPopupBounds(origin, level.Count);
+        }
+    }
+
     protected override BSize MeasureCore(BSize availableSize)
     {
-        double height = PresentationMode == UiMenuPresentationMode.MenuBar ? MenuBarHeight : ItemHeight;
-        return new BSize(ClampDesired(PreferredSize.Width, availableSize.Width), ClampDesired(height, availableSize.Height));
+        double height = PresentationMode switch
+        {
+            UiMenuPresentationMode.MenuBar => MenuBarHeight,
+            UiMenuPresentationMode.Overflow => MenuBarHeight,
+            UiMenuPresentationMode.TabBar => Math.Max(MenuBarHeight, 48),
+            UiMenuPresentationMode.Drawer => Math.Max(ItemHeight, Items.Count * ItemHeight),
+            _ => ItemHeight,
+        };
+        double width = PresentationMode switch
+        {
+            UiMenuPresentationMode.Overflow => Math.Max(MenuBarHeight, 32),
+            UiMenuPresentationMode.Drawer => PopupWidth,
+            _ => PreferredSize.Width,
+        };
+        return new BSize(ClampDesired(width, availableSize.Width), ClampDesired(height, availableSize.Height));
     }
 
     protected override void RenderCore(UiRenderContext context)
@@ -90,7 +129,26 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         _topLevelBounds.Clear();
         if (!Background.IsEmpty && Background.A > 0)
             context.RenderList.FillRect(Bounds, Background);
-        RenderTopLevel(context);
+
+        switch (PresentationMode)
+        {
+            case UiMenuPresentationMode.MenuBar:
+                RenderTopLevel(context);
+                break;
+            case UiMenuPresentationMode.Overflow:
+                RenderOverflowTrigger(context);
+                break;
+            case UiMenuPresentationMode.Drawer:
+                RenderDrawer(context);
+                break;
+            case UiMenuPresentationMode.TabBar:
+                RenderTabBar(context);
+                break;
+            case UiMenuPresentationMode.ContextMenu:
+            case UiMenuPresentationMode.BottomSheet:
+                break;
+        }
+
         if (IsOpen)
             context.Defer(RenderOpenPopups);
     }
@@ -115,6 +173,26 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         {
             if (_topLevelBounds[index].Contains(input.Position))
             {
+                if (PresentationMode == UiMenuPresentationMode.Overflow)
+                {
+                    if (IsOpen)
+                        CloseManaged(restoreFocus: true);
+                    else
+                        OpenManaged([0]);
+                    return true;
+                }
+
+                UiMenuItem item = Items[index];
+                if (!item.IsEnabled)
+                    return true;
+
+                if (item.Children.Count == 0 && PresentationMode is UiMenuPresentationMode.TabBar or UiMenuPresentationMode.Drawer)
+                {
+                    SetSelectedPath([index]);
+                    InvokeAndClose();
+                    return true;
+                }
+
                 OpenManaged([index]);
                 return true;
             }
@@ -299,10 +377,78 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         }
     }
 
+    private void RenderOverflowTrigger(UiRenderContext context)
+    {
+        BRect rect = Bounds;
+        _topLevelBounds.Add(rect);
+        bool selected = IsOpen;
+        if (selected)
+            StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(rect, 2), SelectedBackground, CornerRadius);
+
+        BColor foreground = selected ? SelectedForeground : Foreground;
+        string glyph = !string.IsNullOrEmpty(OverflowGlyph) ? OverflowGlyph : "⋮";
+        BSize glyphSize = BTextMeasurer.Measure(glyph, Font).Size;
+        double x = rect.Left + Math.Max(0, (rect.Width - glyphSize.Width) / 2);
+        double y = rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2);
+        context.RenderList.DrawText(new BTextRun(glyph, Font, foreground), new BPoint(x, y));
+    }
+
+    private void RenderDrawer(UiRenderContext context)
+    {
+        double y = Bounds.Top;
+        double rowHeight = Math.Max(ItemHeight, 36);
+        for (int index = 0; index < Items.Count; index++)
+        {
+            UiMenuItem item = Items[index];
+            BRect rect = new(Bounds.Left, y, Bounds.Width, rowHeight);
+            _topLevelBounds.Add(rect);
+            bool selected = SelectedPath.Count > 0 && SelectedPath[0] == index && IsOpen;
+            if (selected)
+                StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(rect, 2), SelectedBackground, CornerRadius);
+
+            string suffix = item.Children.Count > 0 ? " >" : string.Empty;
+            BColor foreground = !item.IsEnabled ? DisabledForeground : selected ? SelectedForeground : Foreground;
+            context.RenderList.DrawText(new BTextRun(item.Text + suffix, Font, foreground), new BPoint(rect.Left + 12, rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            y = rect.Bottom;
+        }
+    }
+
+    private void RenderTabBar(UiRenderContext context)
+    {
+        if (Items.Count == 0)
+            return;
+
+        double itemWidth = Bounds.Width / Items.Count;
+        for (int index = 0; index < Items.Count; index++)
+        {
+            UiMenuItem item = Items[index];
+            BRect rect = new(Bounds.Left + (index * itemWidth), Bounds.Top, itemWidth, Bounds.Height);
+            _topLevelBounds.Add(rect);
+            bool selected = SelectedPath.Count > 0 && SelectedPath[0] == index && IsOpen;
+            if (selected)
+            {
+                StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(rect, 2), SelectedBackground, CornerRadius);
+                context.RenderList.FillRect(new BRect(rect.Left + 4, rect.Bottom - 3, Math.Max(0, rect.Width - 8), 3), SelectedForeground);
+            }
+
+            BColor foreground = !item.IsEnabled ? DisabledForeground : selected ? SelectedForeground : Foreground;
+            BSize textSize = BTextMeasurer.Measure(item.Text, Font).Size;
+            double x = rect.Left + Math.Max(0, (rect.Width - textSize.Width) / 2);
+            double y = rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2);
+            context.RenderList.DrawText(new BTextRun(item.Text, Font, foreground), new BPoint(x, y));
+        }
+    }
+
     private void RenderOpenPopups(UiRenderContext context)
     {
         if (!TryGetFirstPopupLevel(out IReadOnlyList<UiMenuItem> level, out BPoint origin, out int pathDepth))
             return;
+
+        if (PresentationMode == UiMenuPresentationMode.BottomSheet)
+        {
+            RenderBottomSheet(context, level);
+            return;
+        }
 
         for (; level.Count > 0 && pathDepth < MaxDepth; pathDepth++)
         {
@@ -333,13 +479,59 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         }
     }
 
+    private void RenderBottomSheet(UiRenderContext context, IReadOnlyList<UiMenuItem> level)
+    {
+        BSize viewport = Session?.Host.ViewportSize ?? new BSize(Bounds.Right, Bounds.Bottom);
+        context.RenderList.FillRect(new BRect(0, 0, viewport.Width, viewport.Height), new BColor(0, 0, 0, 96));
+
+        BRect sheet = GetPopupBounds(new BPoint(0, viewport.Height), level.Count);
+        double rowHeight = Math.Max(ItemHeight, 44);
+        double handleHeight = 24;
+
+        StandardControlPaint.FillRounded(context.RenderList, sheet, PopupBackground, 16);
+        StandardControlPaint.StrokeRounded(context.RenderList, sheet, BorderColor, 16, 1);
+
+        double handleWidth = 40;
+        BRect handle = new((viewport.Width - handleWidth) / 2, sheet.Top + 10, handleWidth, 4);
+        StandardControlPaint.FillRounded(context.RenderList, handle, BorderColor, 2);
+
+        int selectedIndex = GetSelectedIndexAtDepth(0, level.Count);
+        for (int index = 0; index < level.Count; index++)
+        {
+            UiMenuItem item = level[index];
+            BRect row = new(sheet.Left, sheet.Top + handleHeight + (index * rowHeight), sheet.Width, rowHeight);
+            if (selectedIndex == index)
+                StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(row, 2), SelectedBackground, CornerRadius);
+
+            string prefix = item.IsCheckable ? (item.IsChecked ? "x " : "  ") : string.Empty;
+            string suffix = item.Children.Count > 0 ? " >" : string.Empty;
+            BColor foreground = !item.IsEnabled ? DisabledForeground : selectedIndex == index ? SelectedForeground : Foreground;
+            context.RenderList.DrawText(new BTextRun(prefix + item.Text + suffix, Font, foreground), new BPoint(row.Left + 20, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+        }
+    }
+
     private IReadOnlyList<int>? HitTestPopup(BPoint point)
     {
         if (!TryGetFirstPopupLevel(out IReadOnlyList<UiMenuItem> level, out BPoint origin, out int pathDepth))
             return null;
 
+        if (PresentationMode == UiMenuPresentationMode.BottomSheet)
+        {
+            BRect sheet = GetPopupBounds(origin, level.Count);
+            if (!sheet.Contains(point))
+                return null;
+
+            double rowHeight = Math.Max(ItemHeight, 44);
+            double handleHeight = 24;
+            int index = (int)Math.Floor((point.Y - (sheet.Top + handleHeight)) / rowHeight);
+            if ((uint)index < (uint)level.Count)
+                return [index];
+
+            return null;
+        }
+
         var path = new List<int>();
-        if (PresentationMode == UiMenuPresentationMode.MenuBar)
+        if (pathDepth > 0 && SelectedPath.Count > 0)
             path.Add(SelectedPath[0]);
 
         for (; level.Count > 0 && pathDepth < MaxDepth; pathDepth++)
@@ -372,7 +564,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
     private bool TryGetFirstPopupLevel(out IReadOnlyList<UiMenuItem> level, out BPoint origin, out int pathDepth)
     {
-        if (PresentationMode == UiMenuPresentationMode.ContextMenu)
+        if (PresentationMode is UiMenuPresentationMode.ContextMenu or UiMenuPresentationMode.Overflow or UiMenuPresentationMode.BottomSheet)
         {
             level = Items;
             origin = GetPopupOrigin(0, 0);
@@ -409,15 +601,34 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         if (PresentationMode == UiMenuPresentationMode.ContextMenu)
             return Bounds.Location;
 
+        if (PresentationMode == UiMenuPresentationMode.Overflow)
+            return new BPoint(Bounds.Left, Bounds.Bottom);
+
+        if (PresentationMode == UiMenuPresentationMode.BottomSheet)
+            return new BPoint(0, Bounds.Bottom);
+
         if (_topLevelBounds.Count == 0)
             return new BPoint(Bounds.Left, Bounds.Bottom);
+
         int index = SelectedPath.Count > 0 ? Math.Clamp(SelectedPath[0], 0, _topLevelBounds.Count - 1) : topIndex;
+        if (PresentationMode == UiMenuPresentationMode.Drawer)
+            return new BPoint(_topLevelBounds[index].Right - 2, _topLevelBounds[index].Top);
+
         return new BPoint(_topLevelBounds[index].Left, _topLevelBounds[index].Bottom);
     }
 
     private BRect GetPopupBounds(BPoint origin, int itemCount)
     {
         BSize viewport = Session?.Host.ViewportSize ?? new BSize(origin.X + PopupWidth, origin.Y + itemCount * ItemHeight);
+
+        if (PresentationMode == UiMenuPresentationMode.BottomSheet)
+        {
+            double rowHeight = Math.Max(ItemHeight, 44);
+            double handleHeight = 24;
+            double sheetHeight = Math.Min(viewport.Height * 0.8, (itemCount * rowHeight) + handleHeight + 16);
+            return new BRect(0, viewport.Height - sheetHeight, viewport.Width, sheetHeight);
+        }
+
         double height = Math.Max(ItemHeight, itemCount * ItemHeight);
         double left = origin.X + PopupWidth > viewport.Width ? Math.Max(0, viewport.Width - PopupWidth) : origin.X;
         double top = origin.Y + height > viewport.Height ? Math.Max(0, viewport.Height - height) : origin.Y;
