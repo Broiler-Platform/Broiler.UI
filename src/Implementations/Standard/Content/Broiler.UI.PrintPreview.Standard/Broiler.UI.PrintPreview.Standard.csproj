@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Broiler.UI.PrintPreview.Standard</RootNamespace>
+    <AssemblyName>Broiler.UI.PrintPreview.Standard</AssemblyName>
+    <PackageId>Broiler.UI.PrintPreview.Standard</PackageId>
+    <Description>Standard platform-neutral Broiler print preview implementation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Broiler.Graphics" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Abstractions\Content\Broiler.UI.PrintPreview\Broiler.UI.PrintPreview.csproj" />
+    <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
+  </ItemGroup>
+
+</Project>

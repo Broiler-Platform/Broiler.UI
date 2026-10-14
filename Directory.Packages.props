@@ -6,7 +6,10 @@
        The sample hosts pin their platform backends separately from the versions the
        runtime libraries build against. -->
   <PropertyGroup>
-    <BroilerGraphicsPackageVersion>0.1.0-preview.7</BroilerGraphicsPackageVersion>
+    <!-- The runtime libraries' Broiler.Graphics: 0.1.0-preview.13 brings Broiler.Graphics.Paging,
+         which printing and the print preview draw. A property, so a build against a local pack
+         can name one with -p:BroilerGraphicsPackageVersion=... -->
+    <BroilerGraphicsPackageVersion Condition="'$(BroilerGraphicsPackageVersion)' == ''">0.1.0-preview.13</BroilerGraphicsPackageVersion>
     <BroilerInputPackageVersion>0.1.0-preview.5</BroilerInputPackageVersion>
     <BroilerDocumentsPackageVersion>0.1.0-preview.21</BroilerDocumentsPackageVersion>
     <BroilerSampleGraphicsPackageVersion>0.1.0-preview.7</BroilerSampleGraphicsPackageVersion>
@@ -17,7 +20,7 @@
     <PackageVersion Include="Broiler.Documents.FormatCodes" Version="0.1.0-preview.23" />
     <PackageVersion Include="Broiler.Documents.Model" Version="0.1.0-preview.23" />
     <PackageVersion Include="Broiler.Documents.Rtf" Version="0.1.0-preview.23" />
-    <PackageVersion Include="Broiler.Graphics" Version="0.1.0-preview.12" />
+    <PackageVersion Include="Broiler.Graphics" Version="$(BroilerGraphicsPackageVersion)" />
     <PackageVersion Include="Broiler.Input" Version="0.1.0-preview.6" />
     <PackageVersion Include="Broiler.Input.Keyboard" Version="0.1.0-preview.6" />
     <PackageVersion Include="Broiler.Input.Mouse" Version="0.1.0-preview.6" />
