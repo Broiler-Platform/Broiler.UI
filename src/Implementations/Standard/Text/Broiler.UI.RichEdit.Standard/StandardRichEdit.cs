@@ -550,18 +550,17 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         BTextMeasurer.GetLineHeight(RichEditLayoutSettings.ZoomedFontFor(Font, _zoom));
 
     /// <summary>
-    /// Brings the layout up to date with the document and the view. When it had to
-    /// be rebuilt, the pictures the document no longer holds are released and the
-    /// scroll offset is pulled back inside the new content height.
+    /// Brings the layout up to date with the document and the view, releasing unused
+    /// pictures when it is rebuilt. Scroll offsets are clamped even when the text
+    /// layout is unchanged, because resizing the viewport changes their limits.
     /// </summary>
     private void EnsureLayout()
     {
         RichTextDocument document = Document;
         var settings = new RichEditLayoutSettings(View.ContentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping);
-        if (!_layout.Update(document, settings))
-            return;
+        if (_layout.Update(document, settings))
+            _images.ReleaseUnused(document);
 
-        _images.ReleaseUnused(document);
         _scroller.Clamp(ScrollMetrics);
         _scroller.ClampX(HorizontalScrollMetrics);
     }

@@ -70,7 +70,7 @@ internal readonly record struct RichEditScrollMetrics(
                 Math.Min(MinimumThumbLength, track.Height), track.Height);
         double top = track.Top;
         if (maxOffset > 0)
-            top += (track.Height - thumbHeight) * (offset / maxOffset);
+            top += (track.Height - thumbHeight) * (Math.Clamp(offset, 0, maxOffset) / maxOffset);
         return new BRect(track.Left, top, track.Width, thumbHeight);
     }
 }
@@ -120,7 +120,7 @@ internal readonly record struct RichEditHorizontalScrollMetrics(
                 Math.Min(MinimumThumbLength, track.Width), track.Width);
         double left = track.Left;
         if (maxOffset > 0)
-            left += (track.Width - thumbWidth) * (offset / maxOffset);
+            left += (track.Width - thumbWidth) * (Math.Clamp(offset, 0, maxOffset) / maxOffset);
         return new BRect(left, track.Top, thumbWidth, track.Height);
     }
 }

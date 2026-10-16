@@ -1,5 +1,6 @@
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
 using Broiler.Graphics.Text;
 using Broiler.Graphics.Windowing;
 using Broiler.Input;
@@ -229,6 +230,47 @@ public sealed class StandardRichEditReadOnlyAndScrollingTests
         Assert.Equal(0, scene.Edit.VerticalScrollOffset);
         Assert.Equal(0, scene.Edit.HorizontalScrollOffset);
         scene.Session.Dispose();
+    }
+
+    [Theory]
+    [InlineData(300, false)]
+    [InlineData(1000, false)]
+    [InlineData(300, true)]
+    [InlineData(1000, true)]
+    public void Growing_The_Viewport_Clamps_Scrolling_Without_Reflow(double height, bool paged)
+    {
+        RichEditScene scene = Create(new BSize(500, 160), string.Join("\n", Enumerable.Repeat("Line", 30)));
+        using UiSession session = scene.Session;
+        if (paged)
+            scene.Edit.Document = scene.Edit.Document.WithPageGeometry(new PageGeometry(400, 840, 20, 20, 20, 20));
+        session.RenderFrame();
+        scene.Edit.ScrollToEnd();
+        session.RenderFrame();
+        double oldMaximum = scene.Edit.VerticalScrollOffset;
+        Assert.True(oldMaximum > 0);
+
+        // The splitter changes only the viewport height, leaving the cached text layout valid.
+        scene.Edit.Arrange(new BRect(0, 0, 500, height));
+        var list = new BRenderList();
+        scene.Edit.Render(new UiRenderContext(list, session, scene.Host));
+
+        double expectedOffset = Math.Max(0, oldMaximum - (height - 160));
+        Assert.Equal(expectedOffset, scene.Edit.VerticalScrollOffset, 6);
+        Assert.Equal(expectedOffset > 0, scene.Edit.HasVerticalScrollbar);
+        var thumbs = list.Commands.OfType<BRenderCommand.FillRoundedRect>()
+            .Where(fill => fill.Color == scene.Edit.ScrollbarThumb).ToArray();
+        if (expectedOffset > 0)
+        {
+            BRect thumb = Assert.Single(thumbs).Rect;
+            BRect track = Assert.Single(list.Commands.OfType<BRenderCommand.FillRoundedRect>(),
+                fill => fill.Color == scene.Edit.ScrollbarTrack).Rect;
+            Assert.Equal(track.Bottom, thumb.Bottom, 6);
+            Assert.True(thumb.Bottom <= scene.Edit.Bounds.Bottom);
+        }
+        else
+        {
+            Assert.Empty(thumbs);
+        }
     }
 
     [Fact]

@@ -109,6 +109,18 @@ public sealed class RichEditScrollerTests
         Assert.False(scroller.IsDraggingThumb);
     }
 
+    [Theory]
+    [InlineData(-100)]
+    [InlineData(1000)]
+    public void Thumbs_Stay_Inside_Their_Tracks_For_Out_Of_Range_Offsets(double offset)
+    {
+        RichEditScrollMetrics vertical = Metrics(300);
+        var horizontal = new RichEditHorizontalScrollMetrics(RichEditScrollPolicy.Auto, Window, 400, 12, 18);
+
+        Assert.Equal(vertical.Thumb(vertical.Clamp(offset)), vertical.Thumb(offset));
+        Assert.Equal(horizontal.Thumb(horizontal.Clamp(offset)), horizontal.Thumb(offset));
+    }
+
     [Fact]
     public void A_Press_Off_The_Bar_Is_Left_To_The_Text()
     {
