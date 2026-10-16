@@ -24,6 +24,8 @@ public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
     private readonly StandardLabel _componentsLabel;
     private readonly StandardListView _componentList;
     private readonly StandardButton _okButton;
+    private readonly AboutDialogPicture _picture;
+    private readonly StandardButton _websiteButton;
 
     public StandardAboutDialog()
     {
@@ -32,6 +34,9 @@ public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
         _productLabel = new StandardLabel();
         _componentsLabel = new StandardLabel();
         _componentList = new StandardListView { ItemHeight = 24, CornerRadius = 0 };
+        _picture = new AboutDialogPicture { Visibility = UiVisibility.Hidden };
+        _websiteButton = new StandardButton { PaddingX = 4, PaddingY = 4, Visibility = UiVisibility.Hidden };
+        _websiteButton.Clicked += (_, _) => RequestProductUrl();
         _okButton = new StandardButton
         {
             Text = "OK",
@@ -44,6 +49,8 @@ public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
         AddChild(_productLabel);
         AddChild(_componentsLabel);
         AddChild(_componentList);
+        AddChild(_picture);
+        AddChild(_websiteButton);
         AddChild(_okButton);
 
         // Capture after creating the controls so their assemblies are included too.
@@ -58,6 +65,7 @@ public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
     public BColor BorderColor { get; set; } = StandardControlPaint.Border;
     public StandardButton OkButton => _okButton;
     public StandardListView ComponentList => _componentList;
+    public StandardButton WebsiteButton => _websiteButton;
     public UiWindowChromeLayout ChromeLayout => _chrome.Layout;
 
     public void ApplyTheme(StandardThemeTokens theme)
@@ -79,6 +87,11 @@ public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
         _componentsLabel.Text = ComponentVersions.Count == 0 ? "No component version information available." : "Component versions";
         _componentList.SetItems(ComponentVersions.Select(component =>
             new UiListItem(component.Key, $"{component.Key}  —  {component.Value}")));
+        _picture.Resource = Picture;
+        _picture.AltText = PictureAltText;
+        _picture.Visibility = Picture is null ? UiVisibility.Hidden : UiVisibility.Visible;
+        _websiteButton.Text = ProductUrl?.AbsoluteUri ?? string.Empty;
+        _websiteButton.Visibility = ProductUrl is null ? UiVisibility.Hidden : UiVisibility.Visible;
     }
 
     protected override BSize MeasureCore(BSize availableSize)
@@ -101,15 +114,44 @@ public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
         // Reserve the action row first so dismissal stays reachable in a small host viewport.
         double contentBottom = Math.Max(client.Top, buttonTop - 8);
         double top = client.Top;
+        double left = client.Left;
+        double contentWidth = client.Width;
+        _picture.Arrange(new BRect(left, top, 0, 0));
+        _websiteButton.Arrange(new BRect(left, top, 0, 0));
+        if (Picture is not null)
+        {
+            if (client.Width >= 500)
+            {
+                double pictureWidth = Math.Min(240, client.Width * 0.4);
+                _picture.Arrange(new BRect(left, top, pictureWidth, Math.Max(0, contentBottom - top)));
+                left += pictureWidth + 16;
+                contentWidth = Math.Max(0, client.Right - left);
+            }
+            else
+            {
+                // Share the heading row in compact windows, preserving room for the version list.
+                double pictureWidth = Math.Min(72, Math.Max(0, contentWidth - 180));
+                double pictureHeight = Math.Min(62, Math.Max(0, contentBottom - top));
+                _picture.Arrange(new BRect(client.Right - pictureWidth, top, pictureWidth, pictureHeight));
+                if (pictureWidth > 0) contentWidth = Math.Max(0, contentWidth - pictureWidth - 12);
+            }
+        }
         ArrangeLabel(_titleLabel, 30);
         ArrangeLabel(_productLabel, 24);
+        if (client.Width < 500) contentWidth = client.Width;
+        if (ProductUrl is not null)
+        {
+            double height = Math.Min(28, Math.Max(0, contentBottom - top));
+            _websiteButton.Arrange(new BRect(left, top, contentWidth, height));
+            top = Math.Min(contentBottom, top + height + 8);
+        }
         ArrangeLabel(_componentsLabel, 22);
-        _componentList.Arrange(new BRect(client.Left, top, client.Width, Math.Max(0, contentBottom - top)));
+        _componentList.Arrange(new BRect(left, top, contentWidth, Math.Max(0, contentBottom - top)));
 
         void ArrangeLabel(StandardLabel label, double desiredHeight)
         {
             double height = Math.Min(desiredHeight, Math.Max(0, contentBottom - top));
-            label.Arrange(new BRect(client.Left, top, client.Width, height));
+            label.Arrange(new BRect(left, top, contentWidth, height));
             top = Math.Min(contentBottom, top + height + 8);
         }
     }

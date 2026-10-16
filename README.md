@@ -147,12 +147,23 @@ closes the dialog.
 ```csharp
 var about = new StandardAboutDialog();
 about.ProductName = "My Application";          // optional override
+about.Picture = BImageResource.FromEncoded(File.ReadAllBytes("About.png"), "image/png");
+about.PictureAltText = "Application mascot";
+about.ProductUrl = new Uri("https://example.com/");
+about.ProductUrlRequested += (_, url) => OpenWebsite(url); // application/host navigation
 await about.ShowModal(mainWindow);
 ```
 
 The product name and version default to the entry assembly. Component versions are a
 snapshot of loaded `Broiler.*` assemblies, using informational version (including prerelease
 labels), then file version, then assembly version.
+
+`Picture` accepts a `Broiler.Graphics.Imaging.BImageResource` (encoded data or decoded pixels).
+Artwork preserves its aspect ratio and shrinks in compact windows. The dialog uploads through
+its own host's `IUiImageHost`, releases handles on replacement/detachment, and uploads again
+after moving to another host. A host without image support omits the artwork. `ProductUrl` is
+optional and accepts absolute HTTP(S) URLs; the website button supports pointer and keyboard
+activation without closing the dialog. Handle `ProductUrlRequested` to perform navigation.
 
 ### Secondary Window Break-Out
 

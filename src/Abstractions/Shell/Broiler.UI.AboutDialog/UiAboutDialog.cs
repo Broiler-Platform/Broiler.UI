@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Reflection;
+using Broiler.Graphics.Imaging;
 using Broiler.UI.Dialog;
 
 namespace Broiler.UI.AboutDialog;
@@ -15,6 +16,61 @@ public abstract class UiAboutDialog : UiDialog
     private string _productName;
     private string _productVersion;
     private IReadOnlyDictionary<string, string> _componentVersions;
+    private BImageResource? _picture;
+    private string _pictureAltText = string.Empty;
+    private Uri? _productUrl;
+
+    /// <summary>Optional product artwork. The dialog owns its renderer handle, not this resource.</summary>
+    public BImageResource? Picture
+    {
+        get => _picture;
+        set
+        {
+            ThrowIfDisposed();
+            if (ReferenceEquals(_picture, value)) return;
+            _picture = value;
+            NotifyContentChanged();
+        }
+    }
+
+    /// <summary>Accessible description of the optional product artwork.</summary>
+    public string PictureAltText
+    {
+        get => _pictureAltText;
+        set
+        {
+            ThrowIfDisposed();
+            value ??= string.Empty;
+            if (_pictureAltText == value) return;
+            _pictureAltText = value;
+            NotifyContentChanged();
+        }
+    }
+
+    /// <summary>Optional absolute HTTP(S) website. Handle ProductUrlRequested to open it on the host platform.</summary>
+    public Uri? ProductUrl
+    {
+        get => _productUrl;
+        set
+        {
+            ThrowIfDisposed();
+            if (value is not null && (!value.IsAbsoluteUri ||
+                (value.Scheme != Uri.UriSchemeHttp && value.Scheme != Uri.UriSchemeHttps)))
+                throw new ArgumentException("The product URL must be an absolute HTTP or HTTPS URL.", nameof(value));
+            if (_productUrl == value) return;
+            _productUrl = value;
+            NotifyContentChanged();
+        }
+    }
+
+    /// <summary>Raised on website activation; the application supplies platform-specific navigation.</summary>
+    public event EventHandler<Uri>? ProductUrlRequested;
+
+    protected void RequestProductUrl()
+    {
+        if (ProductUrl is Uri url)
+            ProductUrlRequested?.Invoke(this, url);
+    }
 
     // Broiler-AI:           Origin=AI; IP=Low; Security=Low; Resources=3; Fingerprint=TBF
     // Broiler-Falsified-If: constructing the dialog in a process with no entry assembly throws instead of falling back to the product name and version of the UI assembly

@@ -1,6 +1,8 @@
 using System.Reflection;
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Resources;
 using Broiler.Graphics.RenderList;
 using Broiler.Input;
 using Broiler.Input.Keyboard;
@@ -16,6 +18,71 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class AboutDialogControlTests
 {
+    [Fact]
+    public void Picture_Is_Uploaded_Once_Released_On_Replacement_And_Recreated_On_Another_Host()
+    {
+        var firstHost = new ImageHost();
+        var secondHost = new ImageHost();
+        using UiSession first = new StandardUiSessionBuilder().Build(firstHost);
+        using UiSession second = new StandardUiSessionBuilder().Build(secondHost);
+        using var dialog = new StandardAboutDialog { Picture = Picture() };
+        first.AddRoot(dialog);
+        BRenderCommand.DrawImage drawn = Assert.Single(first.RenderFrame().Commands.OfType<BRenderCommand.DrawImage>());
+        Assert.Equal(2, drawn.Destination.Width / drawn.Destination.Height, 6);
+        first.RenderFrame();
+        Assert.Equal(1, firstHost.Created);
+        dialog.Picture = Picture();
+        Assert.Equal(1, firstHost.Released);
+        first.RenderFrame();
+        Assert.Equal(2, firstHost.Created);
+        first.RemoveRoot(dialog);
+        Assert.Equal(2, firstHost.Released);
+        second.AddRoot(dialog);
+        second.RenderFrame();
+        Assert.Equal(1, secondHost.Created);
+        dialog.Dispose();
+        Assert.Equal(1, secondHost.Released);
+    }
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("file:///tmp/file")]
+    [InlineData("relative/path")]
+    public void Website_Rejects_Non_Web_Urls(string url)
+    {
+        using var dialog = new StandardAboutDialog();
+        Assert.Throws<ArgumentException>(() => dialog.ProductUrl = new Uri(url, UriKind.RelativeOrAbsolute));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Website_Activates_Without_Dismissing_The_Dialog(bool keyboard)
+    {
+        using UiSession session = new StandardUiSessionBuilder().Build(new TestHost());
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+        using var dialog = new StandardAboutDialog { ProductUrl = new Uri("https://example.com/about") };
+        Uri? requested = null;
+        dialog.ProductUrlRequested += (_, url) => requested = url;
+        _ = dialog.ShowModal(owner, new BRect(20, 20, 620, 380));
+        session.RenderFrame();
+        if (keyboard)
+        {
+            session.SetFocus(dialog.WebsiteButton);
+            Assert.True(session.DispatchInput(Key("Enter")));
+        }
+        else
+        {
+            Assert.True(session.DispatchInput(Mouse(dialog.WebsiteButton.Bounds, MouseButtonTransition.Down)));
+            Assert.True(session.DispatchInput(Mouse(dialog.WebsiteButton.Bounds, MouseButtonTransition.Up)));
+        }
+        Assert.Equal(dialog.ProductUrl, requested);
+        Assert.True(dialog.IsPresented);
+        dialog.ProductUrl = null;
+        Assert.Equal(UiVisibility.Hidden, dialog.WebsiteButton.Visibility);
+    }
+
     [Fact]
     public void Defaults_Include_Actual_Loaded_Component_Versions()
     {
@@ -132,6 +199,42 @@ public sealed class AboutDialogControlTests
             Assert.True(child.Bounds.Left >= bounds.Left && child.Bounds.Right <= bounds.Right);
             Assert.True(child.Bounds.Top >= bounds.Top && child.Bounds.Bottom <= bounds.Bottom);
         }
+    }
+
+    [Theory]
+    [InlineData(620, 380)]
+    [InlineData(380, 260)]
+    [InlineData(220, 160)]
+    public void Layout_With_Artwork_And_Website_Keeps_Children_Inside(double width, double height)
+    {
+        using var dialog = new StandardAboutDialog { Picture = Picture(), ProductUrl = new Uri("https://example.com/") };
+        var bounds = new BRect(17, 29, width, height);
+        dialog.Measure(bounds.Size);
+        dialog.Arrange(bounds);
+        Assert.Equal(30, dialog.OkButton.Bounds.Height);
+        Assert.All(dialog.Children, child =>
+        {
+            Assert.InRange(child.Bounds.Left, bounds.Left, bounds.Right);
+            Assert.InRange(child.Bounds.Right, bounds.Left, bounds.Right);
+            Assert.InRange(child.Bounds.Top, bounds.Top, bounds.Bottom);
+            Assert.InRange(child.Bounds.Bottom, bounds.Top, bounds.Bottom);
+        });
+    }
+
+    private static BImageResource Picture() => BImageResource.FromPixels(new BPixelBuffer(200, 100, new byte[200 * 100 * 4]));
+
+    private sealed class ImageHost : IUiHost, IUiImageHost
+    {
+        public int Created { get; private set; }
+        public int Released { get; private set; }
+        public BSize ViewportSize => new(620, 380);
+        public double Scale => 1;
+        public BRenderList CreateRenderList(int capacity = 0) => new(capacity);
+        public void Invalidate(UiInvalidation invalidation) { }
+        public void Present(BRenderList renderList) { }
+        public BImageHandle CreateImage(ReadOnlySpan<byte> bytes) => throw new NotSupportedException();
+        public BImageHandle CreateImage(BPixelBuffer pixels) => BImageHandle.FromId((ulong)++Created, new BSize(pixels.Width, pixels.Height));
+        public void ReleaseImage(BImageHandle image) => Released++;
     }
 
     [Fact]
