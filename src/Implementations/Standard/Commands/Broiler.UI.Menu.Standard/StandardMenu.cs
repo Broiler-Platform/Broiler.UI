@@ -193,7 +193,10 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
                     return true;
                 }
 
-                OpenManaged([index]);
+                if (PresentationMode == UiMenuPresentationMode.MenuBar && IsOpen && SelectedPath.Count > 0 && SelectedPath[0] == index)
+                    CloseManaged(restoreFocus: true);
+                else
+                    OpenManaged([index]);
                 return true;
             }
         }

@@ -33,6 +33,79 @@ public sealed class MenuPresentationModeTests
         Assert.Throws<ArgumentOutOfRangeException>(() => menu.PresentationMode = (UiMenuPresentationMode)999);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MenuBar_Mode_Clicking_Open_Entry_Closes_Popups_And_Allows_Reopening(bool openSubmenu)
+    {
+        var menu = new StandardMenu();
+        UiMenuItem file = new("file", "File");
+        UiMenuItem recent = new("recent", "Recent");
+        recent.Children.Add(new UiMenuItem("document", "Document"));
+        file.Children.Add(recent);
+        menu.SetItems([file]);
+        int invocationCount = 0;
+        menu.ItemInvoked += (_, _) => invocationCount++;
+
+        var host = new TestHost(new BSize(400, 300));
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var root = new TestContainer(menu, new BRect(0, 0, 400, 28));
+        session.AddRoot(root);
+        session.RenderFrame();
+
+        Assert.True(Click(session, 10, 10));
+        Assert.True(menu.IsOpen);
+        Assert.Same(menu, session.CapturedElement);
+        session.RenderFrame();
+
+        if (openSubmenu)
+        {
+            Assert.True(Click(session, menu.OverlayBounds.Left + 10, menu.OverlayBounds.Top + 10));
+            Assert.Equal(new[] { 0, 0 }, menu.SelectedPath);
+            session.RenderFrame();
+        }
+
+        Assert.True(Click(session, 10, 10));
+        Assert.False(menu.IsOpen);
+        Assert.True(menu.OverlayBounds.IsEmpty);
+        Assert.Null(session.CapturedElement);
+        Assert.Equal(0, invocationCount);
+        BRenderList closed = session.RenderFrame();
+        Assert.DoesNotContain(closed.Commands.OfType<BRenderCommand.DrawText>(), cmd => cmd.Text.Text.StartsWith("Recent") || cmd.Text.Text == "Document");
+
+        Assert.True(Click(session, 10, 10));
+        Assert.True(menu.IsOpen);
+        Assert.Equal(new[] { 0 }, menu.SelectedPath);
+        Assert.Same(menu, session.CapturedElement);
+    }
+
+    [Fact]
+    public void MenuBar_Mode_Clicking_Different_Entry_Switches_Popup_Before_Toggling_Closed()
+    {
+        var menu = new StandardMenu();
+        UiMenuItem file = new("file", "File");
+        file.Children.Add(new UiMenuItem("new", "New"));
+        UiMenuItem edit = new("edit", "Edit");
+        edit.Children.Add(new UiMenuItem("copy", "Copy"));
+        menu.SetItems([file, edit]);
+
+        var host = new TestHost(new BSize(400, 300));
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        session.AddRoot(new TestContainer(menu, new BRect(0, 0, 400, 28)));
+        session.RenderFrame();
+        double editX = menu.TopLevelBounds[1].Left + 10;
+
+        Assert.True(Click(session, 10, 10));
+        Assert.True(Click(session, editX, 10));
+        Assert.True(menu.IsOpen);
+        Assert.Equal(new[] { 1 }, menu.SelectedPath);
+        Assert.Same(menu, session.CapturedElement);
+
+        Assert.True(Click(session, editX, 10));
+        Assert.False(menu.IsOpen);
+        Assert.Null(session.CapturedElement);
+    }
+
     [Fact]
     public void Overflow_Mode_Measures_Desired_Button_Size()
     {
