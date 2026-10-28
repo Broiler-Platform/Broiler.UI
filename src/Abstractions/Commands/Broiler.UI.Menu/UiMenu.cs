@@ -22,6 +22,9 @@ public abstract class UiMenu : UiElement, IUiExpandable
     // Broiler-Human:        PENDING
     public event EventHandler<UiMenuItemInvokedEventArgs>? ItemInvoked;
 
+    /// <summary>Raised when the popup's expansion state changes.</summary>
+    public event EventHandler? OpenStateChanged;
+
     public IReadOnlyList<UiMenuItem> Items => _items;
 
     public IReadOnlyList<int> SelectedPath => _selectedPath;
@@ -38,6 +41,7 @@ public abstract class UiMenu : UiElement, IUiExpandable
 
             _isOpen = value;
             Invalidate(UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+            OpenStateChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 

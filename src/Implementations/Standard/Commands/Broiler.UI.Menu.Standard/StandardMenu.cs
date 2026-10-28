@@ -73,6 +73,9 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
     public double PopupWidth { get; set; } = 180;
 
+    /// <summary>Optional trigger bounds used to place an overflowing popup above its trigger.</summary>
+    public BRect? PopupAnchorBounds { get; set; }
+
     public double CornerRadius { get; set; } = StandardControlPaint.ControlRadius;
 
     public StandardCommandDispatcher? CommandDispatcher { get; set; }
@@ -103,6 +106,39 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
             return GetPopupBounds(origin, level.Count);
         }
+    }
+
+    protected override UiSemanticNode GetSemanticNodeCore()
+    {
+        UiSemanticNode node = base.GetSemanticNodeCore();
+        if (!IsOpen || PresentationMode is not (UiMenuPresentationMode.ContextMenu or UiMenuPresentationMode.Overflow))
+            return node;
+
+        // Popup rows are virtual children, with the same bounds and selection as the painted rows.
+        var children = new List<UiSemanticNode>();
+        if (TryGetFirstPopupLevel(out IReadOnlyList<UiMenuItem> level, out BPoint origin, out int depth))
+        {
+            for (; level.Count > 0 && depth < MaxDepth; depth++)
+            {
+                BRect popup = GetPopupBounds(origin, level.Count);
+                int selected = GetSelectedIndexAtDepth(depth, level.Count);
+                for (int i = 0; i < level.Count; i++)
+                {
+                    UiMenuItem item = level[i];
+                    if (item.IsSeparator) continue;
+                    UiSemanticState state = UiSemanticState.Visible;
+                    if (item.IsEnabled) state |= UiSemanticState.Enabled;
+                    if (i == selected) state |= UiSemanticState.Selected;
+                    if (item.IsCheckable && item.IsChecked) state |= UiSemanticState.Checked;
+                    children.Add(new UiSemanticNode(UiSemanticRole.MenuItem, item.Text,
+                        new BRect(popup.Left, popup.Top + i * ItemHeight, popup.Width, ItemHeight), state, []));
+                }
+                if (selected < 0 || level[selected].Children.Count == 0) break;
+                origin = new BPoint(popup.Right - 2, popup.Top + selected * ItemHeight);
+                level = level[selected].Children.ToArray();
+            }
+        }
+        return node with { Bounds = OverlayBounds, Children = children };
     }
 
     protected override BSize MeasureCore(BSize availableSize)
@@ -284,6 +320,24 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         return false;
     }
 
+    /// <summary>Opens a popup with input capture, keyboard focus and focus restoration on dismissal.</summary>
+    public bool OpenPopup()
+    {
+        ThrowIfDisposed();
+        if (IsOpen || Items.Count == 0) return false;
+        OpenManaged([0]);
+        return true;
+    }
+
+    /// <summary>Closes a popup and releases its input capture.</summary>
+    public bool ClosePopup()
+    {
+        ThrowIfDisposed();
+        if (!IsOpen) return false;
+        CloseManaged(restoreFocus: true);
+        return true;
+    }
+
     private void OpenManaged(IEnumerable<int> path)
     {
         _focusBeforeOpen = Session?.FocusedElement;
@@ -306,6 +360,8 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
     private void InvokeAndClose()
     {
         UiMenuItem? item = GetItem(SelectedPath);
+        if (item is null || !item.IsEnabled || item.IsSeparator || item.Children.Count > 0)
+            return;
         if (item is not null && !string.IsNullOrWhiteSpace(item.CommandName))
             CommandDispatcher?.TryExecute(item.CommandName);
         InvokeSelected();
@@ -633,9 +689,13 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         }
 
         double height = Math.Max(ItemHeight, itemCount * ItemHeight);
-        double left = origin.X + PopupWidth > viewport.Width ? Math.Max(0, viewport.Width - PopupWidth) : origin.X;
-        double top = origin.Y + height > viewport.Height ? Math.Max(0, viewport.Height - height) : origin.Y;
-        return new BRect(left, top, PopupWidth, Math.Min(height, viewport.Height));
+        double width = Math.Min(PopupWidth, viewport.Width);
+        double left = Math.Clamp(origin.X, 0, Math.Max(0, viewport.Width - width));
+        double top = origin.Y;
+        if (top + height > viewport.Height)
+            top = PopupAnchorBounds is BRect anchor && anchor.Top >= height
+                ? anchor.Top - height : Math.Max(0, viewport.Height - height);
+        return new BRect(left, Math.Max(0, top), width, Math.Min(height, viewport.Height));
     }
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>

@@ -12,6 +12,9 @@ its own assembly, so an application takes only the controls it uses.
 Controls draw through the platform-neutral `Broiler.Graphics` core and receive input through
 the `Broiler.Input` abstractions. No UI runtime assembly references a native backend.
 
+The Button packages also provide a primary action with an independent drop-down:
+see the [split-button sample and interaction contract](docs/samples/split-button.md).
+
 > **Preview release.** `0.1.0-preview.1` is the first published preview. Public APIs and
 > behaviour are not frozen and may change before `1.0`. Substantial implementation work
 > was AI-assisted, and human-review approval is revision-scoped — consult
