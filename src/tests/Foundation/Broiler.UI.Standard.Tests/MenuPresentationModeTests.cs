@@ -4,6 +4,7 @@ using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.Input;
+using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
 using Broiler.UI.Menu;
 using Broiler.UI.Menu.Standard;
@@ -13,6 +14,59 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class MenuPresentationModeTests
 {
+    [Theory]
+    [InlineData(UiMenuPresentationMode.MenuBar)]
+    [InlineData(UiMenuPresentationMode.ContextMenu)]
+    [InlineData(UiMenuPresentationMode.Overflow)]
+    public void Popup_Separators_Draw_Compact_Lines_And_Ignore_Clicks(UiMenuPresentationMode mode)
+    {
+        var menu = new StandardMenu { PresentationMode = mode };
+        UiMenuItem first = new("first", "First");
+        UiMenuItem separator = new("separator", "Must not render") { IsSeparator = true };
+        UiMenuItem last = new("last", "Last");
+        if (mode == UiMenuPresentationMode.MenuBar)
+        {
+            UiMenuItem parent = new("parent", "Menu");
+            parent.Children.Add(first);
+            parent.Children.Add(separator);
+            parent.Children.Add(last);
+            menu.SetItems([parent]);
+        }
+        else
+            menu.SetItems([first, separator, last]);
+        using UiSession session = new StandardUiSessionBuilder().Build(new TestHost(new BSize(400, 300)));
+        session.AddRoot(new TestContainer(menu, new BRect(0, 0, 180, 28)));
+        session.RenderFrame();
+        if (mode == UiMenuPresentationMode.ContextMenu)
+            menu.Open();
+        else
+            Click(session, 10, 10);
+        BRenderList rendered = session.RenderFrame();
+        BRect popup = menu.OverlayBounds;
+        Assert.Equal(2 * menu.ItemHeight + StandardMenuSeparator.Height, popup.Height);
+        Assert.Contains(rendered.Commands.OfType<BRenderCommand.FillRect>(), command =>
+            command.Rect == new BRect(popup.Left + 10, popup.Top + menu.ItemHeight + 3, popup.Width - 20, 1));
+        Assert.DoesNotContain(rendered.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == separator.Text);
+        UiMenuItem? invoked = null;
+        menu.ItemInvoked += (_, e) => invoked = e.Item;
+        Click(session, popup.Left + 12, popup.Top + menu.ItemHeight + 3);
+        Assert.True(menu.IsOpen);
+        Assert.Null(invoked);
+        session.SetFocus(menu);
+        menu.SetSelectedPath(mode == UiMenuPresentationMode.MenuBar ? new[] { 0, 0 } : new[] { 0 });
+        new StandardInputRoute(session).Dispatch(new KeyboardKeyEvent(
+            Header(), KeyboardKey.FromName("Down"), KeyboardKeyTransition.Down,
+            KeyboardModifierState.None, 0x28, 0, 0, false, false, Source: InputEventSource.Synthetic));
+        Assert.Same(last, menu.GetItem(menu.SelectedPath));
+        new StandardInputRoute(session).Dispatch(new KeyboardKeyEvent(
+            Header(), KeyboardKey.FromName("Up"), KeyboardKeyTransition.Down,
+            KeyboardModifierState.None, 0x26, 0, 0, false, false, Source: InputEventSource.Synthetic));
+        Assert.Same(first, menu.GetItem(menu.SelectedPath));
+        Click(session, popup.Left + 12, popup.Top + menu.ItemHeight + StandardMenuSeparator.Height + 10);
+        Assert.Same(last, invoked);
+        Assert.False(menu.IsOpen);
+    }
+
     [Fact]
     public void UiMenuPresentationMode_Enum_Defines_Expected_Modes()
     {

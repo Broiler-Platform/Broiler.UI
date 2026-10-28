@@ -26,7 +26,7 @@ public sealed partial class StandardEdit
     private const double ContextMenuPaddingX = 10;
     private const double ContextMenuPaddingY = 4;
     private const double ContextMenuShortcutGap = 28;
-    private const double ContextMenuSeparatorHeight = 7;
+    private const double ContextMenuSeparatorHeight = StandardMenuSeparator.Height;
     private const double ContextMenuMinWidth = 168;
 
     private readonly List<StandardEditContextMenuItem> _contextMenuItems = [];
@@ -462,8 +462,7 @@ public sealed partial class StandardEdit
             StandardEditContextMenuItem item = _contextMenuItems[index];
             if (item.IsSeparator)
             {
-                double middle = top + Math.Floor(ContextMenuSeparatorHeight / 2);
-                context.RenderList.FillRect(new BRect(menu.Left + ContextMenuPaddingX, middle, Math.Max(0, menu.Width - (ContextMenuPaddingX * 2)), 1), ContextMenuBorderColor);
+                StandardMenuSeparator.Draw(context, new BRect(menu.Left, top, menu.Width, ContextMenuSeparatorHeight), ContextMenuBorderColor);
                 top += ContextMenuSeparatorHeight;
                 continue;
             }

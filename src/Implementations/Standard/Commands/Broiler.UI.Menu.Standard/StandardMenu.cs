@@ -104,7 +104,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             if (!TryGetFirstPopupLevel(out IReadOnlyList<UiMenuItem> level, out BPoint origin, out _))
                 return BRect.Empty;
 
-            return GetPopupBounds(origin, level.Count);
+            return GetPopupBounds(origin, level);
         }
     }
 
@@ -120,7 +120,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         {
             for (; level.Count > 0 && depth < MaxDepth; depth++)
             {
-                BRect popup = GetPopupBounds(origin, level.Count);
+                BRect popup = GetPopupBounds(origin, level);
                 int selected = GetSelectedIndexAtDepth(depth, level.Count);
                 for (int i = 0; i < level.Count; i++)
                 {
@@ -131,10 +131,10 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
                     if (i == selected) state |= UiSemanticState.Selected;
                     if (item.IsCheckable && item.IsChecked) state |= UiSemanticState.Checked;
                     children.Add(new UiSemanticNode(UiSemanticRole.MenuItem, item.Text,
-                        new BRect(popup.Left, popup.Top + i * ItemHeight, popup.Width, ItemHeight), state, []));
+                        new BRect(popup.Left, popup.Top + RowOffset(level, i, ItemHeight), popup.Width, RowHeight(item, ItemHeight)), state, []));
                 }
                 if (selected < 0 || level[selected].Children.Count == 0) break;
-                origin = new BPoint(popup.Right - 2, popup.Top + selected * ItemHeight);
+                origin = new BPoint(popup.Right - 2, popup.Top + RowOffset(level, selected, ItemHeight));
                 level = level[selected].Children.ToArray();
             }
         }
@@ -148,7 +148,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             UiMenuPresentationMode.MenuBar => MenuBarHeight,
             UiMenuPresentationMode.Overflow => MenuBarHeight,
             UiMenuPresentationMode.TabBar => Math.Max(MenuBarHeight, 48),
-            UiMenuPresentationMode.Drawer => Math.Max(ItemHeight, Items.Count * ItemHeight),
+            UiMenuPresentationMode.Drawer => Math.Max(ItemHeight, RowOffset(Items, Items.Count, Math.Max(ItemHeight, 36))),
             _ => ItemHeight,
         };
         double width = PresentationMode switch
@@ -219,7 +219,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
                 }
 
                 UiMenuItem item = Items[index];
-                if (!item.IsEnabled)
+                if (!IsSelectable(item))
                     return true;
 
                 if (item.Children.Count == 0 && PresentationMode is UiMenuPresentationMode.TabBar or UiMenuPresentationMode.Drawer)
@@ -242,8 +242,10 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             IReadOnlyList<int>? popupPath = HitTestPopup(input.Position);
             if (popupPath is not null)
             {
-                SetSelectedPath(popupPath);
                 UiMenuItem? item = GetItem(popupPath);
+                if (item is null || !IsSelectable(item))
+                    return true;
+                SetSelectedPath(popupPath);
                 if (item?.Children.Count > 0)
                     return true;
 
@@ -291,8 +293,13 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         if (IsKey(input, BVirtualKey.Enter, "Enter") || IsKey(input, BVirtualKey.Space, "Space"))
         {
             UiMenuItem? item = GetItem(SelectedPath);
-            if (item?.Children.Count > 0 && SelectedPath.Count < MaxDepth)
-                return SetSelectedPath(SelectedPath.Concat([0]));
+            if (item is null || !IsSelectable(item))
+                return true;
+            if (item.Children.Count > 0 && SelectedPath.Count < MaxDepth)
+            {
+                int first = FindSelectable(item.Children.ToArray(), -1, 1);
+                return first >= 0 && SetSelectedPath(SelectedPath.Concat([first]));
+            }
 
             InvokeAndClose();
             return true;
@@ -312,6 +319,8 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         {
             int index = (selectedInLevel + offset) % level.Count;
             UiMenuItem item = level[index];
+            if (!IsSelectable(item))
+                continue;
             char? accessKey = item.AccessKey.HasValue ? char.ToUpperInvariant(item.AccessKey.Value) : null;
             if (accessKey == key || (!string.IsNullOrEmpty(item.Text) && char.ToUpperInvariant(item.Text[0]) == key))
                 return SetSelectedPath(ReplaceLastPathIndex(index));
@@ -343,6 +352,12 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         _focusBeforeOpen = Session?.FocusedElement;
         Open();
         SetSelectedPath(path);
+        if (GetItem(SelectedPath) is not { } selected || !IsSelectable(selected))
+        {
+            int first = FindSelectable(Items, -1, 1);
+            if (first >= 0)
+                SetSelectedPath([first]);
+        }
         Session?.SetFocus(this);
         Session?.CaptureInput(this);
     }
@@ -360,9 +375,9 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
     private void InvokeAndClose()
     {
         UiMenuItem? item = GetItem(SelectedPath);
-        if (item is null || !item.IsEnabled || item.IsSeparator || item.Children.Count > 0)
+        if (item is null || !IsSelectable(item) || item.Children.Count > 0)
             return;
-        if (item is not null && !string.IsNullOrWhiteSpace(item.CommandName))
+        if (!string.IsNullOrWhiteSpace(item.CommandName))
             CommandDispatcher?.TryExecute(item.CommandName);
         InvokeSelected();
         CloseManaged(restoreFocus: true);
@@ -371,8 +386,8 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
     private bool MoveTopLevel(int delta)
     {
         int index = SelectedPath.Count > 0 ? SelectedPath[0] : 0;
-        index = (index + delta + Items.Count) % Items.Count;
-        return SetSelectedPath([index]);
+        index = FindSelectable(Items, index, delta);
+        return index >= 0 && SetSelectedPath([index]);
     }
 
     private bool MoveWithinCurrentLevel(int delta)
@@ -381,10 +396,10 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         if (level.Count == 0)
             return false;
 
-        int index = PresentationMode == UiMenuPresentationMode.MenuBar && SelectedPath.Count == 1
-            ? (delta > 0 ? 0 : level.Count - 1)
-            : (selectedInLevel + delta + level.Count) % level.Count;
-        return SetSelectedPath(ReplaceLastPathIndex(index));
+        int start = PresentationMode == UiMenuPresentationMode.MenuBar && SelectedPath.Count == 1
+            ? (delta > 0 ? -1 : 0) : selectedInLevel;
+        int index = FindSelectable(level, start, delta);
+        return index >= 0 && SetSelectedPath(ReplaceLastPathIndex(index));
     }
 
     private IReadOnlyList<UiMenuItem> GetCurrentLevel(out int selectedInLevel)
@@ -424,9 +439,15 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         for (int index = 0; index < Items.Count; index++)
         {
             UiMenuItem item = Items[index];
-            double width = Math.Max(54, BTextMeasurer.MeasureAdvance(item.Text, Font) + 24);
+            double width = item.IsSeparator ? StandardMenuSeparator.Height : Math.Max(54, BTextMeasurer.MeasureAdvance(item.Text, Font) + 24);
             BRect rect = new(x, Bounds.Top, width, MenuBarHeight);
             _topLevelBounds.Add(rect);
+            if (item.IsSeparator)
+            {
+                StandardMenuSeparator.Draw(context, rect, BorderColor, vertical: true);
+                x = rect.Right;
+                continue;
+            }
             bool selected = SelectedPath.Count > 0 && SelectedPath[0] == index && IsOpen;
             if (selected)
                 StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(rect, 2), SelectedBackground, CornerRadius);
@@ -459,8 +480,13 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         for (int index = 0; index < Items.Count; index++)
         {
             UiMenuItem item = Items[index];
-            BRect rect = new(Bounds.Left, y, Bounds.Width, rowHeight);
+            BRect rect = new(Bounds.Left, y, Bounds.Width, RowHeight(item, rowHeight));
             _topLevelBounds.Add(rect);
+            if (RenderSeparator(context, item, rect))
+            {
+                y = rect.Bottom;
+                continue;
+            }
             bool selected = SelectedPath.Count > 0 && SelectedPath[0] == index && IsOpen;
             if (selected)
                 StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(rect, 2), SelectedBackground, CornerRadius);
@@ -483,6 +509,11 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             UiMenuItem item = Items[index];
             BRect rect = new(Bounds.Left + (index * itemWidth), Bounds.Top, itemWidth, Bounds.Height);
             _topLevelBounds.Add(rect);
+            if (item.IsSeparator)
+            {
+                StandardMenuSeparator.Draw(context, rect, BorderColor, vertical: true);
+                continue;
+            }
             bool selected = SelectedPath.Count > 0 && SelectedPath[0] == index && IsOpen;
             if (selected)
             {
@@ -511,14 +542,16 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
         for (; level.Count > 0 && pathDepth < MaxDepth; pathDepth++)
         {
-            BRect popup = GetPopupBounds(origin, level.Count);
+            BRect popup = GetPopupBounds(origin, level);
             int selectedIndex = GetSelectedIndexAtDepth(pathDepth, level.Count);
             StandardControlPaint.FillRounded(context.RenderList, popup, PopupBackground, CornerRadius);
             StandardControlPaint.StrokeRounded(context.RenderList, popup, BorderColor, CornerRadius, 1);
             for (int index = 0; index < level.Count; index++)
             {
                 UiMenuItem item = level[index];
-                BRect row = new(popup.Left, popup.Top + index * ItemHeight, popup.Width, ItemHeight);
+                BRect row = new(popup.Left, popup.Top + RowOffset(level, index, ItemHeight), popup.Width, RowHeight(item, ItemHeight));
+                if (RenderSeparator(context, item, row))
+                    continue;
                 if (selectedIndex == index)
                     StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(row, 2), SelectedBackground, CornerRadius);
                 string prefix = item.IsCheckable ? (item.IsChecked ? "x " : "  ") : string.Empty;
@@ -531,9 +564,9 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
                 break;
 
             UiMenuItem selected = level[selectedIndex];
-            if (selected.Children.Count == 0)
+            if (!IsSelectable(selected) || selected.Children.Count == 0)
                 break;
-            origin = new BPoint(popup.Right - 2, popup.Top + selectedIndex * ItemHeight);
+            origin = new BPoint(popup.Right - 2, popup.Top + RowOffset(level, selectedIndex, ItemHeight));
             level = selected.Children.ToArray();
         }
     }
@@ -543,7 +576,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         BSize viewport = Session?.Host.ViewportSize ?? new BSize(Bounds.Right, Bounds.Bottom);
         context.RenderList.FillRect(new BRect(0, 0, viewport.Width, viewport.Height), new BColor(0, 0, 0, 96));
 
-        BRect sheet = GetPopupBounds(new BPoint(0, viewport.Height), level.Count);
+        BRect sheet = GetPopupBounds(new BPoint(0, viewport.Height), level);
         double rowHeight = Math.Max(ItemHeight, 44);
         double handleHeight = 24;
 
@@ -558,7 +591,9 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         for (int index = 0; index < level.Count; index++)
         {
             UiMenuItem item = level[index];
-            BRect row = new(sheet.Left, sheet.Top + handleHeight + (index * rowHeight), sheet.Width, rowHeight);
+            BRect row = new(sheet.Left, sheet.Top + handleHeight + RowOffset(level, index, rowHeight), sheet.Width, RowHeight(item, rowHeight));
+            if (RenderSeparator(context, item, row))
+                continue;
             if (selectedIndex == index)
                 StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(row, 2), SelectedBackground, CornerRadius);
 
@@ -576,13 +611,13 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
         if (PresentationMode == UiMenuPresentationMode.BottomSheet)
         {
-            BRect sheet = GetPopupBounds(origin, level.Count);
+            BRect sheet = GetPopupBounds(origin, level);
             if (!sheet.Contains(point))
                 return null;
 
             double rowHeight = Math.Max(ItemHeight, 44);
             double handleHeight = 24;
-            int index = (int)Math.Floor((point.Y - (sheet.Top + handleHeight)) / rowHeight);
+            int index = HitRow(level, point.Y - sheet.Top - handleHeight, rowHeight);
             if ((uint)index < (uint)level.Count)
                 return [index];
 
@@ -595,10 +630,10 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
         for (; level.Count > 0 && pathDepth < MaxDepth; pathDepth++)
         {
-            BRect popup = GetPopupBounds(origin, level.Count);
+            BRect popup = GetPopupBounds(origin, level);
             if (popup.Contains(point))
             {
-                int index = (int)Math.Floor((point.Y - popup.Top) / Math.Max(1, ItemHeight));
+                int index = HitRow(level, point.Y - popup.Top, ItemHeight);
                 if ((uint)index < (uint)level.Count)
                 {
                     path.Add(index);
@@ -612,9 +647,9 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
             UiMenuItem selected = level[selectedIndex];
             path.Add(selectedIndex);
-            if (selected.Children.Count == 0)
+            if (!IsSelectable(selected) || selected.Children.Count == 0)
                 break;
-            origin = new BPoint(popup.Right - 2, popup.Top + selectedIndex * ItemHeight);
+            origin = new BPoint(popup.Right - 2, popup.Top + RowOffset(level, selectedIndex, ItemHeight));
             level = selected.Children.ToArray();
         }
 
@@ -676,19 +711,19 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         return new BPoint(_topLevelBounds[index].Left, _topLevelBounds[index].Bottom);
     }
 
-    private BRect GetPopupBounds(BPoint origin, int itemCount)
+    private BRect GetPopupBounds(BPoint origin, IReadOnlyList<UiMenuItem> level)
     {
-        BSize viewport = Session?.Host.ViewportSize ?? new BSize(origin.X + PopupWidth, origin.Y + itemCount * ItemHeight);
+        BSize viewport = Session?.Host.ViewportSize ?? new BSize(origin.X + PopupWidth, origin.Y + RowOffset(level, level.Count, ItemHeight));
 
         if (PresentationMode == UiMenuPresentationMode.BottomSheet)
         {
             double rowHeight = Math.Max(ItemHeight, 44);
             double handleHeight = 24;
-            double sheetHeight = Math.Min(viewport.Height * 0.8, (itemCount * rowHeight) + handleHeight + 16);
+            double sheetHeight = Math.Min(viewport.Height * 0.8, RowOffset(level, level.Count, rowHeight) + handleHeight + 16);
             return new BRect(0, viewport.Height - sheetHeight, viewport.Width, sheetHeight);
         }
 
-        double height = Math.Max(ItemHeight, itemCount * ItemHeight);
+        double height = Math.Max(ItemHeight, RowOffset(level, level.Count, ItemHeight));
         double width = Math.Min(PopupWidth, viewport.Width);
         double left = Math.Clamp(origin.X, 0, Math.Max(0, viewport.Width - width));
         double top = origin.Y;
@@ -696,6 +731,42 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             top = PopupAnchorBounds is BRect anchor && anchor.Top >= height
                 ? anchor.Top - height : Math.Max(0, viewport.Height - height);
         return new BRect(left, Math.Max(0, top), width, Math.Min(height, viewport.Height));
+    }
+
+    private static bool IsSelectable(UiMenuItem item) => !item.IsSeparator && item.IsEnabled;
+
+    private static int FindSelectable(IReadOnlyList<UiMenuItem> items, int start, int delta)
+    {
+        for (int n = 1; n <= items.Count; n++)
+        {
+            int index = ((start + n * delta) % items.Count + items.Count) % items.Count;
+            if (IsSelectable(items[index]))
+                return index;
+        }
+        return -1;
+    }
+
+    private static double RowHeight(UiMenuItem item, double height) => item.IsSeparator ? StandardMenuSeparator.Height : height;
+
+    private static double RowOffset(IReadOnlyList<UiMenuItem> items, int count, double height) =>
+        items.Take(count).Sum(item => RowHeight(item, height));
+
+    private static int HitRow(IReadOnlyList<UiMenuItem> items, double y, double height)
+    {
+        if (y < 0) return -1;
+        for (int i = 0; i < items.Count; i++)
+        {
+            y -= RowHeight(items[i], height);
+            if (y < 0) return i;
+        }
+        return -1;
+    }
+
+    private bool RenderSeparator(UiRenderContext context, UiMenuItem item, BRect row)
+    {
+        if (!item.IsSeparator) return false;
+        StandardMenuSeparator.Draw(context, row, BorderColor);
+        return true;
     }
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>

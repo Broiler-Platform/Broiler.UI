@@ -20,6 +20,13 @@ acceptance). It is not published, and no pull request exists for it.
   round left open in Broiler.UI, with the design decisions for the owner. Among
   them, `Broiler.UI.Win32.Demo` builds but fails at startup.
 
+## Shared menu infrastructure
+
+- Follow the [shared menu infrastructure roadmap](shared-menu-infrastructure-roadmap.md)
+  to consolidate popup layout, painting, navigation, interaction state, and
+  semantics across StandardMenu, Edit, and RichEdit. Separator painting and
+  spacing are already shared; the remaining phases are proposed.
+
 ## Remove temporary host and Graphics integration
 
 - Migrate remaining Writer/demo users of `StandardLegacyGraphicsInputAdapter` to

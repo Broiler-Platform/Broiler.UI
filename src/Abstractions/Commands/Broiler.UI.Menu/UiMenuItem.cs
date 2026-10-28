@@ -41,7 +41,7 @@ public sealed class UiMenuItem
 
     public void Invoke()
     {
-        if (IsEnabled)
+        if (IsEnabled && !IsSeparator)
             Command?.Execute(CommandParameter);
     }
 
