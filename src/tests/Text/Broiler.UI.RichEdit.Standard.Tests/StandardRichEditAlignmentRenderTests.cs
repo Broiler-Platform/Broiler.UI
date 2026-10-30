@@ -31,7 +31,7 @@ public sealed class StandardRichEditAlignmentRenderTests
         list.Commands.OfType<BRenderCommand.DrawText>().ToArray();
 
     private static BRenderCommand.DrawText Drawn(BRenderList list, string text) =>
-        Assert.Single(Texts(list).Where(command => command.Text.Text == text));
+        Assert.Single(Texts(list), command => command.Text.Text == text);
 
     private static double ContentLeft(StandardRichEdit edit) => edit.Bounds.Left + edit.PaddingX;
 
@@ -145,8 +145,8 @@ public sealed class StandardRichEditAlignmentRenderTests
         BRenderList list = scene.Session.RenderFrame();
 
         BRenderCommand.FillRect caret = Assert.Single(
-            list.Commands.OfType<BRenderCommand.FillRect>()
-                .Where(c => c.Color == scene.Edit.CaretColor && c.Rect.Width <= 2));
+            list.Commands.OfType<BRenderCommand.FillRect>(),
+            c => c.Color == scene.Edit.CaretColor && c.Rect.Width <= 2);
         Assert.Equal(ContentLeft(scene.Edit) + (ContentWidth(scene.Edit) / 2), caret.Rect.Left, 3);
         scene.Session.Dispose();
     }
@@ -161,7 +161,8 @@ public sealed class StandardRichEditAlignmentRenderTests
         BRenderList list = scene.Session.RenderFrame();
 
         BRenderCommand.FillRect selection = Assert.Single(
-            list.Commands.OfType<BRenderCommand.FillRect>().Where(c => c.Color == scene.Edit.SelectionBackground));
+            list.Commands.OfType<BRenderCommand.FillRect>(),
+            c => c.Color == scene.Edit.SelectionBackground);
         BRenderCommand.DrawText centered = Drawn(list, "middle");
         Assert.Equal(centered.Origin.X, selection.Rect.Left, 3);
         Assert.Equal(Advance(centered), selection.Rect.Width, 3);

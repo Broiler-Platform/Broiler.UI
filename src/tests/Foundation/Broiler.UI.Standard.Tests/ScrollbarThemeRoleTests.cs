@@ -114,7 +114,7 @@ public sealed class ScrollbarThemeRoleTests
     [MemberData(nameof(Controls))]
     public void Every_Scrollbar_Draws_The_High_Contrast_Roles(string control)
     {
-        foreach (StandardThemeTokens theme in HighContrastThemes.Cast<object[]>().Select(row => (StandardThemeTokens)row[0]))
+        foreach (StandardThemeTokens theme in HighContrastThemes.Select(row => row.Data))
         {
             (BColor track, BColor thumb) = RenderBar(control, theme);
 
@@ -478,7 +478,7 @@ public sealed class ScrollbarSharedPaletteTests
     [Fact]
     public void The_Theme_Controller_Gives_Every_Scrollbar_In_A_Session_The_Palette_Roles()
     {
-        string[] controls = ScrollbarThemeRoleTests.Controls.Cast<object[]>().Select(row => (string)row[0]).ToArray();
+        string[] controls = ScrollbarThemeRoleTests.Controls.Select(row => row.Data).ToArray();
         (UiElement Child, BRect Rect)[] children = controls
             .Select((control, index) => (ScrollbarThemeRoleTests.Create(control), new BRect(index % 3 * 240, index / 3 * 140, 220, 120)))
             .ToArray();

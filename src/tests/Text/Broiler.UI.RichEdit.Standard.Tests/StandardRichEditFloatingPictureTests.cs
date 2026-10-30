@@ -100,8 +100,8 @@ public sealed class StandardRichEditFloatingPictureTests
         BRenderList list = scene.Session.RenderFrame();
         BRenderCommand.DrawImage drawn = Assert.Single(DrawnImages(list));
         BRenderCommand.DrawText second = Assert.Single(
-            list.Commands.OfType<BRenderCommand.DrawText>()
-                .Where(t => t.Text.Text.Contains("second", StringComparison.Ordinal)));
+            list.Commands.OfType<BRenderCommand.DrawText>(),
+            t => t.Text.Text.Contains("second", StringComparison.Ordinal));
 
         Assert.True(drawn.Destination.Top <= second.Origin.Y + 1, "the picture hung from the wrong paragraph");
         Assert.True(drawn.Destination.Top > 0);

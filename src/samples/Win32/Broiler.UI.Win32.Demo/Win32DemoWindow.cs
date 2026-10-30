@@ -169,6 +169,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
 
     protected override void OnCreated()
     {
+        _host.ResumeAnimationIfActive();
     }
 
     protected override BRenderList? BuildRenderList(BSize clientSize)
@@ -1865,6 +1866,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         private readonly List<BreakoutHostWindow> _hostWindows = [];
         private string _clipboard = string.Empty;
         private UiTextCaretInfo? _caret;
+        private bool _animating;
 
         public DemoUiHost(Win32DemoWindow window)
         {
@@ -1883,9 +1885,25 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         {
         }
 
-        public void StartAnimation() => _window.StartAnimationTimer(16);
+        public void StartAnimation()
+        {
+            _animating = true;
+            if (_window.NativeHandle != IntPtr.Zero)
+                _window.StartAnimationTimer(16);
+        }
 
-        public void StopAnimation() => _window.StopAnimationTimer();
+        public void StopAnimation()
+        {
+            _animating = false;
+            if (_window.NativeHandle != IntPtr.Zero)
+                _window.StopAnimationTimer();
+        }
+
+        public void ResumeAnimationIfActive()
+        {
+            if (_animating && _window.NativeHandle != IntPtr.Zero)
+                _window.StartAnimationTimer(16);
+        }
 
         public bool TryGetText(out string text)
         {

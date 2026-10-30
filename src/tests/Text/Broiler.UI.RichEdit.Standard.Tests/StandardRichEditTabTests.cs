@@ -28,7 +28,7 @@ public sealed class StandardRichEditTabTests
             shift ? KeyboardModifierState.Shift : KeyboardModifierState.None);
 
     private static BRenderCommand.DrawText Drawn(BRenderList list, string text) =>
-        Assert.Single(list.Commands.OfType<BRenderCommand.DrawText>().Where(command => command.Text.Text == text));
+        Assert.Single(list.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == text);
 
     private static ParagraphStyle Bulleted(int indentLevel = 0) =>
         ParagraphStyle.Default with { ListKind = ListKind.Bullet, IndentLevel = indentLevel };
@@ -291,9 +291,9 @@ public sealed class StandardRichEditTabTests
         BRenderList list = scene.Session.RenderFrame();
 
         BRenderCommand.DrawText b = Drawn(list, "b");
-        BRenderCommand.FillRect caret = Assert.Single(list.Commands
-            .OfType<BRenderCommand.FillRect>()
-            .Where(command => command.Color == scene.Edit.CaretColor && command.Rect.Width <= 2));
+        BRenderCommand.FillRect caret = Assert.Single(
+            list.Commands.OfType<BRenderCommand.FillRect>(),
+            command => command.Color == scene.Edit.CaretColor && command.Rect.Width <= 2);
         Assert.Equal(b.Origin.X, caret.Rect.Left, 3);
         scene.Session.Dispose();
     }
@@ -320,9 +320,9 @@ public sealed class StandardRichEditTabTests
 
         BRenderList list = scene.Session.RenderFrame();
 
-        BRenderCommand.FillRect highlight = Assert.Single(list.Commands
-            .OfType<BRenderCommand.FillRect>()
-            .Where(command => command.Color == scene.Edit.SelectionBackground));
+        BRenderCommand.FillRect highlight = Assert.Single(
+            list.Commands.OfType<BRenderCommand.FillRect>(),
+            command => command.Color == scene.Edit.SelectionBackground);
         Assert.Equal(scene.Edit.TabStopWidth, highlight.Rect.Width, 3);
         scene.Session.Dispose();
     }

@@ -70,7 +70,8 @@ public sealed class StandardRichEditImageRenderTests
         // The text after the picture starts where the picture ends, so the caret
         // and selection metrics agree with what is on screen.
         BRenderCommand.DrawText after = Assert.Single(
-            list.Commands.OfType<BRenderCommand.DrawText>().Where(c => c.Text.Text == "cd"));
+            list.Commands.OfType<BRenderCommand.DrawText>(),
+            c => c.Text.Text == "cd");
         Assert.Equal(drawn.Destination.Right, after.Origin.X, 3);
         scene.Session.Dispose();
     }

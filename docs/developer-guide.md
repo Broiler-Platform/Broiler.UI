@@ -113,7 +113,7 @@ Every package version is defined centrally in [`Directory.Packages.props`](../Di
 </PropertyGroup>
 ```
 
-Test packages (`Microsoft.NET.Test.Sdk`, `xunit`, `xunit.runner.visualstudio`) are referenced for all test projects by [`src/tests/Directory.Build.props`](../src/tests/Directory.Build.props); their versions are in `Directory.Packages.props` too.
+Test packages (`Microsoft.NET.Test.Sdk`, `xunit.v3`, `xunit.runner.visualstudio`) are referenced for all test projects by [`src/tests/Directory.Build.props`](../src/tests/Directory.Build.props); their versions are in `Directory.Packages.props` too.
 
 ### Feed Configuration
 

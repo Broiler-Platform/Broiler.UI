@@ -34,7 +34,7 @@ public sealed class StandardRichEditListRenderTests
         list.Commands.OfType<BRenderCommand.DrawText>().ToArray();
 
     private static BRenderCommand.DrawText Drawn(BRenderList list, string text) =>
-        Assert.Single(Texts(list).Where(command => command.Text.Text == text));
+        Assert.Single(Texts(list), command => command.Text.Text == text);
 
     [Fact]
     public void A_Bulleted_Paragraph_Draws_A_Bullet_In_Front_Of_Its_Text()
@@ -110,7 +110,7 @@ public sealed class StandardRichEditListRenderTests
 
         double flush = Drawn(list, "flush").Origin.X;
         Assert.Equal(flush + (2 * scene.Edit.IndentWidth), Drawn(list, "indented").Origin.X, 3);
-        Assert.Empty(Texts(list).Where(command => command.Text.Text == Bullet));
+        Assert.DoesNotContain(Texts(list), command => command.Text.Text == Bullet);
         scene.Session.Dispose();
     }
 
@@ -138,7 +138,8 @@ public sealed class StandardRichEditListRenderTests
         BRenderList list = scene.Session.RenderFrame();
 
         BRenderCommand.FillRect selection = Assert.Single(
-            list.Commands.OfType<BRenderCommand.FillRect>().Where(c => c.Color == scene.Edit.SelectionBackground));
+            list.Commands.OfType<BRenderCommand.FillRect>(),
+            c => c.Color == scene.Edit.SelectionBackground);
         Assert.Equal(Drawn(list, "item").Origin.X, selection.Rect.Left, 3);
         scene.Session.Dispose();
     }
@@ -155,8 +156,8 @@ public sealed class StandardRichEditListRenderTests
         BRenderList list = scene.Session.RenderFrame();
 
         BRenderCommand.FillRect caret = Assert.Single(
-            list.Commands.OfType<BRenderCommand.FillRect>()
-                .Where(c => c.Color == scene.Edit.CaretColor && c.Rect.Width <= 2));
+            list.Commands.OfType<BRenderCommand.FillRect>(),
+            c => c.Color == scene.Edit.CaretColor && c.Rect.Width <= 2);
         Assert.Equal(Drawn(list, "item").Origin.X, caret.Rect.Left, 3);
         Assert.Equal(2, Texts(list).Count(command => command.Text.Text == Bullet));
         scene.Session.Dispose();

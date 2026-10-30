@@ -230,8 +230,8 @@ public sealed class StandardEditMouseSelectionTests
         BRenderList frame = scene.Render();
 
         BRenderCommand.FillRect highlight = Assert.Single(
-            frame.Commands.OfType<BRenderCommand.FillRect>()
-                .Where(command => command.Color == scene.Edit.SelectionBackground));
+            frame.Commands.OfType<BRenderCommand.FillRect>(),
+            command => command.Color == scene.Edit.SelectionBackground);
         Assert.Equal(scene.TextX(0), highlight.Rect.Left, 3);
         Assert.Equal(scene.TextX(5), highlight.Rect.Right, 3);
     }

@@ -59,7 +59,7 @@ public sealed class StandardRichEditTableTests
         list.Commands.OfType<BRenderCommand.DrawText>().ToArray();
 
     private static BRenderCommand.DrawText Text(BRenderList list, string text) =>
-        Assert.Single(Texts(list).Where(t => t.Text.Text.Contains(text, StringComparison.Ordinal)));
+        Assert.Single(Texts(list), t => t.Text.Text.Contains(text, StringComparison.Ordinal));
 
     private static BRenderCommand.FillRect[] Fills(BRenderList list) =>
         list.Commands.OfType<BRenderCommand.FillRect>().ToArray();
@@ -179,7 +179,7 @@ public sealed class StandardRichEditTableTests
         var green = BColor.FromArgb(0xFF, 0xAE, 0xCF, 0x00);
         BRenderList list = Scene(Grid(shading: green)).Session.RenderFrame();
 
-        BRenderCommand.FillRect shaded = Assert.Single(Fills(list).Where(f => f.Color == green));
+        BRenderCommand.FillRect shaded = Assert.Single(Fills(list), f => f.Color == green);
         Assert.Equal(100, shaded.Rect.Width, 3);
 
         // Behind: the cell is painted before the text that sits on it.
@@ -199,7 +199,8 @@ public sealed class StandardRichEditTableTests
             TableBorder.None));
 
         BRenderCommand.FillRect edge = Assert.Single(
-            Fills(Scene(document).Session.RenderFrame()).Where(f => f.Color == BColor.Black));
+            Fills(Scene(document).Session.RenderFrame()),
+            f => f.Color == BColor.Black);
 
         Assert.Equal(100, edge.Rect.Width, 3);
         Assert.Equal(1, edge.Rect.Height, 3);

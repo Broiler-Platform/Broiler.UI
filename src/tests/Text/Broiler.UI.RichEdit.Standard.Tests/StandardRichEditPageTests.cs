@@ -52,7 +52,8 @@ public sealed class StandardRichEditPageTests
         RichEditScene scene = Scene(new BSize(900, 400), A4Letterhead);
 
         BRenderCommand.FillRect sheet = Assert.Single(
-            Fills(scene.Session.RenderFrame()).Where(f => Math.Abs(f.Rect.Width - A4Letterhead.Width) < 0.01));
+            Fills(scene.Session.RenderFrame()),
+            f => Math.Abs(f.Rect.Width - A4Letterhead.Width) < 0.01);
 
         double expected = scene.Edit.Bounds.Left + ((900 - A4Letterhead.Width) / 2);
         Assert.Equal(expected, sheet.Rect.Left, 2);
@@ -67,7 +68,8 @@ public sealed class StandardRichEditPageTests
         RichEditScene scene = Scene(new BSize(300, 400), A4Letterhead);
 
         BRenderCommand.FillRect sheet = Assert.Single(
-            Fills(scene.Session.RenderFrame()).Where(f => Math.Abs(f.Rect.Width - A4Letterhead.Width) < 0.01));
+            Fills(scene.Session.RenderFrame()),
+            f => Math.Abs(f.Rect.Width - A4Letterhead.Width) < 0.01);
 
         Assert.True(sheet.Rect.Left >= scene.Edit.Bounds.Left, "the sheet started left of the control");
         scene.Session.Dispose();
@@ -110,7 +112,8 @@ public sealed class StandardRichEditPageTests
             new DocumentShape(0, -111.8, 0, 100.3, 300, ShapeFill.Solid(BColor.Black)));
 
         BRenderCommand.FillRect stripe = Assert.Single(
-            Fills(scene.Session.RenderFrame()).Where(f => f.Color == BColor.Black));
+            Fills(scene.Session.RenderFrame()),
+            f => f.Color == BColor.Black);
         double sheetLeft = scene.Edit.Bounds.Left + ((900 - A4Letterhead.Width) / 2);
 
         Assert.True(stripe.Rect.Left >= sheetLeft - 0.01, "the stripe fell off the left of the sheet");

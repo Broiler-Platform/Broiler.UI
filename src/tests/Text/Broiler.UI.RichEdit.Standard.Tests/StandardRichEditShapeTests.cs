@@ -84,7 +84,8 @@ public sealed class StandardRichEditShapeTests
             new DocumentShape(0, -40, 0, 30, 100, ShapeFill.Solid(BColor.Black)));
 
         BRenderCommand.FillRect drawn = Assert.Single(
-            Fills(scene.Session.RenderFrame()).Where(f => f.Color == BColor.Black));
+            Fills(scene.Session.RenderFrame()),
+            f => f.Color == BColor.Black);
 
         Assert.True(drawn.Rect.Left >= scene.Edit.Bounds.Left, "the shape was drawn off the left edge");
         Assert.Equal(30, drawn.Rect.Width, 3);
@@ -134,7 +135,8 @@ public sealed class StandardRichEditShapeTests
                 [RichTextParagraph.Plain("LOGO")]));
 
         BRenderCommand.DrawText logo = Assert.Single(
-            Texts(scene.Session.RenderFrame()).Where(t => t.Text.Text.Contains("LOGO", StringComparison.Ordinal)));
+            Texts(scene.Session.RenderFrame()),
+            t => t.Text.Text.Contains("LOGO", StringComparison.Ordinal));
 
         double shapeLeft = scene.Edit.Bounds.Left + scene.Edit.PaddingX;
         Assert.True(logo.Origin.X >= shapeLeft - 0.001, "the shape's text was drawn left of its box");
@@ -152,9 +154,11 @@ public sealed class StandardRichEditShapeTests
 
         BRenderList list = scene.Session.RenderFrame();
         BRenderCommand.FillRect drawn = Assert.Single(
-            Fills(list).Where(f => f.Color == BColor.Black));
+            Fills(list),
+            f => f.Color == BColor.Black);
         BRenderCommand.DrawText second = Assert.Single(
-            Texts(list).Where(t => t.Text.Text.Contains("second", StringComparison.Ordinal)));
+            Texts(list),
+            t => t.Text.Text.Contains("second", StringComparison.Ordinal));
 
         // Anchored to the second paragraph, so it starts where that paragraph does.
         Assert.True(drawn.Rect.Top <= second.Origin.Y + 1, "the shape hung from the wrong paragraph");

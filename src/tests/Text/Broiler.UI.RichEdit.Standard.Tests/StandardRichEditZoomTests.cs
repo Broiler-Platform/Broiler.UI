@@ -28,7 +28,7 @@ public sealed class StandardRichEditZoomTests
         list.Commands.OfType<BRenderCommand.DrawText>().ToArray();
 
     private static BRenderCommand.DrawText Drawn(BRenderList list, string text) =>
-        Assert.Single(Texts(list).Where(command => command.Text.Text == text));
+        Assert.Single(Texts(list), command => command.Text.Text == text);
 
     private static double ContentLeft(StandardRichEdit edit) => edit.Bounds.Left + edit.PaddingX;
 
@@ -269,8 +269,8 @@ public sealed class StandardRichEditZoomTests
         BRenderList list = scene.Session.RenderFrame();
         double sheetWidth = a4.Width * 1.5;
         BRenderCommand.FillRect sheet = Assert.Single(
-            list.Commands.OfType<BRenderCommand.FillRect>()
-                .Where(fill => Math.Abs(fill.Rect.Width - sheetWidth) < 0.01));
+            list.Commands.OfType<BRenderCommand.FillRect>(),
+            fill => Math.Abs(fill.Rect.Width - sheetWidth) < 0.01);
 
         Assert.Equal(
             sheet.Rect.Left + (a4.MarginLeft * 1.5),
