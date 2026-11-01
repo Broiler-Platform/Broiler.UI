@@ -10,6 +10,22 @@ namespace Broiler.UI.RichEdit.Standard.Tests;
 public sealed class StandardRichEditContextMenuTests
 {
     [Fact]
+    public void Deferred_clipboard_is_not_read_when_opening_context_menu()
+    {
+        RichEditScene scene = Create(new BSize(400, 300), "original");
+        using UiSession session = scene.Session;
+        scene.Host.CanQueryTextSynchronously = false;
+        scene.Host.ClipboardText = "clipboard";
+        Open(scene);
+        Assert.True(scene.Edit.IsContextMenuOpen);
+        Assert.Equal(0, scene.Host.ClipboardReadCount);
+        Assert.Equal("original", scene.Edit.GetPlainText());
+        ClickItem(scene, RichEditCommand.Paste);
+        Assert.Equal(1, scene.Host.ClipboardReadCount);
+        Assert.Contains("clipboard", scene.Edit.GetPlainText());
+    }
+
+    [Fact]
     public void Right_Click_Preserves_A_Multiline_Selection_And_Copy_Closes_The_Menu()
     {
         RichEditScene scene = Create(new BSize(400, 300), "hello\nworld");

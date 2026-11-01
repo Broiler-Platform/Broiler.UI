@@ -178,7 +178,12 @@ public sealed partial class StandardEdit
     /// </summary>
     private bool CanPasteFromClipboard()
     {
-        if (Session?.Host is not IUiClipboardHost clipboard || !clipboard.TryGetText(out string text))
+        if (Session?.Host is not IUiClipboardHost clipboard)
+            return false;
+        // Opening a menu must never request browser clipboard access or replay Paste.
+        if (!clipboard.CanQueryTextSynchronously)
+            return Text.Length - SelectionLength < MaxLength;
+        if (!clipboard.TryGetText(out string text))
             return false;
 
         return SanitizeCommittedText(text).Length > 0 && Text.Length - SelectionLength < MaxLength;

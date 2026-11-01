@@ -73,8 +73,12 @@ internal sealed class ClipboardTestHost : IUiHost, IUiClipboardHost
     {
     }
 
+    public bool CanQueryTextSynchronously { get; set; } = true;
+    public int ClipboardReadCount { get; private set; }
+
     public bool TryGetText(out string text)
     {
+        ClipboardReadCount++;
         text = ClipboardText ?? string.Empty;
         return ClipboardText is not null;
     }

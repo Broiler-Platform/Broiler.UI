@@ -12,6 +12,22 @@ namespace Broiler.UI.Edit.Standard.Tests;
 public sealed class StandardEditContextMenuTests
 {
     [Fact]
+    public void Deferred_clipboard_is_not_read_when_opening_context_menu()
+    {
+        EditScene scene = Create("original");
+        using UiSession session = scene.Session;
+        scene.Host.CanQueryTextSynchronously = false;
+        scene.Host.ClipboardText = "clipboard";
+        OpenMenuAt(scene, scene.TextX(2));
+        Assert.True(scene.Edit.IsContextMenuOpen);
+        Assert.Equal(0, scene.Host.ClipboardReadCount);
+        Assert.Equal("original", scene.Edit.Text);
+        ClickItem(scene, StandardEditContextMenuCommand.Paste);
+        Assert.Equal(1, scene.Host.ClipboardReadCount);
+        Assert.Contains("clipboard", scene.Edit.Text);
+    }
+
+    [Fact]
     public void Right_Click_Opens_The_Menu_Focuses_The_Field_And_Captures_Input()
     {
         EditScene scene = Create("Hello world");

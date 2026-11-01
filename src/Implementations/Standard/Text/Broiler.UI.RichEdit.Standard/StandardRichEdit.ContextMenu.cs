@@ -129,7 +129,7 @@ public sealed partial class StandardRichEdit
     {
         bool enabled = GetCommandState(command).IsEnabled;
         if (enabled && command == RichEditCommand.Paste)
-            enabled = Session?.Host is IUiClipboardHost clipboard && clipboard.TryGetText(out string value) && !string.IsNullOrEmpty(value);
+            enabled = Session?.Host is IUiClipboardHost clipboard && (!clipboard.CanQueryTextSynchronously || (clipboard.TryGetText(out string value) && !string.IsNullOrEmpty(value)));
         _contextMenuItems.Add(new StandardRichEditContextMenuItem(command, text, shortcut, enabled));
     }
 
