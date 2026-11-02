@@ -4,7 +4,12 @@ namespace Broiler.UI.Standard;
 
 public sealed class StandardCommand : IUiCommand
 {
-    public StandardCommand(string name, Action execute, Func<bool>? canExecute = null)
+    public StandardCommand(
+        string name,
+        Action execute,
+        Func<bool>? canExecute = null,
+        string? acceleratorText = null,
+        string? tooltipText = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Command names must be non-empty.", nameof(name));
@@ -12,15 +17,17 @@ public sealed class StandardCommand : IUiCommand
         Name = name;
         ExecuteCore = execute ?? throw new ArgumentNullException(nameof(execute));
         CanExecuteCore = canExecute;
+        AcceleratorText = acceleratorText;
+        TooltipText = tooltipText;
     }
 
     public string Name { get; }
 
     public string Label => Name;
 
-    public string? AcceleratorText => null;
+    public string? AcceleratorText { get; }
 
-    public string? TooltipText => null;
+    public string? TooltipText { get; }
 
     public bool CanExecute(object? parameter = null) => CanExecuteCore?.Invoke() ?? true;
 
@@ -43,4 +50,3 @@ public sealed class StandardCommand : IUiCommand
         return true;
     }
 }
-

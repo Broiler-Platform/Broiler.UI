@@ -58,6 +58,7 @@ public sealed class UiSession : IDisposable
     public bool IsBlockedByExternalModal => _externalModalDepth > 0;
 
     public event EventHandler<UiSemanticChangedEventArgs>? SemanticChanged;
+    public event EventHandler<UiInputEvent>? InputDispatched;
 
     public bool IsDisposed => _isDisposed;
 
@@ -363,6 +364,7 @@ public sealed class UiSession : IDisposable
         finally
         {
             EndStructureBatch();
+            InputDispatched?.Invoke(this, input);
         }
     }
 

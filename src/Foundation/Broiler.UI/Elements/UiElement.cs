@@ -14,6 +14,7 @@ public abstract class UiElement : IDisposable, IUiFocusable
     private static int _relationDepth;
     public long SemanticId { get; } = Interlocked.Increment(ref _nextSemanticId);
     private readonly List<UiElement> _children = [];
+    private string _toolTipText = string.Empty;
     private UiVisibility _visibility = UiVisibility.Visible;
     private bool _isDisposed;
     private bool _isDisposing;
@@ -299,7 +300,20 @@ public abstract class UiElement : IDisposable, IUiFocusable
     /// discoverability entirely without this, which is the whole reason the text of an icon button
     /// stays set even when the icon is what gets drawn.
     /// </remarks>
-    public string ToolTipText { get; set; } = string.Empty;
+    public string ToolTipText
+    {
+        get => _toolTipText;
+        set
+        {
+            ThrowIfDisposed();
+            value ??= string.Empty;
+            if (string.Equals(_toolTipText, value, StringComparison.Ordinal))
+                return;
+
+            _toolTipText = value;
+            Invalidate(UiInvalidationKind.Semantic);
+        }
+    }
 
     public bool IsAttached => Session is not null;
 
@@ -500,7 +514,8 @@ public abstract class UiElement : IDisposable, IUiFocusable
             state |= UiSemanticState.Invalid;
         if (_isRequired)
             state |= UiSemanticState.Required;
-        if (JoinSentences(error, RelationText(_describedBy), node.Description) is { } description)
+        string? tooltipDescription = string.IsNullOrWhiteSpace(node.Description) && !string.IsNullOrWhiteSpace(_toolTipText) ? _toolTipText : null;
+        if (JoinSentences(error, RelationText(_describedBy), node.Description, tooltipDescription) is { } description)
             node = node with { Description = description };
         if (_hiddenFromAccessibility)
             state = (state | UiSemanticState.Offscreen) & ~UiSemanticState.Visible;

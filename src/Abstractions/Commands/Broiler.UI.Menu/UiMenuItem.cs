@@ -20,6 +20,7 @@ public sealed class UiMenuItem
         CommandParameter = commandParameter;
         Text = command.Label;
         Accelerator = command.AcceleratorText;
+        ToolTipText = command.TooltipText;
         IsEnabled = command.CanExecute(commandParameter);
     }
 
@@ -36,6 +37,8 @@ public sealed class UiMenuItem
     public string? Accelerator { get; set; }
 
     public char? AccessKey { get; set; }
+
+    public string? ToolTipText { get; set; }
 
     public bool IsEnabled { get; set; } = true;
 
