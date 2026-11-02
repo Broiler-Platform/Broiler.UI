@@ -270,12 +270,14 @@ public sealed class StandardPrintDialog : UiPrintDialog, IStandardThemedControl
         context.RenderList.FillRect(Bounds, Background);
         context.RenderList.FillRect(new BRect(Bounds.Left, Bounds.Top, Bounds.Width, Math.Min(TitleBarHeight, Bounds.Height)), TitleBarBackground);
         if (!string.IsNullOrWhiteSpace(Title))
-            context.RenderList.DrawText(new BTextRun(Title, TitleFont, TitleForeground), new BPoint(Bounds.Left + Padding, Bounds.Top + 7));
+            StandardWindowChromePaint.DrawTitleText(context.RenderList,
+                new BRect(Bounds.Left + Padding, Bounds.Top, Math.Max(0, Bounds.Width - Padding * 2), Math.Min(TitleBarHeight, Bounds.Height)),
+                Title, TitleFont, TitleForeground);
 
         foreach ((string label, StandardComboBox? _, UiElement control) in _rows)
         {
             if (_labelBounds.TryGetValue(control, out BRect bounds) && !bounds.IsEmpty)
-                context.RenderList.DrawText(new BTextRun(label, LabelFont, LabelForeground), new BPoint(bounds.Left, bounds.Top));
+                context.RenderList.DrawText(StandardControlPaint.TextRun(label, LabelFont, LabelForeground), new BPoint(bounds.Left, bounds.Top + Math.Max(0, (bounds.Height - BTextMeasurer.GetLineHeight(LabelFont)) / 2)));
         }
 
         if (DisplayedProblem is string problem && !_problemBounds.IsEmpty)
@@ -520,7 +522,7 @@ public sealed class StandardPrintDialog : UiPrintDialog, IStandardThemedControl
             string candidate = line.Length == 0 ? word : line + " " + word;
             if (line.Length > 0 && BTextMeasurer.MeasureAdvance(candidate, LabelFont) > bounds.Width)
             {
-                context.RenderList.DrawText(new BTextRun(line, LabelFont, ProblemForeground), new BPoint(bounds.Left, y));
+                context.RenderList.DrawText(StandardControlPaint.TextRun(line, LabelFont, ProblemForeground), new BPoint(bounds.Left, y));
                 y += lineHeight;
                 line = word;
                 if (y + lineHeight > bounds.Bottom)
@@ -532,7 +534,7 @@ public sealed class StandardPrintDialog : UiPrintDialog, IStandardThemedControl
         }
 
         if (line.Length > 0 && y + lineHeight <= bounds.Bottom + 0.5)
-            context.RenderList.DrawText(new BTextRun(line, LabelFont, ProblemForeground), new BPoint(bounds.Left, y));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(line, LabelFont, ProblemForeground), new BPoint(bounds.Left, y));
     }
 
     private static bool ShowsRanges(string text, IReadOnlyList<UiPageRange>? ranges)

@@ -315,7 +315,7 @@ public sealed class StandardToggleButton : UiToggleButton, IStandardThemedContro
             BSize textSize = BTextMeasurer.Measure(display, Font).Size;
             double x = Bounds.Left + Math.Max(0, (Bounds.Width - textSize.Width) / 2);
             double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
-            context.RenderList.DrawText(new BTextRun(display, Font, foreground), new BPoint(x, y));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(display, Font, foreground), new BPoint(x, y));
         }
 
         // Keyboard navigation only, and on the fill in the label's color where the ring's own would not show

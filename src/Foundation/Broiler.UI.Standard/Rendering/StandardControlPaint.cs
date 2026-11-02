@@ -18,6 +18,14 @@ namespace Broiler.UI.Standard;
 /// </summary>
 public static class StandardControlPaint
 {
+    /// <summary>Creates a run whose stable reference ink is centered within its measured line box.</summary>
+    public static BTextRun TextRun(string text, BFontStyle font, BColor color)
+    {
+        BTextVerticalMetrics metrics = BTextMeasurer.GetVerticalMetrics(font);
+        double baseline = (BTextMeasurer.GetLineHeight(font) - metrics.Ascent - metrics.Descent) / 2 + metrics.Ascent;
+        return new BTextRun(text, font, color) { Baseline = baseline };
+    }
+
     private static readonly ConditionalWeakTable<UiSession, StandardThemeTokens> _sessionThemes = new();
     private static StandardThemeTokens _theme = StandardThemeTokens.Light;
 

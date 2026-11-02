@@ -336,7 +336,7 @@ public sealed class StandardButton : UiButton, IStandardThemedControl
             // than painted out across its neighbours — a button in a resizable dialog can end up
             // narrower than the caption it was sized for.
             context.RenderList.PushClip(Bounds);
-            context.RenderList.DrawText(new BTextRun(Text, Font, foreground), new BPoint(x, y));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(Text, Font, foreground), new BPoint(x, y));
             context.RenderList.PopClip();
         }
 

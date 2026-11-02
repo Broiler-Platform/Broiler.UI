@@ -105,7 +105,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
             if (width + TertiaryGap + primaryMinimum <= primaryRoom)
             {
                 tertiaryWidth = width;
-                list.DrawText(new BTextRun(context.Item.TertiaryText, tertiaryFont, secondaryForeground), new BPoint(bounds.Right - 8 - width, primaryTop + 1));
+                list.DrawText(StandardControlPaint.TextRun(context.Item.TertiaryText, tertiaryFont, secondaryForeground), new BPoint(bounds.Right - 8 - width, primaryTop + 1));
             }
         }
 
@@ -114,7 +114,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
         string primaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.Text, primaryFont, maxPrimaryWidth);
         if (!string.IsNullOrEmpty(primaryText))
         {
-            list.DrawText(new BTextRun(primaryText, primaryFont, foreground), new BPoint(primaryLeft, primaryTop));
+            list.DrawText(StandardControlPaint.TextRun(primaryText, primaryFont, foreground), new BPoint(primaryLeft, primaryTop));
         }
 
         // Line 2: Secondary text (subject / snippet)
@@ -127,7 +127,7 @@ public sealed class StandardTwoLineListItemPresenter : IUiListItemPresenter
             string secondaryText = DefaultListItemPresenter.TruncateWithEllipsis(context.Item.SecondaryText, secondaryFont, maxSecondaryWidth);
             if (!string.IsNullOrEmpty(secondaryText))
             {
-                list.DrawText(new BTextRun(secondaryText, secondaryFont, secondaryForeground), new BPoint(secondaryLeft, secondaryTop));
+                list.DrawText(StandardControlPaint.TextRun(secondaryText, secondaryFont, secondaryForeground), new BPoint(secondaryLeft, secondaryTop));
             }
         }
 

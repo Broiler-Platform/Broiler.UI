@@ -76,7 +76,7 @@ public sealed class StandardTooltip : UiTooltip, IStandardThemedControl
 
         StandardControlPaint.FillRounded(context.RenderList, TooltipBounds, Background, CornerRadius);
         StandardControlPaint.StrokeRounded(context.RenderList, TooltipBounds, BorderColor, CornerRadius, 1);
-        context.RenderList.DrawText(new BTextRun(Text, Font, Foreground), new BPoint(TooltipBounds.Left + PaddingX, TooltipBounds.Top + PaddingY));
+        context.RenderList.DrawText(StandardControlPaint.TextRun(Text, Font, Foreground), new BPoint(TooltipBounds.Left + PaddingX, TooltipBounds.Top + PaddingY));
     }
 
     private static double ClampDesired(double desired, double available) =>

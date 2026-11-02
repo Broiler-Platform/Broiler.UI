@@ -552,7 +552,7 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
 
         BSize glyph = BTextMeasurer.Measure(OverflowGlyph, Font).Size;
         renderList.DrawText(
-            new BTextRun(OverflowGlyph, Font, foreground),
+            StandardControlPaint.TextRun(OverflowGlyph, Font, foreground),
             new BPoint(
                 _overflowButtonBounds.Left + Math.Max(0, (_overflowButtonBounds.Width - glyph.Width) / 2),
                 _overflowButtonBounds.Top + Math.Max(0, (_overflowButtonBounds.Height - glyph.Height) / 2)));

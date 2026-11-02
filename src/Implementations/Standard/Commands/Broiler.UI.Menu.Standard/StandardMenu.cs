@@ -452,7 +452,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             if (selected)
                 StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(rect, 2), SelectedBackground, CornerRadius);
             BColor foreground = !item.IsEnabled ? DisabledForeground : selected ? SelectedForeground : Foreground;
-            context.RenderList.DrawText(new BTextRun(item.Text, Font, foreground), new BPoint(rect.Left + 10, rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(item.Text, Font, foreground), new BPoint(rect.Left + 10, rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
             x = rect.Right;
         }
     }
@@ -470,7 +470,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         BSize glyphSize = BTextMeasurer.Measure(glyph, Font).Size;
         double x = rect.Left + Math.Max(0, (rect.Width - glyphSize.Width) / 2);
         double y = rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2);
-        context.RenderList.DrawText(new BTextRun(glyph, Font, foreground), new BPoint(x, y));
+        context.RenderList.DrawText(StandardControlPaint.TextRun(glyph, Font, foreground), new BPoint(x, y));
     }
 
     private void RenderDrawer(UiRenderContext context)
@@ -493,7 +493,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
             string suffix = item.Children.Count > 0 ? " >" : string.Empty;
             BColor foreground = !item.IsEnabled ? DisabledForeground : selected ? SelectedForeground : Foreground;
-            context.RenderList.DrawText(new BTextRun(item.Text + suffix, Font, foreground), new BPoint(rect.Left + 12, rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(item.Text + suffix, Font, foreground), new BPoint(rect.Left + 12, rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
             y = rect.Bottom;
         }
     }
@@ -525,7 +525,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             BSize textSize = BTextMeasurer.Measure(item.Text, Font).Size;
             double x = rect.Left + Math.Max(0, (rect.Width - textSize.Width) / 2);
             double y = rect.Top + Math.Max(0, (rect.Height - BTextMeasurer.GetLineHeight(Font)) / 2);
-            context.RenderList.DrawText(new BTextRun(item.Text, Font, foreground), new BPoint(x, y));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(item.Text, Font, foreground), new BPoint(x, y));
         }
     }
 
@@ -557,7 +557,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
                 string prefix = item.IsCheckable ? (item.IsChecked ? "x " : "  ") : string.Empty;
                 string suffix = item.Children.Count > 0 ? " >" : string.Empty;
                 BColor foreground = !item.IsEnabled ? DisabledForeground : selectedIndex == index ? SelectedForeground : Foreground;
-                context.RenderList.DrawText(new BTextRun(prefix + item.Text + suffix, Font, foreground), new BPoint(row.Left + 8, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+                context.RenderList.DrawText(StandardControlPaint.TextRun(prefix + item.Text + suffix, Font, foreground), new BPoint(row.Left + 8, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
             }
 
             if (selectedIndex < 0)
@@ -600,7 +600,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             string prefix = item.IsCheckable ? (item.IsChecked ? "x " : "  ") : string.Empty;
             string suffix = item.Children.Count > 0 ? " >" : string.Empty;
             BColor foreground = !item.IsEnabled ? DisabledForeground : selectedIndex == index ? SelectedForeground : Foreground;
-            context.RenderList.DrawText(new BTextRun(prefix + item.Text + suffix, Font, foreground), new BPoint(row.Left + 20, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(prefix + item.Text + suffix, Font, foreground), new BPoint(row.Left + 20, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
         }
     }
 

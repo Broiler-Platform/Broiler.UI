@@ -59,7 +59,7 @@ public sealed class DefaultListItemPresenter : IUiListItemPresenter
         if (!string.IsNullOrEmpty(trimmed))
         {
             BColor foreground = context.State.IsSelected ? context.SelectedForeground : context.Foreground;
-            list.DrawText(new BTextRun(trimmed, context.Font, foreground), new BPoint(textLeft, textTop));
+            list.DrawText(StandardControlPaint.TextRun(trimmed, context.Font, foreground), new BPoint(textLeft, textTop));
         }
 
         if (context.State.IsFocused && context.State.IsSelected)

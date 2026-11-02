@@ -503,7 +503,9 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
         context.RenderList.FillRect(Bounds, Background);
         context.RenderList.FillRect(new BRect(Bounds.Left, Bounds.Top, Bounds.Width, Math.Min(TitleBarHeight, Bounds.Height)), TitleBarBackground);
         if (!string.IsNullOrWhiteSpace(Title))
-            context.RenderList.DrawText(new BTextRun(Title, TitleFont, TitleForeground), new BPoint(Bounds.Left + Padding, Bounds.Top + 7));
+            StandardWindowChromePaint.DrawTitleText(context.RenderList,
+                new BRect(Bounds.Left + Padding, Bounds.Top, Math.Max(0, Bounds.Width - Padding * 2), Math.Min(TitleBarHeight, Bounds.Height)),
+                Title, TitleFont, TitleForeground);
 
         if (!_placesPanelBounds.IsEmpty)
             StandardControlPaint.FillRounded(context.RenderList, _placesPanelBounds, PanelBackground, StandardControlPaint.SmallRadius);
@@ -825,7 +827,7 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
         double y = _pathBounds.Top + Math.Max(0, (_pathBounds.Height - BTextMeasurer.GetLineHeight(PathFont)) / 2);
         context.RenderList.PushClip(_pathBounds);
-        context.RenderList.DrawText(new BTextRun(CurrentDirectory, PathFont, PathForeground), new BPoint(_pathBounds.Left + 8, y));
+        context.RenderList.DrawText(StandardControlPaint.TextRun(CurrentDirectory, PathFont, PathForeground), new BPoint(_pathBounds.Left + 8, y));
         context.RenderList.PopClip();
     }
 
@@ -854,7 +856,7 @@ public sealed class StandardFileDialog : UiFileDialog, IStandardThemedControl
 
         double y = bounds.Top + Math.Max(0, (bounds.Height - BTextMeasurer.GetLineHeight(font)) / 2);
         context.RenderList.PushClip(bounds);
-        context.RenderList.DrawText(new BTextRun(text, font, color), new BPoint(bounds.Left, y));
+        context.RenderList.DrawText(StandardControlPaint.TextRun(text, font, color), new BPoint(bounds.Left, y));
         context.RenderList.PopClip();
     }
 

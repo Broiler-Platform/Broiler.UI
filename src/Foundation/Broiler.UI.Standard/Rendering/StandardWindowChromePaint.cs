@@ -115,7 +115,7 @@ public static class StandardWindowChromePaint
         double y = bounds.Top + Math.Max(0, (bounds.Height - lineHeight) / 2);
 
         renderList.PushClip(bounds);
-        renderList.DrawText(new BTextRun(text, font, color), new BPoint(bounds.Left, y));
+        renderList.DrawText(StandardControlPaint.TextRun(text, font, color), new BPoint(bounds.Left, y));
         renderList.PopClip();
     }
 

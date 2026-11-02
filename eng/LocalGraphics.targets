@@ -1,0 +1,9 @@
+<Project>
+  <!-- For testing unreleased Graphics + UI changes together:
+       dotnet test ... -p:DirectoryBuildTargetsPath=<absolute path to this file>
+       Published builds continue to use the centrally pinned NuGet dependency. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Broiler.Graphics'">
+    <PackageReference Remove="Broiler.Graphics" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Broiler.Graphics\src\Broiler.Graphics\Broiler.Graphics.csproj" />
+  </ItemGroup>
+</Project>

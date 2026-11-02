@@ -129,8 +129,8 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
             double x = Direction == UiTextDirection.RightToLeft
                 ? Bounds.Right - line.Width
                 : Bounds.Left;
-            double y = Bounds.Top + index * lineHeight;
-            context.RenderList.DrawText(new BTextRun(line.Text, Font, Foreground), new BPoint(x, y));
+            double y = Bounds.Top + Math.Max(0, (Bounds.Height - lines.Count * lineHeight) / 2) + index * lineHeight;
+            context.RenderList.DrawText(StandardControlPaint.TextRun(line.Text, Font, Foreground), new BPoint(x, y));
         }
 
         context.RenderList.PopClip();

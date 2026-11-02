@@ -281,7 +281,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
         }
 
         double textLeft = indent + _indentWidth;
-        list.DrawText(new BTextRun(presentation.Label, _font, foreground), new BPoint(textLeft, top + 2));
+        list.DrawText(StandardControlPaint.TextRun(presentation.Label, _font, foreground), new BPoint(textLeft, top + Math.Max(0, (firstLine - BTextMeasurer.GetLineHeight(_font)) / 2)));
 
         double advance = BTextMeasurer.MeasureAdvance(presentation.Label, _font);
         if (presentation.SecondaryLabel is { Length: > 0 } secondary)
@@ -292,14 +292,14 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
                 // answers reads down the pane instead of starting wherever the
                 // name above it happened to end.
                 list.DrawText(
-                    new BTextRun(secondary, _font, mutedForeground),
+                    StandardControlPaint.TextRun(secondary, _font, mutedForeground),
                     new BPoint(textLeft, top + 2 + BTextMeasurer.GetLineHeight(_font)));
             }
             else
             {
                 list.DrawText(
-                    new BTextRun(secondary, _font, mutedForeground),
-                    new BPoint(textLeft + advance + 8, top + 2));
+                    StandardControlPaint.TextRun(secondary, _font, mutedForeground),
+                    new BPoint(textLeft + advance + 8, top + Math.Max(0, (firstLine - BTextMeasurer.GetLineHeight(_font)) / 2)));
                 advance += BTextMeasurer.MeasureAdvance(secondary, _font) + 8;
             }
         }
@@ -357,7 +357,7 @@ public sealed class StandardTreeView : UiTreeView, IStandardThemedControl
                 TreeNodeDecoration.Warning => "?",
                 _ => "i",
             };
-            list.DrawText(new BTextRun(glyph, _font, color), new BPoint(x, top + 2));
+            list.DrawText(StandardControlPaint.TextRun(glyph, _font, color), new BPoint(x, top + Math.Max(0, (lineHeight - BTextMeasurer.GetLineHeight(_font)) / 2)));
             return;
         }
 

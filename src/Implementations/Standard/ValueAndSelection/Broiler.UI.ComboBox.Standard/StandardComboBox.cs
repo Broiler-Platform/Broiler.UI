@@ -246,11 +246,11 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
             // paints straight over the arrow and out across whatever sits beside the control.
             BRect textBounds = new(Bounds.Left, Bounds.Top, Math.Max(0, Bounds.Width - DefaultArrowSlotWidth * arrowScale), Bounds.Height);
             context.RenderList.PushClip(textBounds);
-            context.RenderList.DrawText(new BTextRun(text, Font, Foreground), new BPoint(Bounds.Left + 8, textTop));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(text, Font, Foreground), new BPoint(Bounds.Left + 8, textTop));
             context.RenderList.PopClip();
         }
 
-        context.RenderList.DrawText(new BTextRun(IsDropDownOpen ? "^" : "v", Font, Foreground), new BPoint(Bounds.Right - DefaultArrowInset * arrowScale, textTop));
+        context.RenderList.DrawText(StandardControlPaint.TextRun(IsDropDownOpen ? "^" : "v", Font, Foreground), new BPoint(Bounds.Right - DefaultArrowInset * arrowScale, textTop));
 
         if (Session?.FocusedElement == this)
             StandardControlPaint.StrokeRounded(context.RenderList, StandardControlPaint.Inset(Bounds, 2), FocusRing, Math.Max(0, CornerRadius - 2), 1);
@@ -395,7 +395,7 @@ public sealed class StandardComboBox : UiComboBox, IStandardThemedControl
             if (highlighted)
                 context.RenderList.FillRect(StandardControlPaint.Inset(itemRect, 2), SelectedBackground);
             BColor foreground = highlighted ? SelectedForeground : Foreground;
-            context.RenderList.DrawText(new BTextRun(Items[index].Text, Font, foreground), new BPoint(itemRect.Left + 8, itemRect.Top + Math.Max(0, (itemRect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(Items[index].Text, Font, foreground), new BPoint(itemRect.Left + 8, itemRect.Top + Math.Max(0, (itemRect.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
         }
         context.RenderList.PopClip();
     }

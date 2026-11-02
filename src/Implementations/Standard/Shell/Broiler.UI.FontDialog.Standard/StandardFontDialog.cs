@@ -310,7 +310,9 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         context.RenderList.FillRect(Bounds, Background);
         context.RenderList.FillRect(new BRect(Bounds.Left, Bounds.Top, Bounds.Width, Math.Min(TitleBarHeight, Bounds.Height)), TitleBarBackground);
         if (!string.IsNullOrWhiteSpace(Title))
-            context.RenderList.DrawText(new BTextRun(Title, TitleFont, TitleForeground), new BPoint(Bounds.Left + Padding, Bounds.Top + 7));
+            StandardWindowChromePaint.DrawTitleText(context.RenderList,
+                new BRect(Bounds.Left + Padding, Bounds.Top, Math.Max(0, Bounds.Width - Padding * 2), Math.Min(TitleBarHeight, Bounds.Height)),
+                Title, TitleFont, TitleForeground);
 
         DrawLabel(context, _familyLabelBounds, "Family");
         DrawLabel(context, _sizeLabelBounds, "Size");
@@ -469,7 +471,7 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
         if (bounds.IsEmpty || string.IsNullOrEmpty(text))
             return;
 
-        context.RenderList.DrawText(new BTextRun(text, LabelFont, LabelForeground), new BPoint(bounds.Left, bounds.Top));
+        context.RenderList.DrawText(StandardControlPaint.TextRun(text, LabelFont, LabelForeground), new BPoint(bounds.Left, bounds.Top + Math.Max(0, (bounds.Height - BTextMeasurer.GetLineHeight(LabelFont)) / 2)));
     }
 
     private void DrawPreview(UiRenderContext context)
@@ -485,10 +487,13 @@ public sealed class StandardFontDialog : UiFontDialog, IStandardThemedControl
             Math.Max(0, _previewBounds.Width - 16),
             Math.Max(0, _previewBounds.Height - 16));
         context.RenderList.PushClip(textBounds);
+        double lineHeight = BTextMeasurer.GetLineHeight(SelectedFont);
+        var lineBounds = new BRect(textBounds.Left,
+            textBounds.Top + Math.Max(0, (textBounds.Height - lineHeight) / 2), textBounds.Width, lineHeight);
         context.RenderList.DrawText(
-            new BTextRun(SampleText, SelectedFont, PreviewForeground),
-            new BPoint(textBounds.Left, textBounds.Top));
-        DrawPreviewDecorations(context, textBounds);
+            StandardControlPaint.TextRun(SampleText, SelectedFont, PreviewForeground),
+            new BPoint(lineBounds.Left, lineBounds.Top));
+        DrawPreviewDecorations(context, lineBounds);
         context.RenderList.PopClip();
     }
 

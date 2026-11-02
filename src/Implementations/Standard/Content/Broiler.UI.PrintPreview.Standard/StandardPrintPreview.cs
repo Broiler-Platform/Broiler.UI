@@ -253,7 +253,7 @@ public sealed class StandardPrintPreview : UiPrintPreview, IStandardThemedContro
         double width = BTextMeasurer.MeasureAdvance(text, CaptionFont);
         double x = area.Left + Math.Max(0, (area.Width - width) / 2);
         double y = area.Top + Math.Max(0, (area.Height - BTextMeasurer.GetLineHeight(CaptionFont)) / 2);
-        list.DrawText(new BTextRun(text, CaptionFont, CaptionForeground), new BPoint(x, y));
+        list.DrawText(StandardControlPaint.TextRun(text, CaptionFont, CaptionForeground), new BPoint(x, y));
     }
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>

@@ -529,7 +529,7 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
         string display = GetDisplayTextForRender();
         if (display.Length == 0 && !string.IsNullOrEmpty(PlaceholderText))
         {
-            context.RenderList.DrawText(new BTextRun(PlaceholderText, Font, PlaceholderForeground), new BPoint(inner.Left, inner.Top));
+            context.RenderList.DrawText(StandardControlPaint.TextRun(PlaceholderText, Font, PlaceholderForeground), new BPoint(inner.Left, inner.Top));
             return;
         }
 
@@ -540,7 +540,7 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
         BColor selected = SelectionForeground;
         if (selected == Foreground || !TryGetSelectionBounds(inner, out BRect selection) || selection.Width <= 0)
         {
-            context.RenderList.DrawText(new BTextRun(display, Font, Foreground), origin);
+            context.RenderList.DrawText(StandardControlPaint.TextRun(display, Font, Foreground), origin);
             return;
         }
 
@@ -554,7 +554,7 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
         bool toEnd = !composing && SelectionEnd >= display.Length;
         if (fromStart && toEnd)
         {
-            context.RenderList.DrawText(new BTextRun(display, Font, selected), origin);
+            context.RenderList.DrawText(StandardControlPaint.TextRun(display, Font, selected), origin);
             return;
         }
 
@@ -571,7 +571,7 @@ public sealed partial class StandardEdit : UiEdit, IStandardThemedControl, IUiTe
             return;
 
         context.RenderList.PushClip(clip);
-        context.RenderList.DrawText(new BTextRun(display, Font, color), origin);
+        context.RenderList.DrawText(StandardControlPaint.TextRun(display, Font, color), origin);
         context.RenderList.PopClip();
     }
 
