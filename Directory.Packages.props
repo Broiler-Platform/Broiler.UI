@@ -21,19 +21,19 @@
     <PackageVersion Include="Broiler.Documents.Model" Version="0.1.0-preview.32" />
     <PackageVersion Include="Broiler.Documents.Rtf" Version="0.1.0-preview.32" />
     <PackageVersion Include="Broiler.Graphics" Version="0.1.0-preview.18" />
-    <PackageVersion Include="Broiler.Input" Version="0.1.0-preview.8" />
-    <PackageVersion Include="Broiler.Input.Keyboard" Version="0.1.0-preview.8" />
-    <PackageVersion Include="Broiler.Input.Mouse" Version="0.1.0-preview.8" />
-    <PackageVersion Include="Broiler.Input.Pen" Version="0.1.0-preview.8" />
-    <PackageVersion Include="Broiler.Input.Text" Version="0.1.0-preview.8" />
-    <PackageVersion Include="Broiler.Input.Touch" Version="0.1.0-preview.8" />
+    <PackageVersion Include="Broiler.Input" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Keyboard" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Mouse" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Pen" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Text" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Touch" Version="0.1.0-preview.9" />
     <!-- Platform backends used only by the sample hosts -->
     <PackageVersion Include="Broiler.Graphics.Linux.OpenGL" Version="0.1.0-preview.18" />
     <PackageVersion Include="Broiler.Graphics.Windows" Version="0.1.0-preview.18" />
-    <PackageVersion Include="Broiler.Input.Camera.Windows" Version="0.1.0-preview.8" />
-    <PackageVersion Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.8" />
-    <PackageVersion Include="Broiler.Input.Microphone.Windows" Version="0.1.0-preview.8" />
-    <PackageVersion Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.8" />
+    <PackageVersion Include="Broiler.Input.Camera.Windows" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Microphone.Windows" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.9" />
     <!-- Test dependencies (referenced for every test project by src/tests/Directory.Build.props) -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
