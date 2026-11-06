@@ -33,10 +33,15 @@ public abstract class UiScanDialog : UiDialog
 {
     private IUiScanHost? _scanHost;
     private UiScanSettings _settings = new();
+    private UiScanSettings? _previewedSettings;
     private IReadOnlyList<UiScannerInfo> _scanners = [];
     private UiScannerCapabilities _capabilities = UiScannerCapabilities.Unknown;
     private IBPageSource? _pages;
     private string? _scanError;
+    private string? _statusText;
+    private double _progress;
+    private bool _isProgressIndeterminate;
+    private bool _isBusy;
     private UiScanJob? _acceptedJob;
 
     protected UiScanDialog()
@@ -50,6 +55,9 @@ public abstract class UiScanDialog : UiDialog
 
     /// <summary>Raised when <see cref="Pages"/> is replaced by a preview scan or reset.</summary>
     public event EventHandler? PagesChanged;
+
+    /// <summary>Raised when <see cref="IsBusy"/>, <see cref="Progress"/>, or <see cref="StatusText"/> changes.</summary>
+    public event EventHandler? ProgressChanged;
 
     /// <summary>
     /// The host that lists scanners and runs the scan job.
@@ -114,6 +122,27 @@ public abstract class UiScanDialog : UiDialog
     /// <summary>The pages most recently acquired by <see cref="PreviewAsync"/>, or null before a preview scan.</summary>
     public IBPageSource? Pages => _pages;
 
+    /// <summary>True while <see cref="PreviewAsync"/> is actively acquiring a page.</summary>
+    public bool IsBusy => _isBusy;
+
+    /// <summary>Current scan progress in the range <c>[0.0, 1.0]</c>.</summary>
+    public double Progress => _progress;
+
+    /// <summary>True when <see cref="IsBusy"/> is true and the scanner has not yet reported a progress fraction.</summary>
+    public bool IsProgressIndeterminate => _isProgressIndeterminate;
+
+    /// <summary>Human-readable status of an active scan operation, or null when idle.</summary>
+    public string? StatusText => _statusText;
+
+    /// <summary>
+    /// True when <see cref="Pages"/> holds a preview acquired with the current <see cref="Settings"/>
+    /// and <see cref="UiScanSettings.MaxPages"/> is 1.
+    /// </summary>
+    public bool HasMatchingPreview =>
+        _pages is { PageCount: > 0 } &&
+        _settings.MaxPages == 1 &&
+        _previewedSettings == _settings;
+
     /// <summary>
     /// Human-readable reason the dialog cannot scan right now (no scanner, or a failed preview),
     /// or null when it is ready.
@@ -133,7 +162,7 @@ public abstract class UiScanDialog : UiDialog
     }
 
     /// <summary>True when <see cref="AcceptScan"/> would accept.</summary>
-    public bool CanScan => Problem is null;
+    public bool CanScan => !_isBusy && Problem is null;
 
     /// <summary>
     /// Queries <see cref="ScanHost"/> again for its scanner list and picks a default when the
@@ -196,8 +225,33 @@ public abstract class UiScanDialog : UiDialog
         if (_scanners.Count == 0 && !_scanHost.ShowsSystemScanDialog)
             return UiScanResult.Failed("No scanners found.");
 
+        if (_isBusy)
+            return UiScanResult.Cancelled;
+
+        _scanError = null;
+        _isBusy = true;
+        _progress = 0.0;
+        _isProgressIndeterminate = true;
+        _statusText = "Scanning preview...";
+        NotifyProgressChanged();
+
         UiScanSettings previewSettings = _settings with { MaxPages = 1 };
-        var job = new UiScanJob(previewSettings, isPreview: true);
+        var job = new UiScanJob(
+            previewSettings,
+            isPreview: true,
+            progress: p =>
+            {
+                if (IsDisposed)
+                    return;
+
+                _progress = Math.Clamp(p.Fraction, 0.0, 1.0);
+                _isProgressIndeterminate = _progress <= 0.0;
+                int percent = (int)Math.Round(_progress * 100.0);
+                _statusText = _isProgressIndeterminate
+                    ? "Scanning preview..."
+                    : $"Scanning preview ({percent}%)...";
+                NotifyProgressChanged();
+            });
 
         UiScanResult result;
         try
@@ -208,17 +262,34 @@ public abstract class UiScanDialog : UiDialog
         {
             result = UiScanResult.Failed(ex.Message);
         }
+        finally
+        {
+            _isBusy = false;
+            _isProgressIndeterminate = false;
+            _statusText = null;
+            if (!IsDisposed)
+                NotifyProgressChanged();
+        }
+
+        if (IsDisposed)
+            return result;
 
         if (result.Outcome == UiScanOutcome.Scanned)
         {
             _scanError = null;
             _pages = result.Pages;
+            _previewedSettings = previewSettings;
             OnPagesChanged();
             PagesChanged?.Invoke(this, EventArgs.Empty);
         }
         else if (result.Outcome == UiScanOutcome.Failed)
         {
             _scanError = string.IsNullOrWhiteSpace(result.Message) ? "Preview scan failed." : result.Message;
+            OnPagesChanged();
+        }
+        else if (result.Outcome == UiScanOutcome.Cancelled && !cancellationToken.IsCancellationRequested)
+        {
+            _scanError = "The scanner returned no pages.";
             OnPagesChanged();
         }
 
@@ -233,6 +304,7 @@ public abstract class UiScanDialog : UiDialog
     {
         ThrowIfDisposed();
         _scanError = null;
+        _previewedSettings = null;
         if (ReferenceEquals(_pages, pages))
             return;
 
@@ -270,16 +342,17 @@ public abstract class UiScanDialog : UiDialog
     }
 
     /// <summary>The job the current choices make.</summary>
-    public UiScanJob CreateJob()
+    public UiScanJob CreateJob(Action<UiScanProgress>? progress = null)
     {
         ThrowIfDisposed();
-        return new UiScanJob(_settings, isPreview: false);
+        return new UiScanJob(_settings, isPreview: false, progress);
     }
 
     /// <summary>
     /// Full scan flow: if <paramref name="host"/> has its own system scan dialog, calls it
     /// directly; otherwise shows the dialog created by <paramref name="createDialog"/> and hands
-    /// the accepted job to <paramref name="host"/>.
+    /// the accepted job to <paramref name="host"/> (or reuses the already-acquired preview page
+    /// when <see cref="HasMatchingPreview"/> is true).
     /// </summary>
     public static async Task<UiScanResult> ScanAsync(
         IUiScanHost host,
@@ -287,7 +360,8 @@ public abstract class UiScanDialog : UiDialog
         UiWindow owner,
         BRect placement = default,
         UiScanSettings? initial = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action<UiScanProgress>? progress = null)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(createDialog);
@@ -296,7 +370,7 @@ public abstract class UiScanDialog : UiDialog
         if (host.ShowsSystemScanDialog)
         {
             UiScanSettings settings = initial ?? new UiScanSettings();
-            return await host.ScanAsync(new UiScanJob(settings), cancellationToken).ConfigureAwait(true);
+            return await host.ScanAsync(new UiScanJob(settings, isPreview: false, progress), cancellationToken).ConfigureAwait(true);
         }
 
         UiScanDialog dialog = createDialog();
@@ -305,9 +379,15 @@ public abstract class UiScanDialog : UiDialog
             dialog.Settings = initial;
 
         UiDialogResult result = await dialog.ShowModal(owner, placement).ConfigureAwait(true);
-        if (result.Kind != UiDialogResultKind.Accepted || dialog.AcceptedJob is not UiScanJob job)
+        if (result.Kind != UiDialogResultKind.Accepted || dialog.AcceptedJob is not UiScanJob acceptedJob)
             return UiScanResult.Cancelled;
 
+        if (dialog.HasMatchingPreview && dialog.Pages is { PageCount: > 0 } previewedPages)
+            return UiScanResult.Scanned(previewedPages);
+
+        UiScanJob job = progress is not null && acceptedJob.Progress is null
+            ? new UiScanJob(acceptedJob.Settings, acceptedJob.IsPreview, progress)
+            : acceptedJob;
         return await host.ScanAsync(job, cancellationToken).ConfigureAwait(true);
     }
 
@@ -324,6 +404,18 @@ public abstract class UiScanDialog : UiDialog
     /// <summary>Called when <see cref="Pages"/> or the preview state has changed, before <see cref="PagesChanged"/>.</summary>
     protected virtual void OnPagesChanged()
     {
+    }
+
+    /// <summary>Called when <see cref="IsBusy"/>, <see cref="Progress"/>, or <see cref="StatusText"/> has changed, before <see cref="ProgressChanged"/>.</summary>
+    protected virtual void OnProgressChanged()
+    {
+    }
+
+    private void NotifyProgressChanged()
+    {
+        OnProgressChanged();
+        ProgressChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
     private UiScannerCapabilities QueryCapabilities(string? scannerName)

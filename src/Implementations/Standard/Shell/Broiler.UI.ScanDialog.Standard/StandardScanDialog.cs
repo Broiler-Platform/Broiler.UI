@@ -16,6 +16,7 @@ using Broiler.UI.Button.Standard;
 using Broiler.UI.ComboBox;
 using Broiler.UI.ComboBox.Standard;
 using Broiler.UI.PrintPreview.Standard;
+using Broiler.UI.ProgressBar.Standard;
 using Broiler.UI.SpinBox.Standard;
 using Broiler.UI.Standard;
 using Broiler.UI.Window;
@@ -55,6 +56,7 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
     private readonly StandardComboBox _paperCombo;
     private readonly StandardComboBox _orientationCombo;
     private readonly StandardSpinBox _pagesSpin;
+    private readonly StandardProgressBar _progressBar;
     private readonly StandardPrintPreview _preview;
     private readonly StandardButton _previousButton;
     private readonly StandardButton _nextButton;
@@ -67,6 +69,7 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
     private IReadOnlyList<UiScanColorMode> _colors = [];
     private IReadOnlyList<int> _resolutions = [];
     private IReadOnlyList<BPaperSize> _papers = [];
+    private BRect _statusBounds;
     private BRect _problemBounds;
     private bool _syncing;
 
@@ -88,6 +91,14 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
             SmallChange = 1,
             LargeChange = 10,
             Value = 1,
+        };
+        _progressBar = new StandardProgressBar
+        {
+            PreferredSize = new BSize(240, 18),
+            Minimum = 0,
+            Maximum = 100,
+            ShowValueText = true,
+            Visibility = UiVisibility.Collapsed,
         };
         _preview = new StandardPrintPreview { ShowCaption = true };
         _previousButton = CreateButton("Previous");
@@ -127,6 +138,7 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
 
         foreach ((string _, StandardComboBox? _, UiElement control) in _rows)
             AddChild(control);
+        AddChild(_progressBar);
         AddChild(_preview);
         AddChild(_previousButton);
         AddChild(_nextButton);
@@ -178,6 +190,8 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
 
     public StandardSpinBox PagesSpin => _pagesSpin;
 
+    public StandardProgressBar ProgressBar => _progressBar;
+
     public StandardPrintPreview Preview => _preview;
 
     public StandardButton PreviousButton => _previousButton;
@@ -200,6 +214,7 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
         TitleForeground = theme.Text;
         BorderColor = theme.Border;
         LabelForeground = theme.TextMuted;
+        _progressBar.ApplyTheme(theme);
         Invalidate(UiInvalidationKind.Render);
     }
 
@@ -210,6 +225,12 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
     protected override void OnPagesChanged()
     {
         _preview.Pages = Pages;
+        SyncNavigation();
+    }
+
+    protected override void OnProgressChanged()
+    {
+        SyncProgress();
         SyncNavigation();
     }
 
@@ -255,6 +276,20 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
             y += labelHeight + rowHeight + Gap;
         }
 
+        if (IsBusy)
+        {
+            _statusBounds = new BRect(client.Left, y, leftWidth, labelHeight);
+            y += labelHeight + 4;
+            const double progressHeight = 18;
+            _progressBar.Arrange(new BRect(client.Left, y, leftWidth, progressHeight));
+            y += progressHeight + Gap;
+        }
+        else
+        {
+            _statusBounds = BRect.Empty;
+            _progressBar.Arrange(BRect.Empty);
+        }
+
         _problemBounds = new BRect(client.Left, y, leftWidth, Math.Max(0, contentBottom - y));
 
         double rightX = client.Left + leftWidth + Gap;
@@ -282,6 +317,13 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
         {
             if (_labelBounds.TryGetValue(control, out BRect bounds) && !bounds.IsEmpty)
                 context.RenderList.DrawText(StandardControlPaint.TextRun(label, LabelFont, LabelForeground), new BPoint(bounds.Left, bounds.Top + Math.Max(0, (bounds.Height - BTextMeasurer.GetLineHeight(LabelFont)) / 2)));
+        }
+
+        if (StatusText is string status && !_statusBounds.IsEmpty)
+        {
+            context.RenderList.DrawText(
+                StandardControlPaint.TextRun(status, LabelFont, LabelForeground),
+                new BPoint(_statusBounds.Left, _statusBounds.Top + Math.Max(0, (_statusBounds.Height - BTextMeasurer.GetLineHeight(LabelFont)) / 2)));
         }
 
         if (DisplayedProblem is string problem && !_problemBounds.IsEmpty)
@@ -343,8 +385,19 @@ public sealed class StandardScanDialog : UiScanDialog, IStandardThemedControl
             _syncing = false;
         }
 
+        SyncProgress();
         SyncNavigation();
         Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+    }
+
+    private void SyncProgress()
+    {
+        if (_progressBar is null)
+            return;
+
+        _progressBar.Visibility = IsBusy ? UiVisibility.Visible : UiVisibility.Collapsed;
+        _progressBar.IsIndeterminate = IsProgressIndeterminate;
+        _progressBar.Value = Math.Clamp(Progress * 100.0, _progressBar.Minimum, _progressBar.Maximum);
     }
 
     private void SyncScanners()

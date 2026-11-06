@@ -186,6 +186,70 @@ public sealed class ScanControlTests
         Assert.Equal(3, scanner.LastJob.Settings.MaxPages);
     }
 
+    [Fact]
+    public async Task Preview_Scan_Shows_Progress_Bar_Updates_Percentage_And_ScanAsync_Reuses_Matching_Preview()
+    {
+        var host = new ImageTestHost(new BSize(1000, 800));
+        using UiSession session = new StandardUiSessionBuilder().Build(host);
+        var owner = new StandardWindow();
+        session.AddRoot(owner);
+
+        var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        UiScanJob? activePreviewJob = null;
+        int scanCallCount = 0;
+        var scanner = new FakeScanHost
+        {
+            OnScanAsync = async job =>
+            {
+                scanCallCount++;
+                activePreviewJob = job;
+                job.ReportProgress(0, 0.45, 4500);
+                await gate.Task.ConfigureAwait(false);
+                job.ReportProgress(0, 1.0, 10000);
+            },
+        };
+
+        Task<UiScanResult> scanning = UiScanDialog.ScanAsync(scanner, () => new StandardScanDialog(), owner);
+        StandardScanDialog dialog = Assert.IsType<StandardScanDialog>(session.ModalElement);
+        Assert.Equal(UiVisibility.Collapsed, dialog.ProgressBar.Visibility);
+        Assert.False(dialog.IsBusy);
+
+        Task<UiScanResult> previewTask = dialog.PreviewAsync();
+
+        Assert.NotNull(activePreviewJob);
+        Assert.True(dialog.IsBusy);
+        Assert.Equal(UiVisibility.Visible, dialog.ProgressBar.Visibility);
+        Assert.False(dialog.ProgressBar.IsIndeterminate);
+        Assert.Equal(45.0, dialog.ProgressBar.Value, precision: 3);
+        Assert.Equal("Scanning preview (45%)...", dialog.StatusText);
+        Assert.False(dialog.PreviewButton.IsEnabled);
+        Assert.False(dialog.ScanButton.IsEnabled);
+
+        BRenderList busyFrame = session.RenderFrame();
+        string[] busyText = [.. busyFrame.Commands.OfType<BRenderCommand.DrawText>().Select(c => c.Text.Text)];
+        Assert.Contains("Scanning preview (45%)...", busyText);
+        Assert.Contains("45%", busyText);
+
+        gate.SetResult(true);
+        UiScanResult previewResult = await previewTask;
+
+        Assert.Equal(UiScanOutcome.Scanned, previewResult.Outcome);
+        Assert.False(dialog.IsBusy);
+        Assert.Equal(UiVisibility.Collapsed, dialog.ProgressBar.Visibility);
+        Assert.Null(dialog.StatusText);
+        Assert.True(dialog.HasMatchingPreview);
+        Assert.Equal(1, dialog.Preview.PageCount);
+        Assert.True(dialog.ScanButton.IsEnabled);
+
+        Assert.True(dialog.AcceptScan());
+        UiScanResult finalResult = await scanning;
+
+        Assert.Equal(UiScanOutcome.Scanned, finalResult.Outcome);
+        Assert.Equal(1, finalResult.PagesScanned);
+        Assert.Equal(1, scanCallCount);
+        Assert.Same(previewResult.Pages, finalResult.Pages);
+    }
+
     private sealed class FakeScanHost(IReadOnlyList<UiScannerInfo>? scanners = null) : IUiScanHost
     {
         private readonly IReadOnlyList<UiScannerInfo> _scanners = scanners ??
@@ -199,6 +263,8 @@ public sealed class ScanControlTests
         public int PagesPerPreview { get; init; } = 1;
 
         public string? FailWithMessage { get; init; }
+
+        public Func<UiScanJob, Task>? OnScanAsync { get; init; }
 
         public UiScanJob? LastJob { get; private set; }
 
@@ -223,18 +289,21 @@ public sealed class ScanControlTests
                 MaximumPages = 50,
             };
 
-        public Task<UiScanResult> ScanAsync(UiScanJob job, CancellationToken cancellationToken = default)
+        public async Task<UiScanResult> ScanAsync(UiScanJob job, CancellationToken cancellationToken = default)
         {
             LastJob = job;
+            if (OnScanAsync is not null)
+                await OnScanAsync(job).ConfigureAwait(false);
+
             if (FailWithMessage is not null)
-                return Task.FromResult(UiScanResult.Failed(FailWithMessage));
+                return UiScanResult.Failed(FailWithMessage);
 
             int count = job.IsPreview ? PagesPerPreview : job.Settings.MaxPages;
             var buffers = new BPixelBuffer[count];
             for (int i = 0; i < count; i++)
                 buffers[i] = new BPixelBuffer(10, 10, new byte[10 * 10 * 4]);
 
-            return Task.FromResult(UiScanResult.Scanned(buffers, job.Settings.Dpi, job.Settings.PageSetup.PageSize));
+            return UiScanResult.Scanned(buffers, job.Settings.Dpi, job.Settings.PageSetup.PageSize);
         }
     }
 

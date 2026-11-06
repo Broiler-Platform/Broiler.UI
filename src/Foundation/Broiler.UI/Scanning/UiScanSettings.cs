@@ -177,15 +177,32 @@ public sealed record UiScanSettings
 }
 
 /// <summary>
+/// Live progress of an active scan job reported to <see cref="UiScanJob.ReportProgress"/>.
+/// </summary>
+/// <param name="PageNumber">The 0-based page index currently being transferred.</param>
+/// <param name="Fraction">Estimated progress of the current page in <c>[0.0, 1.0]</c>, or <c>0</c> when indeterminate.</param>
+/// <param name="BytesTransferred">Cumulative bytes transferred for the current page.</param>
+public readonly record struct UiScanProgress(
+    int PageNumber,
+    double Fraction,
+    long BytesTransferred = 0);
+
+/// <summary>
 /// A scan job handed to <see cref="IUiScanHost.ScanAsync"/>: the <see cref="UiScanSettings"/> and
 /// whether the request is a quick single-page preview scan.
 /// </summary>
 public sealed class UiScanJob
 {
-    public UiScanJob(UiScanSettings settings, bool isPreview = false)
+    private readonly Action<UiScanProgress>? _progress;
+
+    public UiScanJob(
+        UiScanSettings settings,
+        bool isPreview = false,
+        Action<UiScanProgress>? progress = null)
     {
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
         IsPreview = isPreview;
+        _progress = progress;
     }
 
     /// <summary>The settings chosen for this job.</summary>
@@ -195,6 +212,23 @@ public sealed class UiScanJob
     /// True when the dialog is requesting a quick single-page preview scan rather than a final acquisition.
     /// </summary>
     public bool IsPreview { get; }
+
+    /// <summary>
+    /// Optional progress callback notified by the scan host as scan data arrives.
+    /// </summary>
+    public Action<UiScanProgress>? Progress => _progress;
+
+    /// <summary>
+    /// Reports live scan progress to <see cref="Progress"/>, clamping <paramref name="fraction"/> to <c>[0.0, 1.0]</c>.
+    /// </summary>
+    public void ReportProgress(int pageNumber, double fraction, long bytesTransferred = 0)
+    {
+        if (_progress is null)
+            return;
+
+        double clamped = double.IsNaN(fraction) ? 0.0 : Math.Clamp(fraction, 0.0, 1.0);
+        _progress(new UiScanProgress(Math.Max(0, pageNumber), clamped, Math.Max(0, bytesTransferred)));
+    }
 }
 
 /// <summary>
