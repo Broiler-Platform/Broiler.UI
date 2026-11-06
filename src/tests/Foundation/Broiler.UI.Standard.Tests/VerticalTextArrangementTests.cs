@@ -12,6 +12,7 @@ using Broiler.UI.FontDialog.Standard;
 using Broiler.UI.Label.Standard;
 using Broiler.UI.Label;
 using Broiler.UI.PrintDialog.Standard;
+using Broiler.UI.ScanDialog.Standard;
 using Broiler.UI.Window.Standard;
 using Broiler.UI.ListView.Standard;
 using Broiler.UI.ListView;
@@ -61,6 +62,8 @@ public sealed class VerticalTextArrangementTests
     [InlineData("Font", 50)]
     [InlineData("Print", 30)]
     [InlineData("Print", 50)]
+    [InlineData("Scan", 30)]
+    [InlineData("Scan", 50)]
     public void Every_Dialog_Title_Is_Centered_In_Its_Title_Bar(string kind, double height)
     {
         using var session = new StandardUiSessionBuilder().Build(new Host(new BSize(900, 700)));
@@ -96,6 +99,12 @@ public sealed class VerticalTextArrangementTests
                 var font = new StandardFontDialog { Title = title, TitleBarHeight = height };
                 _ = font.ShowModal(owner, bounds);
                 dialog = font;
+                titleBounds = new(bounds.Left, bounds.Top, bounds.Width, height);
+                break;
+            case "Scan":
+                var scan = new StandardScanDialog { Title = title, TitleBarHeight = height };
+                _ = scan.ShowModal(owner, bounds);
+                dialog = scan;
                 titleBounds = new(bounds.Left, bounds.Top, bounds.Width, height);
                 break;
             default:

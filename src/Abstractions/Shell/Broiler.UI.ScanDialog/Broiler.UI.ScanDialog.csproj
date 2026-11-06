@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+
+    <RootNamespace>Broiler.UI.ScanDialog</RootNamespace>
+    <AssemblyName>Broiler.UI.ScanDialog</AssemblyName>
+    <PackageId>Broiler.UI.ScanDialog</PackageId>
+    <Description>Broiler.UI.ScanDialog shell dialog contract for the Broiler retained-mode UI framework.</Description>
+    <PackageTags>broiler;ui;controls;shell;scandialog;scan</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Broiler.Graphics" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Broiler.UI.Dialog\Broiler.UI.Dialog.csproj" />
+  </ItemGroup>
+
+</Project>

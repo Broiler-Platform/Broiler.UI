@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+
+    <RootNamespace>Broiler.UI.ScanDialog.Standard</RootNamespace>
+    <AssemblyName>Broiler.UI.ScanDialog.Standard</AssemblyName>
+    <PackageId>Broiler.UI.ScanDialog.Standard</PackageId>
+    <Description>Broiler owned-drawn Standard implementation of Broiler.UI.ScanDialog.</Description>
+    <PackageTags>broiler;ui;controls;standard;shell;scandialog;scan</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Broiler.Graphics" />
+    <PackageReference Include="Broiler.Input" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\Abstractions\Shell\Broiler.UI.ScanDialog\Broiler.UI.ScanDialog.csproj" />
+    <ProjectReference Include="..\..\Commands\Broiler.UI.Button.Standard\Broiler.UI.Button.Standard.csproj" />
+    <ProjectReference Include="..\..\Content\Broiler.UI.PrintPreview.Standard\Broiler.UI.PrintPreview.Standard.csproj" />
+    <ProjectReference Include="..\..\ValueAndSelection\Broiler.UI.ComboBox.Standard\Broiler.UI.ComboBox.Standard.csproj" />
+    <ProjectReference Include="..\..\ValueAndSelection\Broiler.UI.SpinBox.Standard\Broiler.UI.SpinBox.Standard.csproj" />
+    <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
+  </ItemGroup>
+
+</Project>

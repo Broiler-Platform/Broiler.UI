@@ -105,7 +105,7 @@ Each control type ships as a contract package and a `.Standard` implementation
 
 | Family | Controls |
 | --- | --- |
-| Shell | `Window`, `Dialog`, `AboutDialog`, `Tooltip`, `FileDialog`, `FontDialog`, `PrintDialog` |
+| Shell | `Window`, `Dialog`, `AboutDialog`, `Tooltip`, `FileDialog`, `FontDialog`, `PrintDialog`, `ScanDialog` |
 | Layout | `Panel`, `ScrollView`, `Splitter`, `TabView` |
 | Content | `Label`, `ImageView`, `ProgressBar`, `PrintPreview` |
 | Commands | `Button`, `ToggleButton`, `Toolbar`, `Menu` |
