@@ -935,6 +935,8 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         var dialog = new StandardDialog
         {
             Title = "Camera preview",
+            // Preview frames are uploaded to the owner window's renderer.
+            BreakOutMode = UiWindowBreakOutMode.Manual,
             PreferredSize = new BSize(760, 610),
             TitleFont = new BFontStyle("Segoe UI", 14, BFontWeight.SemiBold),
         };

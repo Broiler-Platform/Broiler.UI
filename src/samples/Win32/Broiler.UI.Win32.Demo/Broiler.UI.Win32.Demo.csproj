@@ -8,6 +8,7 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>Broiler.UI.Win32.Demo</RootNamespace>
     <AssemblyName>Broiler.UI.Win32.Demo</AssemblyName>
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <PropertyGroup>
