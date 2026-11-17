@@ -167,6 +167,23 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     public double MinimumScrollbarThumbLength { get; set; } = 18;
 
     public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;
+    private bool _showHiddenText = true;
+
+    /// <summary>Whether to draw hidden runs, without changing the document or its clipboard text.</summary>
+    public bool ShowHiddenText
+    {
+        get => _showHiddenText;
+        set
+        {
+            ThrowIfDisposed();
+            if (_showHiddenText == value)
+                return;
+
+            _showHiddenText = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render);
+        }
+    }
+
 
     private BFontStyle _themeFont = StandardControlPaint.Theme.FontBody;
 
@@ -329,7 +346,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
                 ? Math.Max(0, availableSize.Width - (PaddingX * 2))
                 : PreferredSize.Width;
 
-            _layout.Update(Document, new RichEditLayoutSettings(contentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping));
+            _layout.Update(Document, new RichEditLayoutSettings(contentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping, ShowHiddenText));
             double measuredHeight = _layout.ContentHeight + (PaddingY * 2) + HorizontalScrollbarGutter;
             double width = double.IsFinite(availableSize.Width) && availableSize.Width > 0
                 ? availableSize.Width
@@ -500,6 +517,9 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         Invalidate(UiInvalidationKind.Render);
     }
 
+    /// <summary>Scrolls an existing caret into view without moving the selection.</summary>
+    public void RevealCaret() => EnsureCaretVisible();
+
     public override bool MakeVisible(BRect targetRect)
     {
         EnsureLayout();
@@ -557,7 +577,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     private void EnsureLayout()
     {
         RichTextDocument document = Document;
-        var settings = new RichEditLayoutSettings(View.ContentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping);
+        var settings = new RichEditLayoutSettings(View.ContentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping, ShowHiddenText);
         if (_layout.Update(document, settings))
             _images.ReleaseUnused(document);
 

@@ -396,6 +396,20 @@ public abstract class UiRichEdit : UiElement, IUiScrollable
         return RunEditorEdit(editor => editor.ApplyParagraphStyle(range, delta, afterSelection));
     }
 
+#if BROILER_PAGE_STRUCTURE
+    public bool ApplyPageStructure(PageGeometry? page, System.Collections.Generic.IReadOnlyList<DocumentSection> sections, RunningContent running)
+    {
+        ThrowIfDisposed();
+        return RunEditorEdit(editor => editor.ApplyPageStructure(page, sections, running));
+    }
+
+    public bool ApplyDocumentEdit(RichTextDocument original, RichTextDocument updated, RichTextRange selection)
+    {
+        ThrowIfDisposed();
+        return RunEditorEdit(editor => editor.ApplyDocumentEdit(original, updated, selection));
+    }
+#endif
+
     /// <summary>
     /// Deletes backward from the caret (the Backspace key): the current selection
     /// if any, otherwise the character or paragraph break before the caret. This is

@@ -27,6 +27,138 @@ public sealed class RichEditLayoutTests
     private static string LineText(RichTextDocument document, VisualLine line) =>
         document.Paragraphs[line.ParagraphIndex].Text[line.Start..line.End];
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(1.75)]
+    public void Decimal_Tabs_Align_Painted_Text_And_Caret_At_The_Same_Stop(double zoom)
+    {
+        var style = ParagraphStyle.Default with
+        {
+            TabStops = new ParagraphTabStops([new ParagraphTabStop(72, TabAlignment.Decimal, ".")]),
+        };
+        RichTextDocument document = RichTextDocument.FromParagraphs([
+            RichTextParagraph.Plain("a\t123.45").WithParagraphStyle(style),
+            RichTextParagraph.Plain("b\t7.0").WithParagraphStyle(style),
+            RichTextParagraph.Plain("").WithParagraphStyle(style),
+        ]);
+        RichEditLayout layout = Layout(document, Settings(width: 400, zoom: zoom));
+        double stop = BFontStyle.PointsToPixels(72) * zoom;
+        Assert.Equal(stop, layout.CaretX(new RichTextPosition(0, 5), 0), 5);
+        Assert.Equal(stop, layout.CaretX(new RichTextPosition(1, 3), 0), 5);
+        LineSegment tab = Assert.Single(layout.LineSegments(layout.Lines[0], 0), item => item.TabLeader == ".");
+        Assert.Equal(tab.X + tab.Advance, layout.CaretX(new RichTextPosition(0, 2), 0), 5);
+        Assert.Equal(3, layout.Lines.Count);
+    }
+
+    [Fact]
+    public void A_Decimal_Tab_Uses_Its_Table_Cell_Origin()
+    {
+        var style = ParagraphStyle.Default with
+        {
+            TabStops = new ParagraphTabStops([new ParagraphTabStop(42, TabAlignment.Decimal, DecimalCharacter: ',')]),
+        };
+        RichTextDocument document = RichTextDocument.FromParagraphs([
+            RichTextParagraph.Plain("Item"),
+            RichTextParagraph.Plain("\t12,50").WithParagraphStyle(style),
+        ]).WithTables([
+            new DocumentTable(0, 2, [new TableRow([new TableCell(0, 1, 0), new TableCell(1, 1, 1)])],
+                [130, 130], cellPadding: 8),
+        ]);
+        RichEditLayout layout = Layout(document, Settings(400));
+        var decimalPosition = new RichTextPosition(1, 3);
+        double expected = layout.Frame(1).Left + BFontStyle.PointsToPixels(42);
+        Assert.Equal(expected, layout.CaretX(decimalPosition, 0), 5);
+        Assert.Equal(decimalPosition, layout.PositionInLineAtX(layout.LineForPosition(decimalPosition).Line, expected, 0));
+    }
+
+    [Fact]
+    public void Exact_Line_Height_And_First_Line_Indent_Affect_A_Wrapped_Heading()
+    {
+        var style = ParagraphStyle.Default with
+        {
+            LineHeightRule = LineHeightRule.Exact, LineHeight = 18, SpacingBefore = 6, SpacingAfter = 3,
+            LeftIndent = 12, RightIndent = 5, FirstLineIndent = 8, Alignment = TextAlignment.Justify,
+        };
+        RichTextDocument document = RichTextDocument.FromParagraphs([
+            RichTextParagraph.Plain("Heading that wraps onto two lines").WithParagraphStyle(style),
+        ]);
+        RichEditLayout layout = Layout(document, Settings(width: 170));
+        Assert.Equal(2, layout.Lines.Count);
+        Assert.Equal(BFontStyle.PointsToPixels(6), layout.Lines[0].Top, 5);
+        Assert.All(layout.Lines, line => Assert.Equal(BFontStyle.PointsToPixels(18), line.Height, 5));
+        Assert.Equal(BFontStyle.PointsToPixels(20), layout.LineLeft(layout.Lines[0], 0), 5);
+        Assert.Equal(BFontStyle.PointsToPixels(12), layout.LineLeft(layout.Lines[1], 0), 5);
+    }
+
+    [Fact]
+    public void Explicit_List_Identity_Tracks_Restart_And_Nesting_Across_An_Interruption()
+    {
+        var list = new ListDefinition([ListLevel.DecimalAt(0), new ListLevel { Template = "%1.%2." }]);
+        var separate = new ListDefinition([ListLevel.DecimalAt(0)]);
+        RichTextParagraph Item(ListDefinition definition, int level, int? restart = null) =>
+            RichTextParagraph.Plain("item").WithParagraphStyle(ParagraphStyle.Default with
+            {
+                ListKind = ListKind.Numbered, IndentLevel = level + 1,
+                List = new ListReference(definition, level, restart),
+            });
+        RichEditLayout layout = Layout(RichTextDocument.FromParagraphs([
+            Item(list, 0, 3), Item(list, 1), RichTextParagraph.Plain("interruption"), Item(separate, 0), Item(list, 0),
+        ]));
+        Assert.Equal(["3.", "3.1.", "", "1.", "4."], Enumerable.Range(0, 5).Select(i => layout.Decoration(i).Marker));
+    }
+
+    [Fact]
+    public void Hidden_Runs_Use_Source_Positions_Without_Width_Or_Soft_Breaks()
+    {
+        RichTextParagraph paragraph = RichTextParagraph.Plain("A")
+            .InsertText(1, " \t\u2028hidden", InlineStyle.Default with { Hidden = true })
+            .InsertText(10, "B", InlineStyle.Default);
+        RichTextDocument document = RichTextDocument.FromParagraphs([paragraph]);
+        RichEditLayout layout = Layout(document, Settings() with { ShowHiddenText = false });
+        VisualLine line = Assert.Single(layout.Lines);
+        Assert.Equal("AB", string.Concat(layout.LineSegments(line, 0).Select(segment => segment.Text)));
+        Assert.Equal(layout.CaretX(new RichTextPosition(0, 1), 0), layout.CaretX(new RichTextPosition(0, 10), 0), 6);
+        Assert.Equal(paragraph.Length, line.End);
+        layout.Update(document, Settings());
+        Assert.True(layout.Lines.Count > 1);
+        Assert.Contains("hidden", string.Concat(layout.Lines.SelectMany(item => layout.LineSegments(item, 0)).Select(segment => segment.Text)));
+    }
+
+    [Fact]
+    public void Hidden_Leading_Text_Does_Not_Create_A_Blank_Wrapped_Line()
+    {
+        RichTextParagraph paragraph = RichTextParagraph.Create("hidden", InlineStyle.Default with { Hidden = true })
+            .InsertText(6, "W", InlineStyle.Default);
+        RichEditLayout layout = Layout(RichTextDocument.FromParagraphs([paragraph]), Settings(width: 1) with { ShowHiddenText = false });
+        Assert.Equal("W", Assert.Single(layout.LineSegments(Assert.Single(layout.Lines), 0)).Text);
+    }
+
+    [Fact]
+    public void Baseline_Shifts_Scale_Glyphs_And_Reserve_Room_For_Explicit_Rise()
+    {
+        InlineStyle superscript = InlineStyle.Default with { Shift = BaselineShift.Superscript() };
+        InlineStyle subscript = InlineStyle.Default with { Shift = BaselineShift.Subscript() };
+        InlineStyle raised = InlineStyle.Default with { Shift = new BaselineShift(BaselinePosition.Offset, 1, 0.58) };
+        RichTextParagraph paragraph = RichTextParagraph.Plain("A").InsertText(1, "2", superscript)
+            .InsertText(2, "3", subscript).InsertText(3, "4", raised);
+        RichEditLayout layout = Layout(RichTextDocument.FromParagraphs([paragraph]));
+        VisualLine line = Assert.Single(layout.Lines);
+        LineSegment[] segments = layout.LineSegments(line, 0);
+        Assert.True(segments[1].Font.Size < segments[0].Font.Size);
+        Assert.True(layout.ScriptTop(subscript) > layout.ScriptTop(superscript));
+        Assert.True(line.TextTopPadding > 0);
+        Assert.True(line.Height > layout.Settings.DefaultLineHeight);
+        Assert.Equal("A234", string.Concat(segments.Select(segment => segment.Text)));
+    }
+
+    [Fact]
+    public void All_Caps_Honors_A_Run_Language()
+    {
+        var style = InlineStyle.Default with { Language = "tr", Capitalization = TextCapitalization.AllCaps };
+        RichEditLayout layout = Layout(RichTextDocument.FromParagraphs([RichTextParagraph.Create("i", style)]));
+        Assert.Equal("İ", Assert.Single(layout.LineSegments(Assert.Single(layout.Lines), 0)).Text);
+    }
+
     [Fact]
     public void Line_Segments_Are_Reused_Across_Frames_Until_The_Lines_Are_Rebuilt()
     {

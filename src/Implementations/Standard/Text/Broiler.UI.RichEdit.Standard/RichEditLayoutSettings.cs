@@ -30,7 +30,8 @@ internal readonly record struct RichEditLayoutSettings(
     BFontStyle Font,
     double IndentWidth,
     double TabStopWidth,
-    RichEditWrapping Wrapping = RichEditWrapping.Wrap)
+    RichEditWrapping Wrapping = RichEditWrapping.Wrap,
+    bool ShowHiddenText = true)
 {
     /// <summary>
     /// The default distance between tab stops: half an inch at 96 dpi, which is
@@ -87,11 +88,14 @@ internal readonly record struct RichEditLayoutSettings(
         return Font with
         {
             FamilyName = string.IsNullOrWhiteSpace(style.FontFamily) ? Font.FamilyName : style.FontFamily,
-            Size = ZoomedFontSize(size, Zoom),
+            Size = ZoomedFontSize(size, Zoom * ScriptScale(style)),
             Weight = style.Bold ? BFontWeight.Bold : Font.Weight,
             Slant = style.Italic ? BFontSlant.Italic : Font.Slant,
         };
     }
+
+    private static double ScriptScale(InlineStyle style) =>
+        style.Shift is { Scale: > 0 and <= 10 } shift && style.Image is null ? shift.Scale : 1;
 
     /// <summary>A size the document states, as it is drawn.</summary>
     public BSize Zoomed(BSize size) =>

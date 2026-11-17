@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using Broiler.Documents.Model;
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
@@ -36,7 +35,6 @@ internal sealed class RichEditLayout
     private const double FallbackImageExtent = 72;
 
     /// <summary>The glyph a bulleted paragraph is marked with, the one the DOCX and PDF writers emit.</summary>
-    private const string BulletMarker = "\u2022";
 
     /// <summary>Space kept between a list marker and the text it introduces.</summary>
     private const double MarkerGap = 4;
@@ -55,17 +53,18 @@ internal sealed class RichEditLayout
     private double _contentHeight;
     private double _contentExtentWidth;
 
-    private readonly struct CharAdvanceCacheKey(BFontStyle font, char character, TextCapitalization capitalization) : IEquatable<CharAdvanceCacheKey>
+    private readonly struct CharAdvanceCacheKey(BFontStyle font, char character, TextCapitalization capitalization, string? language) : IEquatable<CharAdvanceCacheKey>
     {
         public readonly BFontStyle Font = font;
         public readonly char Character = character;
         public readonly TextCapitalization Capitalization = capitalization;
+        public readonly string? Language = language;
 
         public bool Equals(CharAdvanceCacheKey other) =>
-            Character == other.Character && Capitalization == other.Capitalization && Font.Equals(other.Font);
+            Character == other.Character && Capitalization == other.Capitalization && Language == other.Language && Font.Equals(other.Font);
 
         public override int GetHashCode() =>
-            HashCode.Combine(Font, Character, (int)Capitalization);
+            HashCode.Combine(Font, Character, (int)Capitalization, Language);
 
         public override bool Equals(object? obj) =>
             obj is CharAdvanceCacheKey other && Equals(other);
@@ -135,6 +134,25 @@ internal sealed class RichEditLayout
     /// text still has a line for the caret to stand on.
     /// </summary>
     public IReadOnlyList<VisualLine> Lines => _lines;
+
+    public double ScriptTop(InlineStyle style)
+    {
+        if (style.Shift is not { IsNone: false } shift || style.Image is not null)
+            return 0;
+
+        BFontStyle full = RunFont(style with { Shift = null });
+        BFontStyle scaled = RunFont(style);
+        double ascentDifference = (full.Size - scaled.Size) * 0.8;
+        return shift.Position switch
+        {
+            BaselinePosition.AutoSuperscript => 0,
+            BaselinePosition.AutoSubscript => BTextMeasurer.GetLineHeight(full) - BTextMeasurer.GetLineHeight(scaled),
+            _ when double.IsFinite(shift.Offset) => ascentDifference - BTextMeasurer.GetLineHeight(full) * shift.Offset,
+            _ => 0,
+        };
+    }
+
+    private bool IsHidden(InlineStyle style) => !_settings.ShowHiddenText && style.Hidden;
 
     /// <summary>The table cells, in the order they were laid out.</summary>
     public IReadOnlyList<CellBox> Cells => _cells;
@@ -216,7 +234,7 @@ internal sealed class RichEditLayout
     /// </remarks>
     public double MarkerLeft(VisualLine line, double contentLeft) =>
         contentLeft + Frame(line.ParagraphIndex).Left +
-        Decoration(line.ParagraphIndex).MarkerIndent + line.AlignmentOffset;
+        Decoration(line.ParagraphIndex).MarkerIndent + line.AlignmentOffset - line.TextOnlyOffset;
 
     /// <summary>
     /// The line a position is on. A position at the end of a wrapped line is on
@@ -440,7 +458,7 @@ internal sealed class RichEditLayout
 
             int segStart = Math.Max(runStart, line.Start);
             int segEnd = Math.Min(runEnd, line.End);
-            if (segEnd <= segStart)
+            if (segEnd <= segStart || IsHidden(run.Style))
                 continue;
 
             string text = paragraph.Text.Substring(segStart, segEnd - segStart);
@@ -468,13 +486,16 @@ internal sealed class RichEditLayout
                 continue;
             }
 
+            int offset = segStart;
             foreach ((string piece, bool isTab) in RichEditTextShaping.SplitTabs(paragraph.Text, segStart, segEnd))
             {
+                int pieceStart = offset;
+                offset += piece.Length;
                 if (isTab)
                 {
-                    double stop = left + _settings.NextTabStop(x - left);
-                    yield return LineSegment.ForTab(run.Style, RunFont(run.Style), x, stop - x);
-                    x = stop;
+                    (double gap, string? leader) = TabAdvance(paragraph, pieceStart, line.Start, x - left);
+                    yield return LineSegment.ForTab(run.Style, RunFont(run.Style), x, gap, leader);
+                    x += gap;
                     continue;
                 }
 
@@ -532,7 +553,7 @@ internal sealed class RichEditLayout
             return advance;
 
         int end = Math.Clamp(offset, line.Start, line.End);
-        return advance + (RichEditTextShaping.CountSpaces(paragraph.Text, line.Start, end) * line.WordSpacing);
+        return advance + (CountVisibleSpaces(paragraph, line.Start, end) * line.WordSpacing);
     }
 
     private int OffsetAtX(VisualLine line, double localX)
@@ -542,8 +563,8 @@ internal sealed class RichEditLayout
         int index = line.Start;
         while (index < line.End)
         {
-            double charAdvance = CharAdvance(paragraph, index, advance, out int step);
-            if (paragraph.Text[index] == ' ')
+            double charAdvance = CharAdvance(paragraph, index, line.Start, advance, out int step);
+            if (paragraph.Text[index] == ' ' && line.WordSpacing != 0 && !IsHidden(StyleAt(paragraph, index)))
                 charAdvance += line.WordSpacing;
             if (localX < advance + (charAdvance / 2))
                 break;
@@ -634,8 +655,25 @@ internal sealed class RichEditLayout
     private double LayoutParagraph(RichTextDocument document, int paragraphIndex, double y)
     {
         RichTextParagraph paragraph = document.Paragraphs[paragraphIndex];
-        double defaultLineHeight = _settings.DefaultLineHeight;
-        double frame = Math.Max(1, Frame(paragraphIndex).Width - Decoration(paragraphIndex).TextIndent);
+        ParagraphStyle style = paragraph.Style;
+        double defaultNaturalHeight = paragraph.Length == 0 && paragraph.MarkStyle.FontSize is > 0
+            ? BTextMeasurer.GetLineHeight(RunFont(paragraph.MarkStyle)) : _settings.DefaultLineHeight;
+        double defaultLineHeight = LineHeight(style, defaultNaturalHeight);
+        double frame = Frame(paragraphIndex).Width - Decoration(paragraphIndex).TextIndent - Points(style.RightIndentIn);
+        double previousAfter = paragraphIndex > 0 && Frame(paragraphIndex) == Frame(paragraphIndex - 1)
+            ? document.Paragraphs[paragraphIndex - 1].Style.SpacingAfter : 0;
+        y += Points(document.StyleDefaults.SpaceAbove(style.SpacingBefore, previousAfter));
+        if (style.Border is { } border)
+        {
+            y += Points(BorderInset(border.Edges.Top, border.Spacing.Top));
+            frame -= Points(BorderInset(border.Edges.Right, border.Spacing.Right));
+        }
+        ParagraphDecoration decoration = Decoration(paragraphIndex);
+        double firstIndent = decoration.Marker.Length == 0 ? Points(style.FirstLineIndentIn)
+            : HasExactListIndent(style)
+                ? Math.Max(0, Points(style.FirstLineIndentIn) + BTextMeasurer.MeasureAdvance(decoration.Marker, decoration.Font) + MarkerGap * _settings.Zoom)
+                : 0;
+        bool firstLine = true;
 
         // A shape's box is known once the paragraph it hangs from has a top, so
         // this paragraph's shapes join the exclusions before its own lines are
@@ -643,15 +681,18 @@ internal sealed class RichEditLayout
         // is what a single forward pass can honestly say.
         RegisterWrapShapes(document, paragraphIndex, y);
 
-        foreach ((int segmentStart, int segmentEnd) in RichEditTextShaping.HardSegments(paragraph.Text))
+        foreach ((int segmentStart, int segmentEnd) in RichEditTextShaping.HardSegments(paragraph.Text,
+            _settings.ShowHiddenText ? null : offset => !IsHidden(StyleAt(paragraph, offset))))
         {
             if (segmentStart == segmentEnd)
             {
-                TextBand empty = LineBand(ref y, defaultLineHeight, frame);
+                double indent = firstLine ? firstIndent : 0;
+                firstLine = false;
+                TextBand empty = LineBand(ref y, defaultLineHeight, Math.Max(1, frame - indent));
                 _lines.Add(new VisualLine(
                     paragraphIndex, segmentStart, segmentEnd, y, defaultLineHeight,
-                    empty.Left + AlignmentOffset(paragraph, segmentStart, segmentEnd, empty.Width),
-                    LineWordSpacing(paragraph, segmentStart, segmentEnd, empty.Width)));
+                    indent + empty.Left + AlignmentOffset(paragraph, segmentStart, segmentEnd, empty.Width),
+                    LineWordSpacing(paragraph, segmentStart, segmentEnd, empty.Width), TextOnlyOffset: indent));
                 y += defaultLineHeight;
                 continue;
             }
@@ -663,20 +704,36 @@ internal sealed class RichEditLayout
                 // line's own, which is not known until the line has been wrapped
                 // to a width. A taller line can therefore reach a little into a
                 // shape it only just cleared.
-                TextBand band = LineBand(ref y, defaultLineHeight, frame);
+                double indent = firstLine ? firstIndent : 0;
+                firstLine = false;
+                TextBand band = LineBand(ref y, defaultLineHeight, Math.Max(1, frame - indent));
                 int lineEnd = MeasureWrap(paragraph, i, segmentEnd, band.Width);
-                double lineHeight = MeasureLineHeight(paragraph, i, lineEnd, defaultLineHeight);
+                (double natural, double topPadding) = MeasureLineHeight(paragraph, i, lineEnd, _settings.DefaultLineHeight);
+                double lineHeight = LineHeight(style, natural);
                 _lines.Add(new VisualLine(
                     paragraphIndex, i, lineEnd, y, lineHeight,
-                    band.Left + AlignmentOffset(paragraph, i, lineEnd, band.Width),
-                    LineWordSpacing(paragraph, i, lineEnd, band.Width)));
+                    indent + band.Left + AlignmentOffset(paragraph, i, lineEnd, band.Width),
+                    LineWordSpacing(paragraph, i, lineEnd, band.Width), topPadding, indent));
                 y += lineHeight;
                 i = lineEnd;
             }
         }
 
-        return y;
+        double bottomInset = style.Border is { } lower ? BorderInset(lower.Edges.Bottom, lower.Spacing.Bottom) : 0;
+        return y + Points(bottomInset + Math.Max(0, style.SpacingAfter));
     }
+
+    private double Points(double value) => BFontStyle.PointsToPixels(value) * _settings.Zoom;
+
+    internal static double BorderInset(TableBorder edge, double spacing) => edge.IsVisible ? edge.Width + Math.Max(0, spacing) : 0;
+
+    private double LineHeight(ParagraphStyle style, double natural)
+    {
+        double pixelPerPoint = Points(1);
+        return Math.Max(1, style.LineBoxHeight(natural / pixelPerPoint) * pixelPerPoint);
+    }
+
+    private static bool HasExactListIndent(ParagraphStyle style) => style.LeftIndent.HasValue || style.FirstLineIndent.HasValue;
 
     /// <summary>Adds the wrapping shapes anchored to one paragraph, now that it has a top.</summary>
     private void RegisterWrapShapes(RichTextDocument document, int paragraphIndex, double top)
@@ -901,8 +958,7 @@ internal sealed class RichEditLayout
 
     /// <summary>
     /// Works out every paragraph's list marker and left offsets, once per layout.
-    /// Numbering runs on while consecutive paragraphs stay numbered and restarts
-    /// otherwise, which is how the PDF writer numbers the same document. An indent
+    /// Explicit list references keep their counters across interruptions. An indent
     /// is capped at half the width of the box the paragraph is in, so a deeply
     /// indented paragraph keeps a usable line to wrap into instead of one
     /// character per line.
@@ -910,26 +966,10 @@ internal sealed class RichEditLayout
     private void BuildDecorations(RichTextDocument document)
     {
         _decorations.Clear();
-        int number = 0;
-        ListKind previous = ListKind.None;
-
         for (int i = 0; i < document.ParagraphCount; i++)
-        {
-            RichTextParagraph paragraph = document.Paragraphs[i];
-            ParagraphStyle style = paragraph.Style;
-            number = style.ListKind == ListKind.Numbered && previous == ListKind.Numbered ? number + 1 : 1;
-            previous = style.ListKind;
+            _decorations.Add(ParagraphDecoration.None);
 
-            string marker = style.ListKind switch
-            {
-                ListKind.Bullet => BulletMarker,
-                ListKind.Numbered => string.Create(CultureInfo.InvariantCulture, $"{number}."),
-                _ => string.Empty,
-            };
-
-            double indent = Math.Max(0, style.IndentLevel) * _settings.ZoomedIndentWidth;
-            _decorations.Add(new ParagraphDecoration(marker, RunFont(StyleAt(paragraph, 0)), indent, indent));
-        }
+        DecorateFlow(document, document.Tables, 0, document.ParagraphCount, new ListNumberer());
 
         ApplyMarkerGutters(document);
 
@@ -951,6 +991,34 @@ internal sealed class RichEditLayout
         }
     }
 
+    private void DecorateFlow(RichTextDocument document, IReadOnlyList<DocumentTable> tables, int start, int end, ListNumberer numberer)
+    {
+        for (int index = start; index < end; index++)
+        {
+            if (DocumentTable.StartingAt(tables, index) is { } table)
+            {
+                foreach (TableRow row in table.Rows)
+                {
+                    foreach (TableCell cell in row.Cells)
+                        DecorateFlow(document, cell.Tables, cell.ParagraphIndex, cell.ParagraphEnd, numberer.ForNestedFlow());
+                }
+                index = table.ParagraphEnd - 1;
+                continue;
+            }
+
+            RichTextParagraph paragraph = document.Paragraphs[index];
+            ParagraphStyle style = paragraph.Style;
+            string marker = numberer.Advance(style) ?? string.Empty;
+            double indent = style.LeftIndent.HasValue ? Points(style.LeftIndentIn()) :
+                Math.Max(0, style.IndentLevel) * _settings.ZoomedIndentWidth;
+            if (style.Border is { } border)
+                indent += Points(BorderInset(border.Edges.Left, border.Spacing.Left));
+            double markerIndent = marker.Length != 0 && HasExactListIndent(style)
+                ? indent + Points(style.FirstLineIndentIn) : indent;
+            _decorations[index] = new ParagraphDecoration(marker, RunFont(StyleAt(paragraph, 0)), markerIndent, indent);
+        }
+    }
+
     /// <summary>
     /// Indents the text of each list item past a gutter wide enough for the widest
     /// marker in its own list, so the items stay lined up with each other where a
@@ -963,18 +1031,22 @@ internal sealed class RichEditLayout
         int start = 0;
         while (start < _decorations.Count)
         {
-            if (_decorations[start].Marker.Length == 0)
+            if (_decorations[start].Marker.Length == 0 || HasExactListIndent(document.Paragraphs[start].Style))
             {
                 start++;
                 continue;
             }
 
-            int level = document.Paragraphs[start].Style.IndentLevel;
+            ParagraphStyle first = document.Paragraphs[start].Style;
             double gutter = _settings.ZoomedIndentWidth;
             int end = start;
             while (end < _decorations.Count &&
                    _decorations[end].Marker.Length > 0 &&
-                   document.Paragraphs[end].Style.IndentLevel == level)
+                   !HasExactListIndent(document.Paragraphs[end].Style) &&
+                   document.Paragraphs[end].Style.IndentLevel == first.IndentLevel &&
+                   document.Paragraphs[end].Style.ListKind == first.ListKind &&
+                   ReferenceEquals(document.Paragraphs[end].Style.List?.Definition, first.List?.Definition) &&
+                   Frame(end) == Frame(start))
             {
                 ParagraphDecoration decoration = _decorations[end];
                 gutter = Math.Max(gutter, BTextMeasurer.MeasureAdvance(decoration.Marker, decoration.Font) + (MarkerGap * _settings.Zoom));
@@ -999,12 +1071,12 @@ internal sealed class RichEditLayout
         int j = start;
         while (j < segmentEnd)
         {
-            double advance = CharAdvance(paragraph, j, width, out int step);
-            if (width + advance > contentWidth && j > start)
+            double advance = CharAdvance(paragraph, j, start, width, out int step);
+            if (width + advance > contentWidth && width > 0)
                 break;
 
             width += advance;
-            if (char.IsWhiteSpace(text[j]))
+            if (char.IsWhiteSpace(text[j]) && !IsHidden(StyleAt(paragraph, j)))
                 lastBreak = j;
             j += step;
         }
@@ -1036,17 +1108,31 @@ internal sealed class RichEditLayout
 
         // Trailing whitespace does not count toward the line's width, so the
         // space a line wrapped on is not one of the gaps that gets widened.
-        string text = paragraph.Text;
-        int trimmed = end;
-        while (trimmed > start && char.IsWhiteSpace(text[trimmed - 1]))
-            trimmed--;
+        if (paragraph.Text.AsSpan(start, end - start).Contains('\t'))
+            return 0;
 
-        int spaces = RichEditTextShaping.CountSpaces(text, start, trimmed);
+        int trimmed = TrimLineEnd(paragraph, start, end);
+
+        int spaces = CountVisibleSpaces(paragraph, start, trimmed);
         if (spaces == 0)
             return 0;
 
         double slack = available - MeasureAdvance(paragraph, start, trimmed);
         return slack > 0 ? slack / spaces : 0;
+    }
+
+    private int CountVisibleSpaces(RichTextParagraph paragraph, int start, int end)
+    {
+        if (_settings.ShowHiddenText)
+            return RichEditTextShaping.CountSpaces(paragraph.Text, start, end);
+
+        int spaces = 0;
+        for (int offset = start; offset < end; offset++)
+        {
+            if (paragraph.Text[offset] == ' ' && !IsHidden(StyleAt(paragraph, offset)))
+                spaces++;
+        }
+        return spaces;
     }
 
     /// <summary>
@@ -1066,9 +1152,7 @@ internal sealed class RichEditLayout
         if (alignment is TextAlignment.Left or TextAlignment.Justify)
             return 0;
 
-        string text = paragraph.Text;
-        while (end > start && char.IsWhiteSpace(text[end - 1]))
-            end--;
+        end = TrimLineEnd(paragraph, start, end);
 
         double slack = available - MeasureAdvance(paragraph, start, end);
         if (slack <= 0)
@@ -1077,12 +1161,20 @@ internal sealed class RichEditLayout
         return alignment == TextAlignment.Center ? slack / 2 : slack;
     }
 
-    private double MeasureLineHeight(RichTextParagraph paragraph, int start, int end, double fallback)
+    private int TrimLineEnd(RichTextParagraph paragraph, int start, int end)
+    {
+        while (end > start && (char.IsWhiteSpace(paragraph.Text[end - 1]) || IsHidden(StyleAt(paragraph, end - 1))))
+            end--;
+        return end;
+    }
+
+    private (double Height, double TopPadding) MeasureLineHeight(RichTextParagraph paragraph, int start, int end, double fallback)
     {
         if (start >= end || paragraph.Runs.Count == 0)
-            return fallback;
+            return (fallback, 0);
 
         double height = fallback;
+        double topPadding = 0;
         int position = 0;
         // An index loop: foreach over IReadOnlyList boxes an enumerator for every paragraph and line.
         for (int runIndex = 0; runIndex < paragraph.Runs.Count; runIndex++)
@@ -1091,17 +1183,25 @@ internal sealed class RichEditLayout
             int runStart = position;
             int runEnd = position + run.Length;
             position = runEnd;
-            if (Math.Max(start, runStart) >= Math.Min(end, runEnd))
+            if (Math.Max(start, runStart) >= Math.Min(end, runEnd) || IsHidden(run.Style))
                 continue;
 
             // A picture makes its line as tall as it needs to be, or the image
             // would be clipped by the surrounding text's line height.
-            height = run.Style.Image is InlineImage image
-                ? Math.Max(height, ImageDisplaySize(image).Height + (_settings.ZoomedImageMargin * 2))
-                : Math.Max(height, BTextMeasurer.GetLineHeight(RunFont(run.Style)));
+            if (run.Style.Image is InlineImage image)
+            {
+                height = Math.Max(height, ImageDisplaySize(image).Height + (_settings.ZoomedImageMargin * 2));
+                continue;
+            }
+
+            double top = ScriptTop(run.Style);
+            double drawnHeight = BTextMeasurer.GetLineHeight(RunFont(run.Style));
+            double fullHeight = run.Style.Shift is null ? drawnHeight : BTextMeasurer.GetLineHeight(RunFont(run.Style with { Shift = null }));
+            topPadding = Math.Max(topPadding, -top);
+            height = Math.Max(height, Math.Max(fullHeight, top + drawnHeight));
         }
 
-        return height;
+        return (height + topPadding, topPadding);
     }
 
     // --- Measuring ---------------------------------------------------------
@@ -1131,11 +1231,15 @@ internal sealed class RichEditLayout
 
             int segmentStart = Math.Max(start, runStart);
             int segmentEnd = Math.Min(end, runEnd);
-            if (segmentEnd <= segmentStart)
+            if (segmentEnd <= segmentStart || IsHidden(run.Style))
                 continue;
 
+            int offset = segmentStart;
             foreach ((string text, bool isTab) in RichEditTextShaping.SplitTabs(paragraph.Text, segmentStart, segmentEnd))
-                advance = isTab ? _settings.NextTabStop(advance) : advance + MeasureRunText(text, run.Style);
+            {
+                advance += isTab ? TabAdvance(paragraph, offset, start, advance).Advance : MeasureRunText(text, run.Style);
+                offset += text.Length;
+            }
         }
 
         return advance;
@@ -1168,16 +1272,67 @@ internal sealed class RichEditLayout
     /// that context, and it needs it: what a tab is worth is the distance to the
     /// stop it lands on.
     /// </summary>
-    private double CharAdvance(RichTextParagraph paragraph, int index, double advance, out int step)
+    private (double Advance, string? Leader) TabAdvance(RichTextParagraph paragraph, int offset, int lineStart, double advance)
+    {
+        ParagraphStyle style = paragraph.Style;
+        if (style.TabStops is { Count: > 0 } tabs)
+        {
+            double lineOrigin = style.LeftIndent.HasValue ? Points(style.LeftIndentIn()) :
+                Math.Max(0, style.IndentLevel) * _settings.ZoomedIndentWidth;
+            if (lineStart == 0 && style.ListKind == ListKind.None)
+                lineOrigin += Points(style.FirstLineIndentIn);
+
+            int start = offset + 1;
+            int end = start;
+            while (end < paragraph.Length && paragraph.Text[end] is not ('\t' or '\u2028'))
+                end++;
+
+            double? fieldWidth = null;
+            foreach (ParagraphTabStop tab in tabs)
+            {
+                double position = Points(tab.Position) - lineOrigin;
+                if (position <= advance)
+                    continue;
+
+                double alignedWidth = 0;
+                if (tab.Alignment == TabAlignment.Decimal)
+                {
+                    int separator = paragraph.Text.IndexOf(tab.DecimalCharacter, start, end - start);
+                    while (separator >= 0 && IsHidden(StyleAt(paragraph, separator)))
+                        separator = paragraph.Text.IndexOf(tab.DecimalCharacter, separator + 1, end - separator - 1);
+                    alignedWidth = MeasureAdvance(paragraph, start, separator < 0 ? end : separator);
+                }
+                else if (tab.Alignment is TabAlignment.Center or TabAlignment.Right)
+                {
+                    fieldWidth ??= MeasureAdvance(paragraph, start, end);
+                    alignedWidth = tab.Alignment == TabAlignment.Center ? fieldWidth.Value / 2 : fieldWidth.Value;
+                }
+
+                double gap = position - alignedWidth - advance;
+                if (gap > 0)
+                    return (gap, tab.Leader);
+            }
+        }
+
+        return (_settings.NextTabStop(advance) - advance, null);
+    }
+
+    private double CharAdvance(RichTextParagraph paragraph, int index, int lineStart, double advance, out int step)
     {
         string text = paragraph.Text;
+        InlineStyle style = StyleAt(paragraph, index);
+        if (IsHidden(style))
+        {
+            step = index + 1 < text.Length && char.IsSurrogatePair(text, index) ? 2 : 1;
+            return 0;
+        }
+
         if (text[index] == '\t')
         {
             step = 1;
-            return _settings.NextTabStop(advance) - advance;
+            return TabAdvance(paragraph, index, lineStart, advance).Advance;
         }
 
-        InlineStyle style = StyleAt(paragraph, index);
         BFontStyle font = RunFont(style);
         if (text[index] == InlineImage.Placeholder && style.Image is InlineImage image)
         {
@@ -1192,7 +1347,8 @@ internal sealed class RichEditLayout
         }
 
         step = 1;
-        var key = new CharAdvanceCacheKey(font, text[index], style.Capitalization);
+        var key = new CharAdvanceCacheKey(font, text[index], style.Capitalization,
+            style.Capitalization == TextCapitalization.None ? null : style.Language);
         if (_charAdvanceCache.TryGetValue(key, out double cachedAdvance))
             return cachedAdvance;
 

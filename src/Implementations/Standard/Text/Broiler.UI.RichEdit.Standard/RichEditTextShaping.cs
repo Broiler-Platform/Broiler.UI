@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Broiler.Documents.Model;
 using Broiler.Graphics.Text;
 
@@ -33,7 +34,7 @@ internal static class RichEditTextShaping
 
         if (style.Capitalization == TextCapitalization.AllCaps)
         {
-            yield return new ShapedPiece(text.ToUpperInvariant(), font);
+            yield return new ShapedPiece(Uppercase(text, style.Language), font);
             yield break;
         }
 
@@ -53,7 +54,7 @@ internal static class RichEditTextShaping
 
             string piece = text[start..i];
             yield return small
-                ? new ShapedPiece(piece.ToUpperInvariant(), reduced)
+                ? new ShapedPiece(Uppercase(piece, style.Language), reduced)
                 : new ShapedPiece(piece, font);
 
             if (i < text.Length)
@@ -62,6 +63,22 @@ internal static class RichEditTextShaping
                 small = char.IsLower(text[i]);
             }
         }
+    }
+
+    private static string Uppercase(string text, string? language)
+    {
+        if (!string.IsNullOrEmpty(language))
+        {
+            try
+            {
+                return text.ToUpper(CultureInfo.GetCultureInfo(language));
+            }
+            catch (CultureNotFoundException)
+            {
+                // An imported tag may not have casing data on this host.
+            }
+        }
+        return text.ToUpperInvariant();
     }
 
     /// <summary>
@@ -110,12 +127,12 @@ internal static class RichEditTextShaping
     /// SEPARATOR) is a soft break inside a paragraph; each one forces a new visual
     /// line and is not itself rendered.
     /// </summary>
-    public static IEnumerable<(int Start, int End)> HardSegments(string text)
+    public static IEnumerable<(int Start, int End)> HardSegments(string text, Func<int, bool>? includeBreak = null)
     {
         int start = 0;
         for (int i = 0; i < text.Length; i++)
         {
-            if (text[i] == (char)0x2028)
+            if (text[i] == (char)0x2028 && (includeBreak?.Invoke(i) ?? true))
             {
                 yield return (start, i);
                 start = i + 1;

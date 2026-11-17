@@ -94,6 +94,7 @@ internal sealed class RichEditPainter
             DrawRunningShapes(renderList, frame, inner, behindText: true);
             DrawShapes(renderList, frame, inner, behindText: true);
             DrawCells(renderList, frame, inner);
+            DrawParagraphBackgrounds(renderList, frame, inner);
             DrawRunBackgrounds(renderList, frame, inner);
             DrawRange(renderList, frame, inner, frame.SecondarySelection, frame.Palette.SecondarySelectionBackground);
             DrawRange(renderList, frame, inner, frame.Selection, frame.Palette.SelectionBackground);
@@ -380,30 +381,66 @@ internal sealed class RichEditPainter
     /// separately and any of them may be turned off, so a stroked box would draw
     /// edges the document asked not to have.
     /// </summary>
-    private static void DrawCellBorders(BRenderList renderList, BRect bounds, CellBorders borders)
+    private static void DrawCellBorders(BRenderList renderList, BRect bounds, CellBorders borders, double scale = 1)
     {
         if (borders.Top.IsVisible)
-            renderList.FillRect(new BRect(bounds.Left, bounds.Top, bounds.Width, borders.Top.Width), borders.Top.Color);
+            renderList.FillRect(new BRect(bounds.Left, bounds.Top, bounds.Width, borders.Top.Width * scale), borders.Top.Color);
 
         if (borders.Bottom.IsVisible)
         {
             renderList.FillRect(
-                new BRect(bounds.Left, bounds.Bottom - borders.Bottom.Width, bounds.Width, borders.Bottom.Width),
+                new BRect(bounds.Left, bounds.Bottom - borders.Bottom.Width * scale, bounds.Width, borders.Bottom.Width * scale),
                 borders.Bottom.Color);
         }
 
         if (borders.Left.IsVisible)
         {
             renderList.FillRect(
-                new BRect(bounds.Left, bounds.Top, borders.Left.Width, bounds.Height),
+                new BRect(bounds.Left, bounds.Top, borders.Left.Width * scale, bounds.Height),
                 borders.Left.Color);
         }
 
         if (borders.Right.IsVisible)
         {
             renderList.FillRect(
-                new BRect(bounds.Right - borders.Right.Width, bounds.Top, borders.Right.Width, bounds.Height),
+                new BRect(bounds.Right - borders.Right.Width * scale, bounds.Top, borders.Right.Width * scale, bounds.Height),
                 borders.Right.Color);
+        }
+    }
+
+    private void DrawParagraphBackgrounds(BRenderList renderList, in RichEditPaintFrame frame, BRect inner)
+    {
+        RichEditViewport view = frame.View;
+        (int start, int count) = VisibleLines(view, inner);
+        double scale = BFontStyle.PointsToPixels(1) * _layout.Settings.Zoom;
+        for (int index = start; index < start + count;)
+        {
+            int firstIndex = index;
+            VisualLine first = _layout.Lines[index++];
+            VisualLine last = first;
+            while (index < start + count && _layout.Lines[index].ParagraphIndex == first.ParagraphIndex)
+                last = _layout.Lines[index++];
+
+            ParagraphStyle style = frame.Document.Paragraphs[first.ParagraphIndex].Style;
+            if (style.Background.IsEmpty && style.Border is null)
+                continue;
+
+            CellFrame cell = _layout.Frame(first.ParagraphIndex);
+            bool clippedAbove = firstIndex > 0 && _layout.Lines[firstIndex - 1].ParagraphIndex == first.ParagraphIndex;
+            bool clippedBelow = index < _layout.Lines.Count && _layout.Lines[index].ParagraphIndex == first.ParagraphIndex;
+            double top = clippedAbove ? inner.Top - 1 : view.ToControlY(first.Top);
+            double bottom = clippedBelow ? inner.Bottom + 1 : view.ToControlY(last.Top + last.Height);
+            if (style.Border is { } border)
+            {
+                top -= scale * RichEditLayout.BorderInset(border.Edges.Top, border.Spacing.Top);
+                bottom += scale * RichEditLayout.BorderInset(border.Edges.Bottom, border.Spacing.Bottom);
+            }
+
+            var bounds = new BRect(view.ContentLeft + cell.Left, top, cell.Width, bottom - top);
+            if (!style.Background.IsEmpty)
+                renderList.FillRect(bounds, style.Background);
+            if (style.Border is { } edges)
+                DrawCellBorders(renderList, bounds, edges.Edges, scale);
         }
     }
 
@@ -633,10 +670,22 @@ internal sealed class RichEditPainter
 
             // A tab has width but no glyphs; its underline and strike still run
             // across the gap, the way a word processor rules a tabbed line.
+            double textY = y + line.TextTopPadding + _layout.ScriptTop(segment.Style);
             if (segment.Text.Length > 0)
-                renderList.DrawText(new BTextRun(segment.Text, segment.Font, segmentColor), new BPoint(segment.X, y));
+                renderList.DrawText(new BTextRun(segment.Text, segment.Font, segmentColor), new BPoint(segment.X, textY));
+            else if (segment.TabLeader is { Length: > 0 } leader)
+            {
+                double glyphWidth = BTextMeasurer.MeasureAdvance(leader, segment.Font);
+                if (glyphWidth > 0)
+                {
+                    int repetitions = (int)Math.Min(4096, Math.Floor(segment.Advance / glyphWidth));
+                    if (repetitions > 0)
+                        renderList.DrawText(new BTextRun(new string(leader[0], repetitions), segment.Font, segmentColor), new BPoint(segment.X, textY));
+                }
+            }
 
-            DrawDecorations(renderList, segment, y, line.Height, segmentColor);
+            double decorationHeight = segment.Style.Shift is null ? line.Height - line.TextTopPadding : BTextMeasurer.GetLineHeight(segment.Font);
+            DrawDecorations(renderList, segment, textY, decorationHeight, segmentColor);
         }
     }
 

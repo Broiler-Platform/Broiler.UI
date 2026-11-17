@@ -9,6 +9,7 @@
     <RootNamespace>Broiler.UI.RichEdit</RootNamespace>
     <AssemblyName>Broiler.UI.RichEdit</AssemblyName>
     <PackageId>Broiler.UI.RichEdit</PackageId>
+    <DefineConstants Condition="'$(BroilerPageStructure)' == 'true'">$(DefineConstants);BROILER_PAGE_STRUCTURE</DefineConstants>
     <Description>Platform-neutral Broiler rich-edit document model and control abstraction.</Description>
   </PropertyGroup>
 

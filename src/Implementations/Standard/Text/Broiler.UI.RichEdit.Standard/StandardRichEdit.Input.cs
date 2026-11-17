@@ -300,16 +300,16 @@ public sealed partial class StandardRichEdit
         }
         if (IsKey(input, BVirtualKey.Left, "Left"))
         {
-            MoveFocusTo(control
+            MoveFocusTo(AfterHiddenRuns(control
                 ? RichEditWordNavigation.WordLeft(Document, Selection.Focus)
-                : Document.PositionLeftOf(Selection.Focus), shift);
+                : Document.PositionLeftOf(Selection.Focus), forward: false), shift);
             return true;
         }
         if (IsKey(input, BVirtualKey.Right, "Right"))
         {
-            MoveFocusTo(control
+            MoveFocusTo(AfterHiddenRuns(control
                 ? RichEditWordNavigation.WordRight(Document, Selection.Focus)
-                : Document.PositionRightOf(Selection.Focus), shift);
+                : Document.PositionRightOf(Selection.Focus), forward: true), shift);
             return true;
         }
         if (IsKey(input, BVirtualKey.Up, "Up"))
@@ -491,6 +491,23 @@ public sealed partial class StandardRichEdit
         RichTextPosition anchor = extend ? Selection.Anchor : target;
         Selection = new RichTextRange(anchor, target);
         EnsureCaretVisible();
+    }
+
+    private RichTextPosition AfterHiddenRuns(RichTextPosition position, bool forward)
+    {
+        if (ShowHiddenText)
+            return position;
+
+        RichTextParagraph paragraph = Document.Paragraphs[position.ParagraphIndex];
+        while (forward ? position.Offset < paragraph.Length : position.Offset > 0)
+        {
+            int adjacent = forward ? position.Offset : position.Offset - 1;
+            if (!RichEditLayout.StyleAt(paragraph, adjacent).Hidden)
+                break;
+
+            position = forward ? Document.PositionRightOf(position) : Document.PositionLeftOf(position);
+        }
+        return position;
     }
 
     private void MoveVertical(int direction, bool extend)

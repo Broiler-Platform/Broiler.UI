@@ -19,7 +19,9 @@ internal readonly record struct VisualLine(
     double Top,
     double Height,
     double AlignmentOffset,
-    double WordSpacing = 0);
+    double WordSpacing = 0,
+    double TextTopPadding = 0,
+    double TextOnlyOffset = 0);
 
 /// <summary>
 /// The box a paragraph is laid out in: its left offset from the text column's
@@ -61,11 +63,12 @@ internal readonly record struct LineSegment(
     BFontStyle Font,
     double X,
     double Advance,
-    InlineImage? Image = null)
+    InlineImage? Image = null,
+    string? TabLeader = null)
 {
     public static LineSegment ForImage(InlineImage image, InlineStyle style, double x, double width) =>
         new(InlineImage.PlaceholderText, style, BFontStyle.Default, x, width, image);
 
-    public static LineSegment ForTab(InlineStyle style, BFontStyle font, double x, double width) =>
-        new(string.Empty, style, font, x, width);
+    public static LineSegment ForTab(InlineStyle style, BFontStyle font, double x, double width, string? leader = null) =>
+        new(string.Empty, style, font, x, width, TabLeader: leader);
 }
