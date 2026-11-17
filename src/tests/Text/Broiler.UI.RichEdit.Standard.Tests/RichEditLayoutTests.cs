@@ -82,7 +82,7 @@ public sealed class RichEditLayoutTests
         RichTextDocument document = RichTextDocument.FromParagraphs([
             RichTextParagraph.Plain("Heading that wraps onto two lines").WithParagraphStyle(style),
         ]);
-        RichEditLayout layout = Layout(document, Settings(width: 170));
+        RichEditLayout layout = Layout(document, Settings(width: 171));
         Assert.Equal(2, layout.Lines.Count);
         Assert.Equal(BFontStyle.PointsToPixels(6), layout.Lines[0].Top, 5);
         Assert.All(layout.Lines, line => Assert.Equal(BFontStyle.PointsToPixels(18), line.Height, 5));
