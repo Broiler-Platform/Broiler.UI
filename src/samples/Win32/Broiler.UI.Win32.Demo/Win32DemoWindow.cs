@@ -1,4 +1,5 @@
 using Broiler.UI.AboutDialog.Standard;
+using Broiler.UI.ColorDialog.Standard;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -479,7 +480,15 @@ internal sealed class Win32DemoWindow : Direct2DWindow
 
         commitButton.Clicked += (_, _) => CommitInput();
         resetButton.Clicked += (_, _) => ResetDemo();
-        dialogButton.Clicked += (_, _) => ShowDialog();
+        dialogButton.Clicked += (_, _) => ShowColorDialog();
+        var colorDialogButton = new StandardButton
+        {
+            Text = "Show color dialog",
+            PreferredSize = new BSize(150, 34),
+            Font = new BFontStyle("Segoe UI", 14),
+        };
+        colorDialogButton.Clicked += (_, _) => ShowColorDialog();
+        
         input.Submitted += (_, _) => CommitInput();
         animateProgress.CheckStateChanged += (_, _) => ToggleProgressAnimation();
         toggleButton.ToggleStateChanged += (_, e) => SetStatus("ToggleButton state: " + e.NewState);
@@ -523,6 +532,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             nestedScroll,
             tooltipButton,
             dialogButton,
+            colorDialogButton,
             mediaRefreshButton,
             cameraPreviewButton,
             cameraStatus,
@@ -844,6 +854,29 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             : "Dialog opened as a logical subwindow (no host window support).");
         Invalidate();
     }
+
+    private void ShowColorDialog()
+    {
+        if (_rootWindow.IsDisposed || _rootWindow.IsClosed)
+            return;
+
+        var dialog = new StandardColorDialog
+        {
+            Title = "Choose a color",
+        };
+        dialog.ResultCompleted += (_, e) => SetStatus(e.Result.Value is { } value
+            ? "Selected color " + value
+            : "Color dialog " + e.Result.Kind);
+
+        BSize viewport = _host.ViewportSize;
+        double width = Math.Min(dialog.PreferredSize.Width, Math.Max(0, viewport.Width - 32));
+        double height = Math.Min(dialog.PreferredSize.Height, Math.Max(0, viewport.Height - 32));
+        _ = dialog.ShowModal(_rootWindow, new BRect(
+            Math.Max(0, (viewport.Width - width) / 2),
+            Math.Max(0, (viewport.Height - height) / 2), width, height));
+        Invalidate();
+    }
+
 
     /// <summary>
     /// The other half of the story: opting a dialog out of break-out keeps it a logical subwindow
@@ -2006,6 +2039,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         private readonly StandardScrollView _nestedScroll;
         private readonly StandardButton _tooltipButton;
         private readonly StandardButton _dialogButton;
+        private readonly StandardButton _colorDialogButton;
         private readonly StandardButton _mediaRefreshButton;
         private readonly StandardButton _cameraPreviewButton;
         private readonly StandardLabel _cameraStatus;
@@ -2037,6 +2071,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             StandardScrollView nestedScroll,
             StandardButton tooltipButton,
             StandardButton dialogButton,
+            StandardButton colorDialogButton,
             StandardButton mediaRefreshButton,
             StandardButton cameraPreviewButton,
             StandardLabel cameraStatus,
@@ -2065,6 +2100,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             _nestedScroll = nestedScroll;
             _tooltipButton = tooltipButton;
             _dialogButton = dialogButton;
+            _colorDialogButton = colorDialogButton;
             _mediaRefreshButton = mediaRefreshButton;
             _cameraPreviewButton = cameraPreviewButton;
             _cameraStatus = cameraStatus;
@@ -2093,6 +2129,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             AddChild(_nestedScroll);
             AddChild(_tooltipButton);
             AddChild(_dialogButton);
+            AddChild(_colorDialogButton);
             AddChild(_mediaRefreshButton);
             AddChild(_cameraPreviewButton);
             AddChild(_cameraStatus);

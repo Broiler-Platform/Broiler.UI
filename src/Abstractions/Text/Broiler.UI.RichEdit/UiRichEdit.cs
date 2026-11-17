@@ -396,7 +396,6 @@ public abstract class UiRichEdit : UiElement, IUiScrollable
         return RunEditorEdit(editor => editor.ApplyParagraphStyle(range, delta, afterSelection));
     }
 
-#if BROILER_PAGE_STRUCTURE
     public bool ApplyPageStructure(PageGeometry? page, System.Collections.Generic.IReadOnlyList<DocumentSection> sections, RunningContent running)
     {
         ThrowIfDisposed();
@@ -408,7 +407,6 @@ public abstract class UiRichEdit : UiElement, IUiScrollable
         ThrowIfDisposed();
         return RunEditorEdit(editor => editor.ApplyDocumentEdit(original, updated, selection));
     }
-#endif
 
     /// <summary>
     /// Deletes backward from the caret (the Backspace key): the current selection
