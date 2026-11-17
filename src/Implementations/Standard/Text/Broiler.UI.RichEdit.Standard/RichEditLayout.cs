@@ -710,10 +710,11 @@ internal sealed class RichEditLayout
                 int lineEnd = MeasureWrap(paragraph, i, segmentEnd, band.Width);
                 (double natural, double topPadding) = MeasureLineHeight(paragraph, i, lineEnd, _settings.DefaultLineHeight);
                 double lineHeight = LineHeight(style, natural);
-                _lines.Add(new VisualLine(
+                var line = new VisualLine(
                     paragraphIndex, i, lineEnd, y, lineHeight,
                     indent + band.Left + AlignmentOffset(paragraph, i, lineEnd, band.Width),
-                    LineWordSpacing(paragraph, i, lineEnd, band.Width), topPadding, indent));
+                    LineWordSpacing(paragraph, i, lineEnd, band.Width), topPadding, indent);
+                _lines.Add(line);
                 y += lineHeight;
                 i = lineEnd;
             }
