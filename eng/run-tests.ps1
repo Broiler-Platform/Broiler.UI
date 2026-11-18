@@ -7,6 +7,12 @@ try {
     # Each suite gets a fresh report, so one runner cannot hide another.
     [xml] $solution = Get-Content Broiler.UI.slnx -Raw
     $projects = @($solution.SelectNodes('//Project[@Path]') | Where-Object { $_.Path -like 'src/tests/*.csproj' })
+    if (!$IsWindows) {
+        $projects = @($projects | Where-Object {
+            [IO.Path]::GetFileNameWithoutExtension($_.Path) -ne 'Broiler.UI.Standard.Windows.Tests'
+        })
+        Write-Host 'Skipping Broiler.UI.Standard.Windows.Tests because it requires DirectWrite on Windows.'
+    }
     if (!$projects.Count) { throw 'No test projects found.' }
     $results = Join-Path 'test-results' ([guid]::NewGuid().ToString())
     $baseConfiguration = $Configuration -replace '-(Linux|Windows)$', ''
