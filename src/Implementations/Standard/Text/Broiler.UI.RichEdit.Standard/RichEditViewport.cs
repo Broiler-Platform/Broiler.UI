@@ -103,6 +103,15 @@ internal readonly struct RichEditViewport
     /// <summary>The control-space y of a content-space y.</summary>
     public double ToControlY(double contentY) => ContentTop + contentY - ScrollY;
 
+    public BPoint ToContent(BPoint point) =>
+        new(point.X - ContentLeft, point.Y - ContentTop + ScrollY);
+
+    public BRect ToContent(BRect rect) =>
+        new(rect.Left - ContentLeft, rect.Top - ContentTop + ScrollY, rect.Width, rect.Height);
+
+    public BRect ToControl(BRect rect) =>
+        rect.IsEmpty ? BRect.Empty : new(ContentLeft + rect.Left, ToControlY(rect.Top), rect.Width, rect.Height);
+
     /// <summary>
     /// The paper, in control space. A sheet is at least a page tall, and taller
     /// when the text runs past the bottom - this surface flows rather than

@@ -32,6 +32,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
 {
     private readonly RichEditImageCache _images;
     private readonly RichEditLayout _layout;
+    private readonly IRichEditGeometry _geometry;
     private readonly RichEditPainter _painter;
     private readonly RichEditScroller _scroller = new();
     private readonly RichEditClickTracker _clicks = new();
@@ -44,6 +45,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     {
         _images = new RichEditImageCache(() => Session?.Host as IUiImageHost);
         _layout = new RichEditLayout(_images);
+        _geometry = _layout;
         _painter = new RichEditPainter(_layout, _images);
     }
 
@@ -168,6 +170,24 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
 
     public BFontStyle Font { get; set; } = StandardControlPaint.Theme.FontBody;
     private bool _showHiddenText = true;
+
+#if BROILER_SHARED_PARAGRAPH_COMPOSITION
+    private bool _useSharedParagraphComposition;
+
+    /// <summary>Opts ordinary paragraphs into the shared line composer.</summary>
+    public bool UseSharedParagraphComposition
+    {
+        get => _useSharedParagraphComposition;
+        set
+        {
+            ThrowIfDisposed();
+            if (_useSharedParagraphComposition == value)
+                return;
+            _useSharedParagraphComposition = value;
+            Invalidate(UiInvalidationKind.Measure | UiInvalidationKind.Arrange | UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        }
+    }
+#endif
 
     /// <summary>Whether to draw hidden runs, without changing the document or its clipboard text.</summary>
     public bool ShowHiddenText
@@ -346,7 +366,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
                 ? Math.Max(0, availableSize.Width - (PaddingX * 2))
                 : PreferredSize.Width;
 
-            _layout.Update(Document, new RichEditLayoutSettings(contentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping, ShowHiddenText));
+            _layout.Update(Document, LayoutSettingsForWidth(contentWidth));
             double measuredHeight = _layout.ContentHeight + (PaddingY * 2) + HorizontalScrollbarGutter;
             double width = double.IsFinite(availableSize.Width) && availableSize.Width > 0
                 ? availableSize.Width
@@ -402,8 +422,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         _scroller.PaintScrollbar(renderList, ScrollMetrics, ScrollbarTrack, ScrollbarThumb);
         _scroller.PaintHorizontalScrollbar(renderList, HorizontalScrollMetrics, ScrollbarTrack, ScrollbarThumb);
         PublishCaret(focused, view);
-        if (IsContextMenuOpen)
-            context.Defer(RenderContextMenu);
+        RenderContextMenuOverlay(context, this);
     }
 
     protected override bool OnInput(UiInputEvent input)
@@ -455,7 +474,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     protected override UiSemanticNode GetSemanticNodeCore()
     {
         UiSemanticNode node = base.GetSemanticNodeCore();
-        return IsContextMenuOpen ? node with { Children = [CreateContextMenuSemanticNode()] } : node;
+        return GetContextMenuSemanticNode(this) is { } menu ? node with { Children = [menu] } : node;
     }
 
     // --- Layout and geometry -----------------------------------------------
@@ -577,13 +596,21 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     private void EnsureLayout()
     {
         RichTextDocument document = Document;
-        var settings = new RichEditLayoutSettings(View.ContentWidth, _zoom, Font, IndentWidth, TabStopWidth, Wrapping, ShowHiddenText);
+        RichEditLayoutSettings settings = LayoutSettingsForWidth(View.ContentWidth);
         if (_layout.Update(document, settings))
             _images.ReleaseUnused(document);
 
         _scroller.Clamp(ScrollMetrics);
         _scroller.ClampX(HorizontalScrollMetrics);
     }
+
+    private RichEditLayoutSettings LayoutSettingsForWidth(double width) =>
+        new(width, _zoom, Font, IndentWidth, TabStopWidth, Wrapping, ShowHiddenText)
+        {
+#if BROILER_SHARED_PARAGRAPH_COMPOSITION
+            UseSharedParagraphComposition = UseSharedParagraphComposition,
+#endif
+        };
 
     private void SetLayoutSpacing(ref double field, double value)
     {
@@ -599,11 +626,12 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
     {
         EnsureLayout();
         RichEditViewport view = View;
-        double localY = point.Y - view.ContentTop + view.ScrollY;
-        return _layout.PositionInLineAtX(_layout.LineAt(new BPoint(point.X - view.ContentLeft, localY)), point.X, view.ContentLeft);
+        return _geometry.HitTest(RichEditLayout.FlowFragment, view.ToContent(point), RichEditHitTestMode.Nearest)?.Position
+            ?? Selection.Focus;
     }
 
-    private BRect CaretRect(RichTextPosition position) => _layout.CaretBounds(position, View);
+    private BRect CaretRect(RichTextPosition position, RichEditViewport view) =>
+        _geometry.GetCaret(position) is { } caret ? view.ToControl(caret.Bounds) : BRect.Empty;
 
     private void PublishCaret(bool focused, RichEditViewport view)
     {
@@ -614,7 +642,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         int start = FlatIndex(Selection.Start);
         int end = FlatIndex(Selection.End);
         textInput.PublishCaret(new UiTextCaretInfo(
-            this, _layout.CaretBounds(Selection.Focus, view), caret, start, end - start, IsCompositionActive));
+            this, CaretRect(Selection.Focus, view), caret, start, end - start, IsCompositionActive));
     }
 
     private int FlatIndex(RichTextPosition position)

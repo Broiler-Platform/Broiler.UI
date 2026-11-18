@@ -17,10 +17,10 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Broiler component packages used by the runtime libraries -->
-    <PackageVersion Include="Broiler.Documents.FormatCodes" Version="0.1.0-preview.34" />
-    <PackageVersion Include="Broiler.Documents.Model" Version="0.1.0-preview.34" Condition="'$(BroilerDocumentsModelPackageVersion)' == ''" />
+    <PackageVersion Include="Broiler.Documents.FormatCodes" Version="0.1.0-preview.35" />
+    <PackageVersion Include="Broiler.Documents.Model" Version="0.1.0-preview.35" Condition="'$(BroilerDocumentsModelPackageVersion)' == ''" />
     <PackageVersion Include="Broiler.Documents.Model" Version="$(BroilerDocumentsModelPackageVersion)" Condition="'$(BroilerDocumentsModelPackageVersion)' != ''" />
-    <PackageVersion Include="Broiler.Documents.Rtf" Version="0.1.0-preview.34" />
+    <PackageVersion Include="Broiler.Documents.Rtf" Version="0.1.0-preview.35" />
     <PackageVersion Include="Broiler.Graphics" Version="0.1.0-preview.19" />
     <PackageVersion Include="Broiler.Input" Version="0.1.0-preview.9" />
     <PackageVersion Include="Broiler.Input.Keyboard" Version="0.1.0-preview.9" />

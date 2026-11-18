@@ -159,11 +159,11 @@ public sealed class UiTopologyTests
 
         return Directory
             .EnumerateFiles(componentRoot, "*.csproj", SearchOption.AllDirectories)
-            .Where(static path => !IsBuildOutput(path))
             .Select(path => new ProjectInfo(
                 Path.GetFileNameWithoutExtension(path),
                 path,
                 Path.GetRelativePath(componentRoot, path).Replace('\\', '/')))
+            .Where(static project => !IsBuildOutput(project.RelativePath))
             // Cross-component submodules carry their own topology rules; only this
             // repository's own projects are governed here.
             .Where(project => !submodules.Any(submodule =>
@@ -207,9 +207,9 @@ public sealed class UiTopologyTests
             .ToArray();
     }
 
-    private static bool IsBuildOutput(string path) =>
-        path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            .Any(static part => part is "bin" or "obj");
+    private static bool IsBuildOutput(string relativePath) =>
+        relativePath.StartsWith("artifacts/", StringComparison.Ordinal) ||
+        relativePath.Split('/').Any(static part => part is "bin" or "obj");
 
     // The component is its own repository, so the solution file marks the root. Walking up
     // from the test binary keeps this working from bin/, from the IDE, and from CI.

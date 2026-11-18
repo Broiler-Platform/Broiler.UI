@@ -12,6 +12,77 @@ namespace Broiler.UI.RichEdit.Standard.Tests;
 /// </summary>
 public sealed class RichEditLayoutTests
 {
+#if BROILER_SHARED_PARAGRAPH_COMPOSITION
+    [Fact]
+    public void Shared_Composition_Keeps_Oversized_Graphemes_Intact_In_Continuous_View()
+    {
+        var document = RichTextDocument.FromPlainText("e\u0301e\u0301");
+        var settings = Settings(width: 1) with { UseSharedParagraphComposition = true };
+        var layout = Layout(document, settings);
+        Assert.Equal(new[] { (0, 2), (2, 4) }, layout.Lines.Select(line => (line.Start, line.End)));
+        IRichEditGeometry geometry = layout;
+        Assert.Equal(document.End, geometry.GetLine(document.End)?.End);
+        Assert.True(geometry.GetCaret(document.End)?.Bounds.Height > 0);
+    }
+
+    [Fact]
+    public void Shared_Composition_Preserves_The_Alignment_Of_Decimal_Tabs()
+    {
+        var paragraph = RichTextParagraph.Plain("label\t12.34").WithParagraphStyle(ParagraphStyle.Default with
+        {
+            TabStops = new ParagraphTabStops([new ParagraphTabStop(72, TabAlignment.Decimal, ".")]),
+        });
+        var document = RichTextDocument.FromParagraphs([paragraph]);
+        var settings = Settings();
+        var legacy = Layout(document, settings);
+        var optedIn = Layout(document, settings with { UseSharedParagraphComposition = true });
+        Assert.Equal(legacy.Lines.ToArray(), optedIn.Lines.ToArray());
+        Assert.Equal(legacy.CaretX(document.End, 0), optedIn.CaretX(document.End, 0));
+    }
+
+    [Fact]
+    public void Shared_Composition_Recomputes_A_Tab_When_It_Moves_To_The_Next_Line()
+    {
+        var document = RichTextDocument.FromPlainText("ab\tcd");
+        var settings = Settings(width: 35, tab: 48) with { UseSharedParagraphComposition = true };
+        var layout = Layout(document, settings);
+        Assert.Equal(new[] { (0, 2), (2, 3), (3, 5) }, layout.Lines.Select(line => (line.Start, line.End)));
+        var tab = Assert.Single(layout.LineSegments(layout.Lines[1], 0));
+        Assert.Equal(48, tab.Advance, 5);
+    }
+
+    [Fact]
+    public void Shared_Composition_Uses_Wrap_Bands_And_Keeps_Explicit_Break_Source_Ranges()
+    {
+        const string text = "longer words in big fonts and small fonts\u2028\u2028last";
+        var paragraph = RichTextParagraph.Create(text, InlineStyle.Default,
+            ParagraphStyle.Default with { ListKind = ListKind.Bullet })
+            .ApplyInlineStyle(0, 6, InlineStyleDelta.ToggleBold(true));
+        var document = RichTextDocument.FromParagraphs([paragraph])
+            .WithShapes([new DocumentShape(0, 0, 0, 120, 36, wrap: ShapeWrap.TopAndBottom)]);
+        var layout = Layout(document, Settings(width: 120) with { UseSharedParagraphComposition = true });
+        Assert.True(layout.Lines[0].Top >= 36);
+        Assert.True(layout.Lines.Count > 3);
+        int empty = text.IndexOf('\u2028') + 1;
+        Assert.Contains(layout.Lines, line => line.Start == empty && line.End == empty);
+        Assert.Equal(text.Length, layout.Lines[^1].End);
+    }
+
+    [Fact]
+    public void Shared_Composition_Keeps_Table_Selection_Inside_A_Clipped_Cell()
+    {
+        var table = new DocumentTable(0, 1,
+            [new TableRow([new TableCell(0, 1, 0, padding: new TableCellPadding(0, 0, 0, 0))],
+                minHeight: 12, exactHeight: true)], [50]);
+        var document = RichTextDocument.FromPlainText("one two three four five six").WithTables([table]);
+        IRichEditGeometry geometry = Layout(document, Settings() with { UseSharedParagraphComposition = true });
+        var selection = new RichTextRange(RichTextDocument.Start, document.End);
+        BRect visible = Assert.Single(geometry.GetSelectionBounds(RichEditLayout.FlowFragment, selection, new BRect(0, 0, 200, 200)));
+        Assert.Equal(12, visible.Bottom);
+        Assert.True(visible.Right <= 50);
+    }
+#endif
+
     private static readonly BFontStyle Font = BFontStyle.Default;
 
     private static RichEditLayoutSettings Settings(double width = 200, double zoom = 1, double indent = 24, double tab = 48) =>
@@ -291,28 +362,80 @@ public sealed class RichEditLayoutTests
         RichTextDocument document = RichTextDocument.FromPlainText("Hit\ttest me");
         RichEditLayout layout = Layout(document);
         VisualLine line = Assert.Single(layout.Lines);
+        IRichEditGeometry geometry = layout;
 
         for (int offset = 0; offset <= line.End; offset++)
         {
             var position = new RichTextPosition(0, offset);
-            double x = layout.CaretX(position, contentLeft: 17);
-            Assert.Equal(position, layout.PositionInLineAtX(line, x, contentLeft: 17));
+            var caret = Assert.IsType<RichEditCaretGeometry>(geometry.GetCaret(position));
+            var point = new BPoint(caret.InlineCoordinate, line.Top + line.Height / 2);
+            var hit = Assert.IsType<RichEditTextHit>(geometry.HitTest(caret.Line.Fragment, point, RichEditHitTestMode.Nearest));
+            Assert.Equal(position, hit.Position);
+            Assert.Equal(caret.Line, hit.Line);
         }
+
+        var outside = new BPoint(-10, line.Top + line.Height / 2);
+        Assert.Null(geometry.HitTest(RichEditLayout.FlowFragment, outside, RichEditHitTestMode.Exact));
+        Assert.Equal(RichTextDocument.Start,
+            geometry.HitTest(RichEditLayout.FlowFragment, outside, RichEditHitTestMode.Nearest)?.Position);
     }
 
     [Fact]
     public void The_Caret_Sits_On_Its_Line_In_The_Viewports_Space()
     {
         RichEditLayout layout = Layout(RichTextDocument.FromPlainText("one\ntwo"));
-        var view = new RichEditViewport(new BRect(100, 50, 300, 200), 8, 6, page: null, shapeGutter: 0, scrollY: 5);
+        IRichEditGeometry geometry = layout;
+        var view = new RichEditViewport(new BRect(100, 50, 300, 200), 8, 6, page: null, shapeGutter: 0, scrollY: 5, scrollX: 3);
         VisualLine second = layout.Lines[1];
 
-        BRect caret = layout.CaretBounds(new RichTextPosition(1, 0), view);
+        var local = Assert.IsType<RichEditCaretGeometry>(geometry.GetCaret(new RichTextPosition(1, 0)));
+        BRect caret = view.ToControl(local.Bounds);
 
         Assert.Equal(view.ContentLeft, caret.Left, 6);
         Assert.Equal(view.ContentTop + second.Top - 5 + 1, caret.Top, 6);
         Assert.Equal(1, caret.Width);
         Assert.Equal(second.Height - 2, caret.Height, 6);
+    }
+
+    [Fact]
+    public void A_Line_Hint_Selects_The_Side_Of_A_Wrap_And_Expires_On_Reflow()
+    {
+        var document = RichTextDocument.FromPlainText(new string('m', 40));
+        var layout = Layout(document, Settings(width: 100));
+        IRichEditGeometry geometry = layout;
+        var first = Assert.IsType<RichEditLineGeometry>(geometry.GetLine(RichTextDocument.Start));
+        var next = Assert.IsType<RichEditLineGeometry>(geometry.GetRelativeLine(first.Id, 1));
+        var wrap = first.End;
+        Assert.Equal(wrap, next.Start);
+        var trailing = Assert.IsType<RichEditCaretGeometry>(geometry.GetCaret(wrap));
+        var leading = Assert.IsType<RichEditCaretGeometry>(geometry.GetCaret(wrap, next.Id));
+        Assert.Equal(first.Id, trailing.Line);
+        Assert.Equal(next.Id, leading.Line);
+        Assert.True(leading.Bounds.Top > trailing.Bounds.Top);
+        Assert.Equal(wrap, geometry.GetPositionInLine(next.Id, leading.InlineCoordinate));
+
+        layout.Update(document, Settings(width: 75));
+        Assert.Null(geometry.GetRelativeLine(next.Id, -1));
+        Assert.Null(geometry.GetPositionInLine(next.Id, 0));
+        var current = Assert.IsType<RichEditLineGeometry>(geometry.GetLine(wrap));
+        Assert.Equal(current, geometry.GetLine(wrap, next.Id));
+        Assert.NotEqual(next.Id, current.Id);
+    }
+
+    [Fact]
+    public void Selection_Geometry_Clips_To_The_Cell_And_The_Requested_Window()
+    {
+        var table = new DocumentTable(0, 1,
+            [new TableRow([new TableCell(0, 1, 0, padding: new TableCellPadding(0, 0, 0, 0))],
+                minHeight: 12, exactHeight: true)], [50]);
+        var document = RichTextDocument.FromPlainText("one two three four five six").WithTables([table]);
+        IRichEditGeometry geometry = Layout(document);
+        var selection = new RichTextRange(RichTextDocument.Start, document.End);
+        BRect visible = Assert.Single(geometry.GetSelectionBounds(RichEditLayout.FlowFragment, selection, new BRect(3, 4, 100, 100)));
+        Assert.Equal(3, visible.Left);
+        Assert.Equal(4, visible.Top);
+        Assert.Equal(12, visible.Bottom);
+        Assert.True(visible.Right <= 50);
     }
 
     [Fact]

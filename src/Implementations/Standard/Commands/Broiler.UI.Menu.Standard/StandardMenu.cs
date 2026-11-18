@@ -71,6 +71,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
     public double ItemHeight { get; set; } = 26;
 
+    /// <summary>Minimum popup width before fitting its labels and clamping to the viewport.</summary>
     public double PopupWidth { get; set; } = 180;
 
     /// <summary>Optional trigger bounds used to place an overflowing popup above its trigger.</summary>
@@ -561,6 +562,15 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         }
     }
 
+    private const double PopupTextPadding = 8;
+
+    private static string PopupLabel(UiMenuItem item)
+    {
+        string prefix = item.IsCheckable ? (item.IsChecked ? "x " : "  ") : string.Empty;
+        string suffix = item.Children.Count > 0 ? " >" : string.Empty;
+        return prefix + item.Text + suffix;
+    }
+
     private void RenderOpenPopups(UiRenderContext context)
     {
         if (!TryGetFirstPopupLevel(out IReadOnlyList<UiMenuItem> level, out BPoint origin, out int pathDepth))
@@ -578,6 +588,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
             int selectedIndex = GetSelectedIndexAtDepth(pathDepth, level.Count);
             StandardControlPaint.FillRounded(context.RenderList, popup, PopupBackground, CornerRadius);
             StandardControlPaint.StrokeRounded(context.RenderList, popup, BorderColor, CornerRadius, 1);
+            context.RenderList.PushClip(popup);
             for (int index = 0; index < level.Count; index++)
             {
                 UiMenuItem item = level[index];
@@ -586,11 +597,11 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
                     continue;
                 if (selectedIndex == index)
                     StandardControlPaint.FillRounded(context.RenderList, StandardControlPaint.Inset(row, 2), SelectedBackground, CornerRadius);
-                string prefix = item.IsCheckable ? (item.IsChecked ? "x " : "  ") : string.Empty;
-                string suffix = item.Children.Count > 0 ? " >" : string.Empty;
                 BColor foreground = !item.IsEnabled ? DisabledForeground : selectedIndex == index ? SelectedForeground : Foreground;
-                StandardControlPaint.DrawText(context.RenderList, prefix + item.Text + suffix, Font, foreground, new BPoint(row.Left + 8, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)), context.Host.Scale);
+                StandardControlPaint.DrawText(context.RenderList, PopupLabel(item), Font, foreground, new BPoint(row.Left + PopupTextPadding, row.Top + Math.Max(0, (row.Height - BTextMeasurer.GetLineHeight(Font)) / 2)), context.Host.Scale);
             }
+
+            context.RenderList.PopClip();
 
             if (selectedIndex < 0)
                 break;
@@ -745,7 +756,14 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
 
     private BRect GetPopupBounds(BPoint origin, IReadOnlyList<UiMenuItem> level)
     {
-        BSize viewport = Session?.Host.ViewportSize ?? new BSize(origin.X + PopupWidth, origin.Y + RowOffset(level, level.Count, ItemHeight));
+        double desiredWidth = PopupWidth;
+        if (PresentationMode != UiMenuPresentationMode.BottomSheet)
+        {
+            foreach (UiMenuItem item in level)
+                if (!item.IsSeparator)
+                    desiredWidth = Math.Max(desiredWidth, Math.Ceiling(BTextMeasurer.MeasureAdvance(PopupLabel(item), Font)) + 2 * PopupTextPadding);
+        }
+        BSize viewport = Session?.Host.ViewportSize ?? new BSize(origin.X + desiredWidth, origin.Y + RowOffset(level, level.Count, ItemHeight));
 
         if (PresentationMode == UiMenuPresentationMode.BottomSheet)
         {
@@ -756,7 +774,7 @@ public sealed class StandardMenu : UiMenu, IStandardThemedControl
         }
 
         double height = Math.Max(ItemHeight, RowOffset(level, level.Count, ItemHeight));
-        double width = Math.Min(PopupWidth, viewport.Width);
+        double width = Math.Min(desiredWidth, viewport.Width);
         double left = Math.Clamp(origin.X, 0, Math.Max(0, viewport.Width - width));
         double top = origin.Y;
         if (top + height > viewport.Height)

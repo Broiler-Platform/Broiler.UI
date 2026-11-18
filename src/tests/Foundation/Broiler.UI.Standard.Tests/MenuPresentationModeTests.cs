@@ -3,6 +3,7 @@ using System.Linq;
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Text;
 using Broiler.Input;
 using Broiler.Input.Keyboard;
 using Broiler.Input.Mouse;
@@ -14,6 +15,36 @@ namespace Broiler.UI.Standard.Tests;
 
 public sealed class MenuPresentationModeTests
 {
+    [Theory]
+    [InlineData(600)]
+    [InlineData(110)]
+    public void Popup_Fits_Long_Labels_And_Clips_To_The_Viewport(int viewportWidth)
+    {
+        const string label = "Notes from the last save attempt...";
+        var menu = new StandardMenu { PresentationMode = UiMenuPresentationMode.ContextMenu, PopupWidth = 100 };
+        menu.SetItems([new UiMenuItem("save-notes", label)]);
+        using UiSession session = new StandardUiSessionBuilder().Build(new TestHost(new BSize(viewportWidth, 400)));
+        session.AddRoot(new TestContainer(menu, new BRect(0, 0, 100, 28)));
+        session.RenderFrame();
+        menu.OpenPopup();
+
+        BRenderList frame = session.RenderFrame();
+        BRect popup = menu.OverlayBounds;
+        var text = Assert.Single(frame.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == label);
+        var clip = Assert.Single(frame.Commands.OfType<BRenderCommand.PushClip>(), command => command.Rect == popup);
+        int clipIndex = Array.IndexOf(frame.Commands.ToArray(), clip);
+        int textIndex = Array.IndexOf(frame.Commands.ToArray(), text);
+
+        double textRight = text.Origin.X + BTextMeasurer.MeasureAdvance(label, menu.Font);
+        Assert.True(clipIndex < textIndex);
+        Assert.InRange(popup.Right, 0, viewportWidth);
+        if (viewportWidth == 600)
+            Assert.True(textRight < popup.Right);
+        else
+            Assert.Equal(viewportWidth, popup.Width);
+        frame.Validate();
+    }
+
     [Theory]
     [InlineData(UiMenuPresentationMode.MenuBar)]
     [InlineData(UiMenuPresentationMode.ContextMenu)]

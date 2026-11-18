@@ -23,6 +23,7 @@ public sealed partial class StandardRichEdit
 
     private readonly List<StandardRichEditContextMenuItem> _contextMenuItems = [];
     private BPoint _contextMenuAnchor;
+    private UiElement? _contextMenuInputOwner;
     private bool _isContextMenuOpen;
     private int _contextMenuHighlightedIndex = -1;
 
@@ -72,19 +73,33 @@ public sealed partial class StandardRichEdit
     /// snapshot of the control's state taken here, which is also when the
     /// clipboard is read to decide whether Paste can run.
     /// </summary>
-    public bool OpenContextMenu(BPoint position)
+    public bool OpenContextMenu(BPoint position) => OpenContextMenu(position, this);
+
+    /// <summary>
+    /// Opens the editing menu for an alternate surface in the same session. The surface keeps
+    /// focus and capture, forwards input to this editor while the menu is open, and queues the
+    /// overlay after painting its content.
+    /// </summary>
+    public bool OpenContextMenu(BPoint position, UiElement inputOwner)
     {
         ThrowIfDisposed();
-        if (!IsEnabled)
+        ArgumentNullException.ThrowIfNull(inputOwner);
+        if (!IsEnabled || (inputOwner != this && (Session is null || inputOwner.Session != Session)))
             return false;
 
+        if (_contextMenuInputOwner is { } previousOwner && previousOwner != inputOwner)
+            CloseContextMenu();
+        bool opening = !IsContextMenuOpen;
         BuildContextMenuItems();
         _contextMenuAnchor = position;
+        _contextMenuInputOwner = inputOwner;
         _isContextMenuOpen = true;
         _contextMenuHighlightedIndex = -1;
-        Session?.SetFocus(this);
-        Session?.CaptureInput(this);
-        Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        Session?.SetFocus(inputOwner);
+        Session?.CaptureInput(inputOwner);
+        if (opening && Session is { } session)
+            session.SemanticChanged += OnContextMenuFocusChanged;
+        inputOwner.Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         return true;
     }
 
@@ -93,12 +108,25 @@ public sealed partial class StandardRichEdit
         if (!_isContextMenuOpen)
             return false;
 
+        UiElement owner = _contextMenuInputOwner ?? this;
+        _contextMenuInputOwner = null;
         _isContextMenuOpen = false;
         _contextMenuHighlightedIndex = -1;
         _contextMenuItems.Clear();
-        Session?.ReleaseInputCapture(this);
-        Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        if (Session is { } session)
+        {
+            session.SemanticChanged -= OnContextMenuFocusChanged;
+            session.ReleaseInputCapture(owner);
+        }
+        owner.Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
         return true;
+    }
+
+    private void OnContextMenuFocusChanged(object? sender, UiSemanticChangedEventArgs e)
+    {
+        if (e.Change == UiSemanticChangeKind.FocusChanged &&
+            sender is UiSession session && session.FocusedElement != _contextMenuInputOwner)
+            CloseContextMenu();
     }
 
     /// <summary>
@@ -310,13 +338,13 @@ public sealed partial class StandardRichEdit
             return;
 
         _contextMenuHighlightedIndex = index;
-        Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
+        (_contextMenuInputOwner ?? this).Invalidate(UiInvalidationKind.Render | UiInvalidationKind.Semantic);
     }
 
     private bool OpenContextMenuAtCaret()
     {
         EnsureCaretVisible();
-        BRect caret = CaretRect(Selection.Focus);
+        BRect caret = CaretRect(Selection.Focus, View);
         return OpenContextMenu(new BPoint(caret.Left, caret.Bottom + 2));
     }
 
@@ -334,17 +362,11 @@ public sealed partial class StandardRichEdit
 
         EnsureLayout();
         RichEditViewport view = View;
-        foreach (VisualLine line in _layout.Lines)
+        BPoint local = view.ToContent(point);
+        foreach (BRect box in _geometry.GetSelectionBounds(RichEditLayout.FlowFragment, selection, view.ToContent(view.Inner)))
         {
-            double top = view.ToControlY(line.Top);
-            if (point.Y < top || point.Y >= top + line.Height)
-                continue;
-
-            if (_layout.TrySelectionSpan(line, selection, view.ContentLeft, out double left, out double width) &&
-                point.X >= left && point.X <= left + width)
-            {
+            if (local.Y >= box.Top && local.Y < box.Bottom && local.X >= box.Left && local.X <= box.Right)
                 return true;
-            }
         }
 
         return false;
@@ -411,8 +433,17 @@ public sealed partial class StandardRichEdit
         return new BRect(Math.Clamp(left, 0, Math.Max(0, viewport.Width - width)), Math.Clamp(top, 0, Math.Max(0, viewport.Height - height)), width, height);
     }
 
+    /// <summary>Queues the open menu above the surface's content and outside its content clip.</summary>
+    public void RenderContextMenuOverlay(UiRenderContext context, UiElement inputOwner)
+    {
+        if (IsContextMenuOpen && ReferenceEquals(_contextMenuInputOwner, inputOwner))
+            context.Defer(RenderContextMenu);
+    }
+
     private void RenderContextMenu(UiRenderContext context)
     {
+        if (!IsContextMenuOpen)
+            return;
         BRect menu = GetContextMenuBounds();
         StandardControlPaint.FillRounded(context.RenderList, menu, ContextMenuBackground, CornerRadius);
         StandardControlPaint.StrokeRounded(context.RenderList, menu, ContextMenuBorderColor, CornerRadius, 1);
@@ -454,18 +485,43 @@ public sealed partial class StandardRichEdit
         context.RenderList.PopClip();
     }
 
-    private UiSemanticNode CreateContextMenuSemanticNode() =>
-        new(
-            UiSemanticRole.Menu,
-            "Edit commands",
-            GetContextMenuBounds(),
-            UiSemanticState.Visible | UiSemanticState.Enabled | UiSemanticState.Expanded,
-            []);
+    /// <summary>The open menu's accessibility node, for the surface that presents it.</summary>
+    public UiSemanticNode? GetContextMenuSemanticNode(UiElement inputOwner)
+    {
+        if (!IsContextMenuOpen || _contextMenuInputOwner != inputOwner)
+            return null;
+
+        BRect bounds = GetContextMenuBounds();
+        var rows = new List<UiSemanticNode>();
+        double top = bounds.Top + ContextMenuPaddingY;
+        for (int i = 0; i < _contextMenuItems.Count; i++)
+        {
+            var item = _contextMenuItems[i];
+            if (item.IsSeparator)
+            {
+                top += ContextMenuSeparatorHeight;
+                continue;
+            }
+            var row = new BRect(bounds.Left, top, bounds.Width, ContextMenuItemHeight).Intersect(bounds);
+            top += ContextMenuItemHeight;
+            if (row.IsEmpty)
+                continue;
+            UiSemanticState state = UiSemanticState.Visible;
+            if (item.IsEnabled) state |= UiSemanticState.Enabled;
+            if (i == _contextMenuHighlightedIndex) state |= UiSemanticState.Selected;
+            rows.Add(new UiSemanticNode(UiSemanticRole.MenuItem, item.Text, row, state, []));
+        }
+        return new UiSemanticNode(UiSemanticRole.Menu, "Edit commands", bounds,
+            UiSemanticState.Visible | UiSemanticState.Enabled | UiSemanticState.Expanded, rows);
+    }
 
     private static bool IsSelectable(StandardRichEditContextMenuItem item) => !item.IsSeparator && item.IsEnabled;
 
-    private static bool IsContextMenuKey(UiInputEvent input, bool shift) =>
-        IsKey(input, 0x5D, "ContextMenu") ||
-        string.Equals(input.KeyName, "Apps", StringComparison.OrdinalIgnoreCase) ||
-        (shift && IsKey(input, 0x79, "F10"));
+    /// <summary>Whether this input requests the keyboard context menu.</summary>
+    public static bool IsContextMenuRequest(UiInputEvent input) =>
+        input.Kind == UiInputEventKind.KeyboardKey && input.KeyTransition == KeyboardKeyTransition.Down &&
+        (IsKey(input, 0x5D, "ContextMenu") ||
+         string.Equals(input.KeyName, "Apps", StringComparison.OrdinalIgnoreCase) ||
+         ((input.KeyModifiers & (KeyboardModifierState.Shift | KeyboardModifierState.LeftShift | KeyboardModifierState.RightShift)) != 0 &&
+          IsKey(input, 0x79, "F10")));
 }

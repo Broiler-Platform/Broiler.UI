@@ -30,7 +30,7 @@ namespace Broiler.UI.RichEdit.Standard;
 /// draws it, so it is decoded once.
 /// </para>
 /// </remarks>
-internal sealed class RichEditLayout
+internal sealed partial class RichEditLayout : IRichEditGeometry
 {
     /// <summary>The box an image with no known size is drawn in, and the minimum for any image.</summary>
     private const double FallbackImageExtent = 72;
@@ -190,6 +190,7 @@ internal sealed class RichEditLayout
         _document = document;
         _settings = settings;
         Build();
+        _revision++;
         _isValid = true;
         return true;
     }
@@ -266,11 +267,10 @@ internal sealed class RichEditLayout
     /// </summary>
     private double[] _bottomPrefix = [];
 
-    public VisualLine LineAt(double y)
-    {
-        if (_lines.Count == 0)
-            return default;
+    public VisualLine LineAt(double y) => _lines.Count == 0 ? default : _lines[LineIndexAt(y)];
 
+    private int LineIndexAt(double y)
+    {
         int low = 0;
         int high = _lines.Count - 1;
         int result = _lines.Count - 1;
@@ -289,15 +289,18 @@ internal sealed class RichEditLayout
             }
         }
 
-        return _lines[result];
+        return result;
     }
 
-    public VisualLine LineAt(BPoint point)
+    public VisualLine LineAt(BPoint point) => _lines.Count == 0 ? default : _lines[LineIndexAt(point)];
+
+    private int LineIndexAt(BPoint point)
     {
-        VisualLine closest = LineAt(point.Y);
+        int closest = LineIndexAt(point.Y);
         double distance = double.MaxValue;
-        foreach (VisualLine line in _lines)
+        for (int i = 0; i < _lines.Count; i++)
         {
+            VisualLine line = _lines[i];
             CellFrame frame = Frame(line.ParagraphIndex);
             if (line.CellClip is { } clip)
             {
@@ -310,7 +313,7 @@ internal sealed class RichEditLayout
             if (gap < distance)
             {
                 distance = gap;
-                closest = line;
+                closest = i;
             }
         }
         return closest;
@@ -367,20 +370,13 @@ internal sealed class RichEditLayout
     public double CaretX(RichTextPosition position, double contentLeft)
     {
         VisualLine line = LineForPosition(position).Line;
-        int end = Math.Clamp(position.Offset, line.Start, line.End);
-        return LineLeft(line, contentLeft) + AdvanceInLine(line, Document.Paragraphs[line.ParagraphIndex], end);
+        return CaretX(line, position.Offset, contentLeft);
     }
 
-    /// <summary>The caret at a position, in the control space of a viewport.</summary>
-    public BRect CaretBounds(RichTextPosition position, RichEditViewport view)
+    private double CaretX(VisualLine line, int offset, double contentLeft)
     {
-        VisualLine line = LineForPosition(position).Line;
-        double x = CaretX(position, view.ContentLeft);
-        double y = view.ContentTop + line.Top - view.ScrollY;
-        BRect bounds = new(x, y + 1, 1, Math.Max(1, line.Height - 2));
-        return line.CellClip is { } clip
-            ? bounds.Intersect(new BRect(view.ContentLeft + clip.Left, view.ToControlY(clip.Top), clip.Width, clip.Height))
-            : bounds;
+        int end = Math.Clamp(offset, line.Start, line.End);
+        return LineLeft(line, contentLeft) + AdvanceInLine(line, Document.Paragraphs[line.ParagraphIndex], end);
     }
 
     /// <summary>
@@ -723,6 +719,13 @@ internal sealed class RichEditLayout
         // is what a single forward pass can honestly say.
         RegisterWrapShapes(document, paragraphIndex, y);
 
+        double bottomInset = style.Border is { } lower ? BorderInset(lower.Edges.Bottom, lower.Spacing.Bottom) : 0;
+        double after = Points(bottomInset + Math.Max(0, style.SpacingAfter));
+#if BROILER_SHARED_PARAGRAPH_COMPOSITION
+        if (TryLayoutSharedParagraph(paragraph, paragraphIndex, frame, firstIndent, defaultLineHeight, ref y))
+            return y + after;
+#endif
+
         foreach ((int segmentStart, int segmentEnd) in RichEditTextShaping.HardSegments(paragraph.Text,
             _settings.ShowHiddenText ? null : offset => !IsHidden(StyleAt(paragraph, offset))))
         {
@@ -761,8 +764,7 @@ internal sealed class RichEditLayout
             }
         }
 
-        double bottomInset = style.Border is { } lower ? BorderInset(lower.Edges.Bottom, lower.Spacing.Bottom) : 0;
-        return y + Points(bottomInset + Math.Max(0, style.SpacingAfter));
+        return y + after;
     }
 
     private double Points(double value) => BFontStyle.PointsToPixels(value) * _settings.Zoom;
@@ -1399,7 +1401,11 @@ internal sealed class RichEditLayout
                 else if (tab.Alignment is TabAlignment.Center or TabAlignment.Right)
                 {
                     fieldWidth ??= MeasureAdvance(paragraph, start, end);
+#if BROILER_SHARED_PARAGRAPH_COMPOSITION
+                    alignedWidth = Broiler.Documents.Model.Text.ParagraphTabGeometry.FieldAnchor(tab.Alignment, fieldWidth.Value);
+#else
                     alignedWidth = tab.Alignment == TabAlignment.Center ? fieldWidth.Value / 2 : fieldWidth.Value;
+#endif
                 }
 
                 double gap = position - alignedWidth - advance;

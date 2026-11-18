@@ -249,7 +249,7 @@ public sealed partial class StandardRichEdit
         bool control = input.KeyModifiers.HasFlag(KeyboardModifierState.Control);
         bool shift = input.KeyModifiers.HasFlag(KeyboardModifierState.Shift);
 
-        if (IsContextMenuKey(input, shift))
+        if (IsContextMenuRequest(input))
             return OpenContextMenuAtCaret();
 
         if (control && HandleControlChord(input))
@@ -513,47 +513,39 @@ public sealed partial class StandardRichEdit
     private void MoveVertical(int direction, bool extend)
     {
         EnsureLayout();
-        double contentLeft = View.ContentLeft;
-        (VisualLine _, int index) = _layout.LineForPosition(Selection.Focus);
-        double caretX = _layout.CaretX(Selection.Focus, contentLeft);
-        int target = index + direction;
-        if (target < 0)
-        {
-            MoveFocusTo(RichTextDocument.Start, extend);
-            return;
-        }
-        if (target >= _layout.Lines.Count)
-        {
-            MoveFocusTo(Document.End, extend);
-            return;
-        }
-
-        MoveFocusTo(_layout.PositionInLineAtX(_layout.Lines[target], caretX, contentLeft), extend);
+        MoveByLines(direction, extend, clamp: false);
     }
 
     private void PageMove(int direction, bool extend)
     {
         EnsureLayout();
-        double contentLeft = View.ContentLeft;
         int linesPerPage = Math.Max(1, (int)(InnerBounds.Height / DefaultLineHeight));
-        (VisualLine _, int index) = _layout.LineForPosition(Selection.Focus);
-        double caretX = _layout.CaretX(Selection.Focus, contentLeft);
-        int target = Math.Clamp(index + (direction * linesPerPage), 0, _layout.Lines.Count - 1);
-        MoveFocusTo(_layout.PositionInLineAtX(_layout.Lines[target], caretX, contentLeft), extend);
+        MoveByLines(direction * linesPerPage, extend, clamp: true);
+    }
+
+    private void MoveByLines(int delta, bool extend, bool clamp)
+    {
+        if (_geometry.GetCaret(Selection.Focus) is not { } caret)
+            return;
+        if (_geometry.GetRelativeLine(caret.Line, delta, clamp) is { } target)
+        {
+            if (_geometry.GetPositionInLine(target.Id, caret.InlineCoordinate) is { } position)
+                MoveFocusTo(position, extend);
+        }
+        else if (!clamp)
+            MoveFocusTo(delta < 0 ? RichTextDocument.Start : Document.End, extend);
     }
 
     private RichTextPosition VisualLineStart(RichTextPosition position)
     {
         EnsureLayout();
-        VisualLine line = _layout.LineForPosition(position).Line;
-        return new RichTextPosition(line.ParagraphIndex, line.Start);
+        return _geometry.GetLine(position)?.Start ?? position;
     }
 
     private RichTextPosition VisualLineEnd(RichTextPosition position)
     {
         EnsureLayout();
-        VisualLine line = _layout.LineForPosition(position).Line;
-        return new RichTextPosition(line.ParagraphIndex, line.End);
+        return _geometry.GetLine(position)?.End ?? position;
     }
 
     private void EnsureCaretVisible()
@@ -561,9 +553,8 @@ public sealed partial class StandardRichEdit
         EnsureLayout();
         double viewport = InnerBounds.Height;
         bool changed = false;
-        if (viewport > 0)
+        if (viewport > 0 && _geometry.GetLine(Selection.Focus) is { } line)
         {
-            VisualLine line = _layout.LineForPosition(Selection.Focus).Line;
             double newScroll = _scroller.Offset;
             if (line.Top < newScroll)
                 newScroll = line.Top;
@@ -575,9 +566,10 @@ public sealed partial class StandardRichEdit
         }
 
         double viewportWidth = InnerBounds.Width;
-        if (viewportWidth > 0 && HorizontalScrollPolicy != RichEditScrollPolicy.Never)
+        if (viewportWidth > 0 && HorizontalScrollPolicy != RichEditScrollPolicy.Never &&
+            _geometry.GetCaret(Selection.Focus) is { } caret)
         {
-            double caretContentX = _layout.CaretX(Selection.Focus, 0);
+            double caretContentX = caret.InlineCoordinate;
             double newScrollX = _scroller.OffsetX;
             if (caretContentX < newScrollX)
                 newScrollX = caretContentX;

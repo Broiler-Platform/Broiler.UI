@@ -64,6 +64,7 @@ internal readonly record struct RichEditPaintFrame(
 internal sealed class RichEditPainter
 {
     private readonly RichEditLayout _layout;
+    private readonly IRichEditGeometry _geometry;
     private readonly RichEditImageCache _images;
 
     public RichEditPainter(RichEditLayout layout, RichEditImageCache images)
@@ -71,6 +72,7 @@ internal sealed class RichEditPainter
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(images);
         _layout = layout;
+        _geometry = layout;
         _images = images;
     }
 
@@ -807,8 +809,7 @@ internal sealed class RichEditPainter
         if (!frame.IsFocused || !frame.IsEnabled || frame.IsReadOnly)
             return;
 
-        BRect caret = _layout.CaretBounds(frame.Selection.Focus, frame.View);
-        if (caret.Width > 0 && caret.Height > 0)
-            renderList.FillRect(caret, frame.Palette.CaretColor);
+        if (_geometry.GetCaret(frame.Selection.Focus) is { } caret && !caret.Bounds.IsEmpty)
+            renderList.FillRect(frame.View.ToControl(caret.Bounds), frame.Palette.CaretColor);
     }
 }

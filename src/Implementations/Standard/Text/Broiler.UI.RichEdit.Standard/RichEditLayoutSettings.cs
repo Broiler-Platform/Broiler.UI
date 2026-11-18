@@ -3,6 +3,9 @@ using Broiler.Documents.Model;
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.Text;
+#if BROILER_SHARED_PARAGRAPH_COMPOSITION
+using Broiler.Documents.Model.Text;
+#endif
 
 namespace Broiler.UI.RichEdit.Standard;
 
@@ -33,6 +36,10 @@ internal readonly record struct RichEditLayoutSettings(
     RichEditWrapping Wrapping = RichEditWrapping.Wrap,
     bool ShowHiddenText = true)
 {
+#if BROILER_SHARED_PARAGRAPH_COMPOSITION
+    public bool UseSharedParagraphComposition { get; init; }
+#endif
+
     /// <summary>
     /// The default distance between tab stops: half an inch at 96 dpi, which is
     /// the tab every word processor starts a document with, and twice the default
@@ -109,7 +116,11 @@ internal readonly record struct RichEditLayoutSettings(
     public double NextTabStop(double advance)
     {
         double width = (TabStopWidth > 0 ? TabStopWidth : DefaultTabStopWidth) * Zoom;
+#if BROILER_SHARED_PARAGRAPH_COMPOSITION
+        return ParagraphTabGeometry.NextStop(advance, width);
+#else
         return (Math.Floor(Math.Max(0, advance) / width) + 1) * width;
+#endif
     }
 
     /// <summary>
