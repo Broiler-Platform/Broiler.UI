@@ -103,9 +103,11 @@ public sealed class StandardFormatCodeViewRenderTests
     [Fact]
     public void Factory_Produces_The_Contract_Control()
     {
+        using FormatCodeViewScene scene = FormatCodeViewStandardHarness.Create(
+            new BSize(320, 100), FormatCodeViewStandardHarness.Project("hello"));
         var factory = new StandardFormatCodeViewFactory();
 
         Assert.Equal(typeof(UiFormatCodeView), factory.ContractType);
-        Assert.IsType<StandardFormatCodeView>(factory.Create(default));
+        Assert.IsType<StandardFormatCodeView>(factory.Create(new UiElementFactoryContext(scene.Session)));
     }
 }

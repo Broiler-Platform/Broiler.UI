@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Broiler.Graphics.Geometry;
@@ -23,21 +24,17 @@ public static class StandardPageSetupDialog
     {
         var dialog = new StandardDialog { Title = title, PreferredSize = new BSize(560, 445), CanClose = canClose };
         var message = new StandardLabel { Text = "Dimensions and margins use points." };
-        var size = Input("Paper width and height", Points(initial.PaperSize.Width, initial.PaperSize.Height));
-        var orientation = Input("Orientation (portrait or landscape)",
+        var rows = new List<UiElement> { message };
+        var size = AddField("Paper width and height", Points(initial.PaperSize.Width, initial.PaperSize.Height));
+        var orientation = AddField("Orientation (portrait or landscape)",
             initial.PaperSize.Width > initial.PaperSize.Height ? "landscape" : "portrait");
-        var margins = Input("Margins (left, right, top, bottom)",
+        var margins = AddField("Margins (left, right, top, bottom)",
             Points(initial.Margins.Left, initial.Margins.Right, initial.Margins.Top, initial.Margins.Bottom));
-        var distances = Input("Header and footer distances from the edge", Points(initial.HeaderDistance, initial.FooterDistance));
-        var columns = Input("Columns and gap", Points(initial.ColumnCount, initial.ColumnGap));
+        var distances = AddField("Header and footer distances from the edge", Points(initial.HeaderDistance, initial.FooterDistance));
+        var columns = AddField("Columns and gap", Points(initial.ColumnCount, initial.ColumnGap));
 
         var applyButton = new StandardButton { Text = "Apply" };
         var cancelButton = new StandardButton { Text = "Cancel" };
-        UiElement[] rows = [message, new StandardLabel { Text = size.AccessibleName }, size,
-            new StandardLabel { Text = orientation.AccessibleName }, orientation,
-            new StandardLabel { Text = margins.AccessibleName }, margins,
-            new StandardLabel { Text = distances.AccessibleName }, distances,
-            new StandardLabel { Text = columns.AccessibleName }, columns];
         applyButton.Clicked += (_, _) =>
         {
             if (!TryRead(size.Text, orientation.Text, margins.Text, distances.Text, columns.Text, out var options, out var error))
@@ -52,12 +49,18 @@ public static class StandardPageSetupDialog
                 message.Text = applyError;
         };
         cancelButton.Clicked += (_, _) => dialog.Cancel();
-        dialog.AddChild(new StandardDialogFields(rows, [applyButton, cancelButton]));
+        dialog.AddChild(new StandardDialogFields(rows.ToArray(), [applyButton, cancelButton]));
         dialog.ShowModal(owner, StandardDialogPlacement.Center(viewport, dialog.PreferredSize));
         size.Session?.SetFocus(size);
-    }
 
-    private static StandardEdit Input(string label, string value) => new() { AccessibleName = label, Text = value };
+        StandardEdit AddField(string label, string value)
+        {
+            var input = new StandardEdit { AccessibleName = label, Text = value };
+            rows.Add(new StandardLabel { Text = label });
+            rows.Add(input);
+            return input;
+        }
+    }
 
     private static bool TryRead(string paperText, string orientationText, string marginText, string distanceText,
         string columnText, out PageSetupOptions options, out string error)

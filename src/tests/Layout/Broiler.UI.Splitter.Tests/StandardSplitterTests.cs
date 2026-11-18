@@ -59,7 +59,7 @@ public sealed class StandardSplitterTests
         Assert.Contains(list.Commands.OfType<BRenderCommand.StrokeRect>(), command => command.Color == StandardThemeTokens.HighContrastDark.FocusRing);
         var factory = new StandardSplitterFactory();
         Assert.Equal(typeof(UiSplitter), factory.ContractType);
-        Assert.IsType<StandardSplitter>(factory.Create(default));
+        Assert.IsType<StandardSplitter>(factory.Create(new UiElementFactoryContext(scene.Session)));
     }
 
     private static SplitterScene Create()
