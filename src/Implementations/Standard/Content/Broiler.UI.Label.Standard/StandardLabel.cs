@@ -130,7 +130,10 @@ public sealed class StandardLabel : UiLabel, IStandardThemedControl
                 ? Bounds.Right - line.Width
                 : Bounds.Left;
             double y = Bounds.Top + Math.Max(0, (Bounds.Height - lines.Count * lineHeight) / 2) + index * lineHeight;
-            context.RenderList.DrawText(StandardControlPaint.TextRun(line.Text, Font, Foreground), new BPoint(x, y));
+            var run = lines.Count == 1
+                ? StandardControlPaint.CaptionTextRun(line.Text, Font, Foreground)
+                : StandardControlPaint.TextRun(line.Text, Font, Foreground);
+            context.RenderList.DrawText(run, new BPoint(x, y));
         }
 
         context.RenderList.PopClip();

@@ -20,6 +20,8 @@ public sealed class UiListItemRenderContext
     public required UiListItem Item { get; init; }
     public required UiListItemState State { get; init; }
     public required BFontStyle Font { get; init; }
+    /// <summary>Device pixels per logical unit, used to align text baselines consistently.</summary>
+    public double Scale { get; init; } = 1;
     public required BColor Foreground { get; init; }
     public required BColor SecondaryForeground { get; init; }
     public required BColor Background { get; init; }
@@ -77,6 +79,7 @@ public sealed class UiListItemRenderContext
             Item = item,
             State = State,
             Font = Font,
+            Scale = Scale,
             Foreground = Foreground,
             SecondaryForeground = SecondaryForeground,
             Background = Background,

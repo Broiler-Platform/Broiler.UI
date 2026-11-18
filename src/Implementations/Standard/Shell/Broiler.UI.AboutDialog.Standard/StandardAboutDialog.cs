@@ -33,7 +33,7 @@ public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
         _titleLabel = new StandardLabel { Font = BFontStyle.Default with { Size = 18, Weight = BFontWeight.SemiBold } };
         _productLabel = new StandardLabel();
         _componentsLabel = new StandardLabel();
-        _componentList = new StandardListView { ItemHeight = 24, CornerRadius = 0 };
+        _componentList = new StandardListView { ItemHeight = 28, CornerRadius = 0 };
         _picture = new AboutDialogPicture { Visibility = UiVisibility.Hidden };
         _websiteButton = new StandardButton { PaddingX = 4, PaddingY = 4, Visibility = UiVisibility.Hidden };
         _websiteButton.Clicked += (_, _) => RequestProductUrl();
@@ -57,7 +57,8 @@ public sealed class StandardAboutDialog : UiAboutDialog, IStandardThemedControl
         PopulateFromAssemblies();
     }
 
-    public BSize PreferredSize { get; set; } = new(620, 380);
+    // Eight complete 28-unit component rows, plus the headings, chrome and action row.
+    public BSize PreferredSize { get; set; } = new(620, 416);
     public BColor Background { get; set; } = StandardControlPaint.Surface;
     public BColor TitleBarBackground { get; set; } = StandardControlPaint.SurfaceAlt;
     public BColor TitleForeground { get; set; } = StandardControlPaint.Text;

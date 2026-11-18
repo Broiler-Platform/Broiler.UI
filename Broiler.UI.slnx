@@ -478,6 +478,12 @@
       <BuildType Project="Debug" Solution="Debug-Windows|*" />
       <BuildType Project="Release" Solution="Release-Windows|*" />
     </Project>
+    <Project Path="src/tests/Foundation/Broiler.UI.Standard.Windows.Tests/Broiler.UI.Standard.Windows.Tests.csproj">
+      <BuildType Solution="Debug-Linux|*" Project="Debug" />
+      <BuildType Solution="Debug-Windows|*" Project="Debug" />
+      <BuildType Solution="Release-Linux|*" Project="Release" />
+      <BuildType Solution="Release-Windows|*" Project="Release" />
+    </Project>
     <Project Path="src/tests/Foundation/Broiler.UI.Tests/Broiler.UI.Tests.csproj">
       <BuildType Project="Debug" Solution="Debug-Linux|*" />
       <BuildType Project="Release" Solution="Release-Linux|*" />

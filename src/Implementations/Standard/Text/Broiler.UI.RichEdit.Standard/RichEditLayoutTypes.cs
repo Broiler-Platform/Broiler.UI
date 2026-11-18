@@ -21,7 +21,8 @@ internal readonly record struct VisualLine(
     double AlignmentOffset,
     double WordSpacing = 0,
     double TextTopPadding = 0,
-    double TextOnlyOffset = 0);
+    double TextOnlyOffset = 0,
+    BRect? CellClip = null);
 
 /// <summary>
 /// The box a paragraph is laid out in: its left offset from the text column's

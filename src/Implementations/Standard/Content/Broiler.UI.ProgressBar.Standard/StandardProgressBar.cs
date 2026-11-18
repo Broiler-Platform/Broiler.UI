@@ -144,7 +144,7 @@ public sealed class StandardProgressBar : UiProgressBar, IStandardThemedControl
             ? fill.Right - textSize.Width - 6
             : Bounds.Left + Math.Max(0, (Bounds.Width - textSize.Width) / 2);
         double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
-        context.RenderList.DrawText(StandardControlPaint.TextRun(text, ValueTextFont, ValueTextColor), new BPoint(x, y));
+        StandardControlPaint.DrawText(context.RenderList, text, ValueTextFont, ValueTextColor, new BPoint(x, y), context.Host.Scale);
     }
 
     private BRect GetDeterminateFillRect()

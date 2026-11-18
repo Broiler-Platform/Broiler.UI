@@ -600,7 +600,7 @@ public sealed partial class StandardRichEdit : UiRichEdit, IStandardThemedContro
         EnsureLayout();
         RichEditViewport view = View;
         double localY = point.Y - view.ContentTop + view.ScrollY;
-        return _layout.PositionInLineAtX(_layout.LineAt(localY), point.X, view.ContentLeft);
+        return _layout.PositionInLineAtX(_layout.LineAt(new BPoint(point.X - view.ContentLeft, localY)), point.X, view.ContentLeft);
     }
 
     private BRect CaretRect(RichTextPosition position) => _layout.CaretBounds(position, View);

@@ -18,6 +18,66 @@ public sealed class MenuPresentationModeTests
     [InlineData(UiMenuPresentationMode.MenuBar)]
     [InlineData(UiMenuPresentationMode.ContextMenu)]
     [InlineData(UiMenuPresentationMode.Overflow)]
+    public void Popup_Hover_Selects_Enabled_Rows_And_Opens_Submenus_Without_Invoking(UiMenuPresentationMode mode)
+    {
+        var menu = new StandardMenu { PresentationMode = mode };
+        UiMenuItem first = new("first", "First");
+        UiMenuItem parent = new("parent", "Parent");
+        UiMenuItem child = new("child", "Child");
+        parent.Children.Add(child);
+        UiMenuItem separator = new("separator", "") { IsSeparator = true };
+        UiMenuItem disabled = new("disabled", "Disabled") { IsEnabled = false };
+        if (mode == UiMenuPresentationMode.MenuBar)
+        {
+            UiMenuItem top = new("top", "Menu");
+            foreach (UiMenuItem item in new[] { first, parent, separator, disabled })
+                top.Children.Add(item);
+            menu.SetItems([top]);
+        }
+        else
+            menu.SetItems([first, parent, separator, disabled]);
+
+        using UiSession session = new StandardUiSessionBuilder().Build(new TestHost(new BSize(600, 400)));
+        session.AddRoot(new TestContainer(menu, new BRect(0, 0, 180, 28)));
+        session.RenderFrame();
+        if (mode == UiMenuPresentationMode.ContextMenu)
+            menu.OpenPopup();
+        else
+            Click(session, 10, 10);
+        session.RenderFrame();
+        BRect popup = menu.OverlayBounds;
+        int invocationCount = 0;
+        menu.ItemInvoked += (_, _) => invocationCount++;
+
+        void Move(double x, double y) => session.DispatchInput(UiInputEvent.FromMouseMove(new MouseMoveEvent(
+            Header(), InputPoint.ClientDeviceIndependentPixels(x, y), MouseButtons.None, InputEventSource.Synthetic)));
+
+        Move(popup.Left + 10, popup.Top + menu.ItemHeight + 10);
+        Assert.Same(parent, menu.GetItem(menu.SelectedPath));
+        BRenderList rendered = session.RenderFrame();
+        Assert.Contains(rendered.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == "Child");
+
+        Move(popup.Right + 10, popup.Top + menu.ItemHeight + 10);
+        Assert.Same(child, menu.GetItem(menu.SelectedPath));
+        Move(popup.Left + 10, popup.Top + menu.ItemHeight + 10);
+        Assert.Same(child, menu.GetItem(menu.SelectedPath));
+
+        Move(popup.Left + 10, popup.Top + 10);
+        Assert.Same(first, menu.GetItem(menu.SelectedPath));
+        rendered = session.RenderFrame();
+        Assert.DoesNotContain(rendered.Commands.OfType<BRenderCommand.DrawText>(), command => command.Text.Text == "Child");
+        Move(popup.Left + 10, popup.Top + 2 * menu.ItemHeight + 3);
+        Assert.Same(first, menu.GetItem(menu.SelectedPath));
+        Move(popup.Left + 10, popup.Top + 2 * menu.ItemHeight + StandardMenuSeparator.Height + 10);
+        Assert.Same(first, menu.GetItem(menu.SelectedPath));
+        Assert.True(menu.IsOpen);
+        Assert.Equal(0, invocationCount);
+    }
+
+    [Theory]
+    [InlineData(UiMenuPresentationMode.MenuBar)]
+    [InlineData(UiMenuPresentationMode.ContextMenu)]
+    [InlineData(UiMenuPresentationMode.Overflow)]
     public void Popup_Separators_Draw_Compact_Lines_And_Ignore_Clicks(UiMenuPresentationMode mode)
     {
         var menu = new StandardMenu { PresentationMode = mode };

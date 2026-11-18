@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Broiler.Documents.Model;
 using Broiler.Graphics;
 using Broiler.Graphics.Color;
@@ -356,7 +357,8 @@ internal sealed class RichEditPainter
     private void DrawCells(BRenderList renderList, in RichEditPaintFrame frame, BRect inner)
     {
         RichEditViewport view = frame.View;
-        foreach (CellBox cell in _layout.Cells)
+        var edges = new List<RichEditTableBorders.Edge>();
+        foreach (CellBox cell in _layout.Cells.OrderByDescending(cell => cell.Bounds.Width * cell.Bounds.Height))
         {
             var bounds = new BRect(
                 view.ContentLeft + cell.Bounds.Left,
@@ -372,8 +374,10 @@ internal sealed class RichEditPainter
             if (!cell.Shading.IsEmpty && cell.Shading.A > 0)
                 renderList.FillRect(bounds, cell.Shading);
 
-            DrawCellBorders(renderList, bounds, cell.Borders);
+            edges.AddRange(RichEditTableBorders.Edges(bounds, cell.Borders));
         }
+        foreach (var edge in RichEditTableBorders.Resolve(edges))
+            RichEditTableBorders.Draw(renderList, edge, _layout.Settings.Zoom);
     }
 
     /// <summary>
@@ -383,29 +387,8 @@ internal sealed class RichEditPainter
     /// </summary>
     private static void DrawCellBorders(BRenderList renderList, BRect bounds, CellBorders borders, double scale = 1)
     {
-        if (borders.Top.IsVisible)
-            renderList.FillRect(new BRect(bounds.Left, bounds.Top, bounds.Width, borders.Top.Width * scale), borders.Top.Color);
-
-        if (borders.Bottom.IsVisible)
-        {
-            renderList.FillRect(
-                new BRect(bounds.Left, bounds.Bottom - borders.Bottom.Width * scale, bounds.Width, borders.Bottom.Width * scale),
-                borders.Bottom.Color);
-        }
-
-        if (borders.Left.IsVisible)
-        {
-            renderList.FillRect(
-                new BRect(bounds.Left, bounds.Top, borders.Left.Width * scale, bounds.Height),
-                borders.Left.Color);
-        }
-
-        if (borders.Right.IsVisible)
-        {
-            renderList.FillRect(
-                new BRect(bounds.Right - borders.Right.Width * scale, bounds.Top, borders.Right.Width * scale, bounds.Height),
-                borders.Right.Color);
-        }
+        foreach (var edge in RichEditTableBorders.Edges(bounds, borders))
+            RichEditTableBorders.Draw(renderList, edge, scale);
     }
 
     private void DrawParagraphBackgrounds(BRenderList renderList, in RichEditPaintFrame frame, BRect inner)
@@ -413,21 +396,17 @@ internal sealed class RichEditPainter
         RichEditViewport view = frame.View;
         (int start, int count) = VisibleLines(view, inner);
         double scale = BFontStyle.PointsToPixels(1) * _layout.Settings.Zoom;
-        for (int index = start; index < start + count;)
+        foreach (var paragraphLines in _layout.Lines.Skip(start).Take(count).GroupBy(line => line.ParagraphIndex))
         {
-            int firstIndex = index;
-            VisualLine first = _layout.Lines[index++];
-            VisualLine last = first;
-            while (index < start + count && _layout.Lines[index].ParagraphIndex == first.ParagraphIndex)
-                last = _layout.Lines[index++];
-
+            VisualLine first = paragraphLines.First();
+            VisualLine last = paragraphLines.Last();
             ParagraphStyle style = frame.Document.Paragraphs[first.ParagraphIndex].Style;
             if (style.Background.IsEmpty && style.Border is null)
                 continue;
 
             CellFrame cell = _layout.Frame(first.ParagraphIndex);
-            bool clippedAbove = firstIndex > 0 && _layout.Lines[firstIndex - 1].ParagraphIndex == first.ParagraphIndex;
-            bool clippedBelow = index < _layout.Lines.Count && _layout.Lines[index].ParagraphIndex == first.ParagraphIndex;
+            bool clippedAbove = _layout.Lines.Any(line => line.ParagraphIndex == first.ParagraphIndex && line.Top < first.Top);
+            bool clippedBelow = _layout.Lines.Any(line => line.ParagraphIndex == first.ParagraphIndex && line.Top > last.Top);
             double top = clippedAbove ? inner.Top - 1 : view.ToControlY(first.Top);
             double bottom = clippedBelow ? inner.Bottom + 1 : view.ToControlY(last.Top + last.Height);
             if (style.Border is { } border)
@@ -437,10 +416,14 @@ internal sealed class RichEditPainter
             }
 
             var bounds = new BRect(view.ContentLeft + cell.Left, top, cell.Width, bottom - top);
+            if (first.CellClip is { } clip)
+                renderList.PushClip(new BRect(view.ContentLeft + clip.Left, view.ToControlY(clip.Top), clip.Width, clip.Height));
             if (!style.Background.IsEmpty)
                 renderList.FillRect(bounds, style.Background);
             if (style.Border is { } edges)
                 DrawCellBorders(renderList, bounds, edges.Edges, scale);
+            if (first.CellClip is not null)
+                renderList.PopClip();
         }
     }
 
@@ -574,7 +557,13 @@ internal sealed class RichEditPainter
             foreach (LineSegment segment in _layout.LineSegments(line, view.ContentLeft))
             {
                 if (!segment.Style.Background.IsEmpty && segment.Advance > 0)
-                    renderList.FillRect(new BRect(segment.X, y, segment.Advance, line.Height), segment.Style.Background);
+                {
+                    BRect bounds = new(segment.X, y, segment.Advance, line.Height);
+                    if (line.CellClip is { } clip)
+                        bounds = bounds.Intersect(new BRect(view.ContentLeft + clip.Left, view.ToControlY(clip.Top), clip.Width, clip.Height));
+                    if (bounds.Width > 0 && bounds.Height > 0)
+                        renderList.FillRect(bounds, segment.Style.Background);
+                }
             }
         }
     }
@@ -591,7 +580,12 @@ internal sealed class RichEditPainter
             VisualLine line = _layout.Lines[i];
             double y = view.ToControlY(line.Top);
             if (_layout.TrySelectionSpan(line, selection, view.ContentLeft, out double left, out double width))
-                renderList.FillRect(new BRect(left, y, width, line.Height), color);
+            {
+                BRect bounds = new(left, y, width, line.Height);
+                if (line.CellClip is { } clip)
+                    bounds = bounds.Intersect(new BRect(view.ContentLeft + clip.Left, view.ToControlY(clip.Top), clip.Width, clip.Height));
+                renderList.FillRect(bounds, color);
+            }
         }
     }
 
@@ -659,6 +653,8 @@ internal sealed class RichEditPainter
     private void DrawLine(BRenderList renderList, in RichEditPaintFrame frame, VisualLine line, double y, BColor fallback, BColor? color)
     {
         RichEditViewport view = frame.View;
+        if (line.CellClip is { } clip)
+            renderList.PushClip(new BRect(view.ContentLeft + clip.Left, view.ToControlY(clip.Top), clip.Width, clip.Height));
         foreach (LineSegment segment in _layout.LineSegments(line, view.ContentLeft))
         {
             BColor segmentColor = color ?? (frame.IsEnabled && !segment.Style.Foreground.IsEmpty ? segment.Style.Foreground : fallback);
@@ -687,6 +683,8 @@ internal sealed class RichEditPainter
             double decorationHeight = segment.Style.Shift is null ? line.Height - line.TextTopPadding : BTextMeasurer.GetLineHeight(segment.Font);
             DrawDecorations(renderList, segment, textY, decorationHeight, segmentColor);
         }
+        if (line.CellClip is not null)
+            renderList.PopClip();
     }
 
     /// <summary>
@@ -702,14 +700,13 @@ internal sealed class RichEditPainter
         RichEditViewport view = frame.View;
         BColor fallback = frame.IsEnabled ? frame.Palette.Foreground : frame.Palette.PlaceholderForeground;
         (int start, int count) = VisibleLines(view, inner);
-        int drawnParagraph = -1;
+        var drawnParagraphs = new HashSet<int>();
         for (int i = start; i < start + count; i++)
         {
             VisualLine line = _layout.Lines[i];
-            if (line.ParagraphIndex == drawnParagraph)
+            if (!drawnParagraphs.Add(line.ParagraphIndex))
                 continue;
 
-            drawnParagraph = line.ParagraphIndex;
             ParagraphDecoration decoration = _layout.Decoration(line.ParagraphIndex);
             if (decoration.Marker.Length == 0)
                 continue;
@@ -719,9 +716,13 @@ internal sealed class RichEditPainter
             BColor color = frame.IsEnabled && !style.Foreground.IsEmpty ? style.Foreground : fallback;
             // The marker travels with the text it introduces, so a centered or
             // right-aligned item keeps its bullet against the item, not the margin.
+            if (line.CellClip is { } clip)
+                renderList.PushClip(new BRect(view.ContentLeft + clip.Left, view.ToControlY(clip.Top), clip.Width, clip.Height));
             renderList.DrawText(
                 new BTextRun(decoration.Marker, decoration.Font, color),
                 new BPoint(_layout.MarkerLeft(line, view.ContentLeft), y));
+            if (line.CellClip is not null)
+                renderList.PopClip();
         }
     }
 
@@ -787,6 +788,8 @@ internal sealed class RichEditPainter
 
         // Preedit text is drawn with the capitalization it will take once
         // committed, so the text does not jump when the IME finishes.
+        if (line.CellClip is { } clip)
+            renderList.PushClip(new BRect(view.ContentLeft + clip.Left, view.ToControlY(clip.Top), clip.Width, clip.Height));
         double pieceX = x;
         foreach (ShapedPiece piece in RichEditTextShaping.ShapePieces(frame.CompositionText, style, font))
         {
@@ -795,6 +798,8 @@ internal sealed class RichEditPainter
         }
 
         renderList.FillRect(new BRect(x, y + line.Height - 2, advance, 1), color); // composition underline
+        if (line.CellClip is not null)
+            renderList.PopClip();
     }
 
     private void DrawCaret(BRenderList renderList, in RichEditPaintFrame frame)
@@ -802,6 +807,8 @@ internal sealed class RichEditPainter
         if (!frame.IsFocused || !frame.IsEnabled || frame.IsReadOnly)
             return;
 
-        renderList.FillRect(_layout.CaretBounds(frame.Selection.Focus, frame.View), frame.Palette.CaretColor);
+        BRect caret = _layout.CaretBounds(frame.Selection.Focus, frame.View);
+        if (caret.Width > 0 && caret.Height > 0)
+            renderList.FillRect(caret, frame.Palette.CaretColor);
     }
 }

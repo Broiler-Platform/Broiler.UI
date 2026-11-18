@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Broiler.UI.Win32.Demo": {
+      "commandName": "Project",
+      "debugEngines": "managed,native"
+    }
+  }
+}

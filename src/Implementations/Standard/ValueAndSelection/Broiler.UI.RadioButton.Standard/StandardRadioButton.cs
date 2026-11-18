@@ -204,7 +204,7 @@ public sealed class StandardRadioButton : UiRadioButton, IStandardThemedControl
                 ? mark.Left - Spacing - textSize.Width
                 : mark.Right + Spacing;
             double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
-            context.RenderList.DrawText(StandardControlPaint.TextRun(Text, Font, foreground), new BPoint(x, y));
+            StandardControlPaint.DrawText(context.RenderList, Text, Font, foreground, new BPoint(x, y), context.Host.Scale);
         }
 
         if (Session?.FocusedElement == this)

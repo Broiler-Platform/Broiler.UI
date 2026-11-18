@@ -482,12 +482,12 @@ public sealed partial class StandardEdit
             bool ownHighlightColor = highlighted && ContextMenuHighlightForeground != ContextMenuForeground;
             BColor foreground = !item.IsEnabled ? ContextMenuDisabledForeground : highlighted ? ContextMenuHighlightForeground : ContextMenuForeground;
             double baseline = row.Top + Math.Max(0, (row.Height - lineHeight) / 2);
-            context.RenderList.DrawText(StandardControlPaint.TextRun(item.Text, Font, foreground), new BPoint(row.Left + ContextMenuPaddingX, baseline));
+            StandardControlPaint.DrawText(context.RenderList, item.Text, Font, foreground, new BPoint(row.Left + ContextMenuPaddingX, baseline), context.Host.Scale);
             if (item.Shortcut.Length > 0)
             {
                 double shortcutWidth = BTextMeasurer.MeasureAdvance(item.Shortcut, Font);
                 BColor shortcut = ownHighlightColor ? ContextMenuHighlightForeground : ContextMenuDisabledForeground;
-                context.RenderList.DrawText(StandardControlPaint.TextRun(item.Shortcut, Font, shortcut), new BPoint(row.Right - ContextMenuPaddingX - shortcutWidth, baseline));
+                StandardControlPaint.DrawText(context.RenderList, item.Shortcut, Font, shortcut, new BPoint(row.Right - ContextMenuPaddingX - shortcutWidth, baseline), context.Host.Scale);
             }
 
             top += ContextMenuItemHeight;

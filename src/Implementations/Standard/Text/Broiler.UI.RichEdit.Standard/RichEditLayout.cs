@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Broiler.Documents.Model;
 using Broiler.Graphics;
 using Broiler.Graphics.Geometry;
@@ -263,6 +264,8 @@ internal sealed class RichEditLayout
     /// The line under a content-space y: the first whose bottom is below it, or
     /// the last line for a point past the end.
     /// </summary>
+    private double[] _bottomPrefix = [];
+
     public VisualLine LineAt(double y)
     {
         if (_lines.Count == 0)
@@ -275,7 +278,7 @@ internal sealed class RichEditLayout
         while (low <= high)
         {
             int mid = low + ((high - low) / 2);
-            if (y < _lines[mid].Top + _lines[mid].Height)
+            if (y < _bottomPrefix[mid])
             {
                 result = mid;
                 high = mid - 1;
@@ -287,6 +290,30 @@ internal sealed class RichEditLayout
         }
 
         return _lines[result];
+    }
+
+    public VisualLine LineAt(BPoint point)
+    {
+        VisualLine closest = LineAt(point.Y);
+        double distance = double.MaxValue;
+        foreach (VisualLine line in _lines)
+        {
+            CellFrame frame = Frame(line.ParagraphIndex);
+            if (line.CellClip is { } clip)
+            {
+                if (!clip.Contains(point) || line.Top >= clip.Bottom || line.Top + line.Height <= clip.Top)
+                    continue;
+            }
+            else if (point.X < frame.Left || point.X > frame.Left + frame.Width)
+                continue;
+            double gap = Math.Max(line.Top - point.Y, point.Y - line.Top - line.Height);
+            if (gap < distance)
+            {
+                distance = gap;
+                closest = line;
+            }
+        }
+        return closest;
     }
 
     /// <summary>
@@ -306,7 +333,7 @@ internal sealed class RichEditLayout
         {
             int mid = low + ((high - low) / 2);
             VisualLine line = _lines[mid];
-            if (line.Top + line.Height >= contentMinY)
+            if (_bottomPrefix[mid] >= contentMinY)
             {
                 firstVisible = mid;
                 high = mid - 1;
@@ -350,7 +377,10 @@ internal sealed class RichEditLayout
         VisualLine line = LineForPosition(position).Line;
         double x = CaretX(position, view.ContentLeft);
         double y = view.ContentTop + line.Top - view.ScrollY;
-        return new BRect(x, y + 1, 1, Math.Max(1, line.Height - 2));
+        BRect bounds = new(x, y + 1, 1, Math.Max(1, line.Height - 2));
+        return line.CellClip is { } clip
+            ? bounds.Intersect(new BRect(view.ContentLeft + clip.Left, view.ToControlY(clip.Top), clip.Width, clip.Height))
+            : bounds;
     }
 
     /// <summary>
@@ -595,6 +625,18 @@ internal sealed class RichEditLayout
             document.ParagraphCount,
             0,
             new CellFrame(0, Math.Max(1, contentWidth)));
+        _lines.Sort((a, b) =>
+        {
+            int order = a.Top.CompareTo(b.Top);
+            if (order == 0)
+                order = Frame(a.ParagraphIndex).Left.CompareTo(Frame(b.ParagraphIndex).Left);
+            return order == 0 ? a.Start.CompareTo(b.Start) : order;
+        });
+        _bottomPrefix = new double[_lines.Count];
+        double lastBottom = 0;
+        for (int index = 0; index < _lines.Count; index++)
+            _bottomPrefix[index] = lastBottom = Math.Max(lastBottom, _lines[index].Top + _lines[index].Height);
+
 
         if (_lines.Count == 0)
         {
@@ -769,10 +811,10 @@ internal sealed class RichEditLayout
     private double LayoutTable(RichTextDocument document, DocumentTable table, double top, CellFrame frame)
     {
         double[] edges = ColumnEdges(table, frame);
-        double padding = table.CellPadding * _settings.Zoom;
         double defaultLineHeight = _settings.DefaultLineHeight;
         var heights = new List<double>(table.Rows.Count);
-        var spans = new List<(int Row, int Index, int RowSpan)>();
+        var spans = new List<(int Row, int Index, TableCell Cell, int FirstLine, int LastLine,
+            int FirstNestedBox, int LastNestedBox, double ContentHeight)>();
 
         // A cell that spans rows is not as tall as its first row. Its content is
         // laid out from that row's top and may reach far past it, so its height
@@ -791,22 +833,23 @@ internal sealed class RichEditLayout
             double bottom = y;
             foreach (TableCell cell in row.Cells)
             {
+                if (cell.IsRowSpanContinuation)
+                    continue;
                 (double left, double width) = ColumnSpanBox(edges, cell);
+                var padding = cell.PaddingFor(table);
+                int firstLine = _lines.Count;
+                int firstBox = _cells.Count;
+                double textTop = y + padding.Top * _settings.Zoom;
                 double cellBottom = LayoutBlocks(
                     document,
                     cell.Tables,
                     cell.ParagraphIndex,
                     cell.ParagraphEnd,
-                    y,
-                    new CellFrame(left + padding, Math.Max(1, width - (padding * 2))));
-
-                if (cell.IsRowSpanContinuation)
-                {
-                    // The continuation holds no content of its own - what it covers
-                    // lives in the cell that started the span - so whatever empty
-                    // paragraph it carries does not get to set a height.
-                    continue;
-                }
+                    textTop,
+                    new CellFrame(left + padding.Left * _settings.Zoom,
+                        Math.Max(1, width - (padding.Left + padding.Right) * _settings.Zoom)));
+                double contentHeight = cellBottom - textTop;
+                cellBottom += padding.Bottom * _settings.Zoom;
 
                 int rowSpan = Math.Max(1, cell.RowSpan);
                 if (rowSpan > 1)
@@ -814,7 +857,7 @@ internal sealed class RichEditLayout
                 else
                     bottom = Math.Max(bottom, cellBottom);
 
-                spans.Add((rowIndex, _cells.Count, cell.RowSpan));
+                spans.Add((rowIndex, _cells.Count, cell, firstLine, _lines.Count, firstBox, _cells.Count, contentHeight));
                 _cells.Add(new CellBox(new BRect(left, y, width, 0), cell.Shading, cell.Borders));
             }
 
@@ -827,29 +870,49 @@ internal sealed class RichEditLayout
                     bottom = Math.Max(bottom, reach);
             }
 
-            // A row is never shorter than a line, so an empty one is still a row,
-            // nor shorter than the height it asked for. That height is a floor and
-            // not a measurement: content that does not fit still makes the row
-            // taller, because clipping a row's own text would lose it. It is what
-            // holds the empty first row of a page-layout table open, and with it
-            // the block the template put underneath.
-            heights.Add(Math.Max(
+            // Minimum heights grow for content; exact heights retain the stated
+            // size and clip painting without deleting the overflowing text.
+            heights.Add(row.ExactHeight ? row.MinHeight * _settings.Zoom : Math.Max(
                 Math.Max(bottom - y, defaultLineHeight),
                 row.MinHeight * _settings.Zoom));
             y += heights[^1];
         }
 
-        foreach ((int row, int index, int rowSpan) in spans)
+        foreach (var span in spans)
         {
             double height = 0;
-            for (int r = row; r < Math.Min(heights.Count, row + Math.Max(1, rowSpan)); r++)
+            for (int r = span.Row; r < Math.Min(heights.Count, span.Row + Math.Max(1, span.Cell.RowSpan)); r++)
                 height += heights[r];
-
-            CellBox box = _cells[index];
-            _cells[index] = box with
+            CellBox box = _cells[span.Index];
+            BRect bounds = new(box.Bounds.Left, box.Bounds.Top, box.Bounds.Width, height);
+            _cells[span.Index] = box with
             {
-                Bounds = new BRect(box.Bounds.Left, box.Bounds.Top, box.Bounds.Width, height),
+                Bounds = bounds,
             };
+            TableCellPadding padding = span.Cell.PaddingFor(table);
+            double extra = Math.Max(0, height - (padding.Top + padding.Bottom) * _settings.Zoom - span.ContentHeight);
+            double shift = span.Cell.VerticalAlignment switch
+            {
+                CellVerticalAlignment.Center => extra / 2,
+                CellVerticalAlignment.Bottom => extra,
+                _ => 0,
+            };
+            for (int line = span.FirstLine; line < span.LastLine; line++)
+            {
+                VisualLine old = _lines[line];
+                BRect clip = old.CellClip is { } nestedClip
+                    ? new BRect(nestedClip.Left, nestedClip.Top + shift, nestedClip.Width, nestedClip.Height).Intersect(bounds)
+                    : bounds;
+                _lines[line] = old with { Top = old.Top + shift, CellClip = clip };
+            }
+            for (int nested = span.FirstNestedBox; nested < span.LastNestedBox; nested++)
+            {
+                CellBox old = _cells[nested];
+                _cells[nested] = old with
+                {
+                    Bounds = new BRect(old.Bounds.Left, old.Bounds.Top + shift, old.Bounds.Width, old.Bounds.Height).Intersect(bounds),
+                };
+            }
         }
 
         return y;
@@ -893,8 +956,11 @@ internal sealed class RichEditLayout
                     foreach (TableCell cell in row.Cells)
                     {
                         (double left, double width) = ColumnSpanBox(edges, cell);
-                        double padding = table.CellPadding * _settings.Zoom;
-                        var inner = new CellFrame(left + padding, Math.Max(1, width - (padding * 2)));
+                        if (cell.IsRowSpanContinuation)
+                            continue;
+                        TableCellPadding padding = cell.PaddingFor(table);
+                        var inner = new CellFrame(left + padding.Left * _settings.Zoom,
+                            Math.Max(1, width - (padding.Left + padding.Right) * _settings.Zoom));
 
                         for (int i = cell.ParagraphIndex; i < Math.Min(cell.ParagraphEnd, _frames.Count); i++)
                             _frames[i] = inner;
@@ -920,16 +986,44 @@ internal sealed class RichEditLayout
     {
         int columns = ColumnCount(table);
         var edges = new double[columns + 1];
+        double indent = Math.Min(frame.Width - 1, Math.Max(0, table.LeftIndent * _settings.Zoom));
+        double available = Math.Max(1, frame.Width - indent);
         double total = table.TotalWidth * _settings.Zoom;
-        double scale = total > 0 && total > frame.Width ? frame.Width / total : 1.0;
-
-        double x = frame.Left;
+        double desired = table.WidthPercent is { } percent ? available * percent / 100
+            : table.PreferredWidth is { } preferred ? preferred * _settings.Zoom
+            : total > 0 ? total : available;
+        var weights = new double[columns];
+        for (int index = 0; index < columns; index++)
+            weights[index] = index < table.ColumnWidths.Count && table.ColumnWidths[index] > 0 ? table.ColumnWidths[index] : 1;
+        if (table.AutoFit)
+        {
+            Array.Fill(weights, 1d);
+            foreach (TableCell cell in table.Rows.SelectMany(row => row.Cells).Where(cell => !cell.IsRowSpanContinuation))
+            {
+                double natural = 0;
+                for (int paragraph = cell.ParagraphIndex; paragraph < Math.Min(Document.ParagraphCount, cell.ParagraphEnd); paragraph++)
+                    natural = Math.Max(natural, MeasureAdvance(Document.Paragraphs[paragraph], 0, Document.Paragraphs[paragraph].Length));
+                TableCellPadding padding = cell.PaddingFor(table);
+                natural = (natural + (padding.Left + padding.Right) * _settings.Zoom) / Math.Max(1, cell.ColumnSpan);
+                for (int column = cell.ColumnIndex; column < Math.Min(columns, cell.ColumnIndex + cell.ColumnSpan); column++)
+                    weights[column] = Math.Max(weights[column], natural);
+            }
+            if (table.WidthPercent is null && table.PreferredWidth is null)
+                desired = weights.Sum();
+        }
+        double extent = Math.Clamp(desired, 1, available);
+        double offset = table.Alignment switch
+        {
+            TableAlignment.Center => (available - extent) / 2,
+            TableAlignment.End => available - extent,
+            _ => 0,
+        };
+        double scale = extent / weights.Sum();
+        double x = frame.Left + indent + offset;
         edges[0] = x;
         for (int i = 0; i < columns; i++)
         {
-            x += i < table.ColumnWidths.Count && table.ColumnWidths[i] > 0
-                ? table.ColumnWidths[i] * _settings.Zoom * scale
-                : frame.Width / columns;
+            x += weights[i] * scale;
             edges[i + 1] = x;
         }
 

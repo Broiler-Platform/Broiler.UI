@@ -392,6 +392,7 @@ public sealed class StandardListView : UiListView, IStandardThemedControl
                 Item = item,
                 State = itemState,
                 Font = Font,
+                Scale = context.Host.Scale,
                 Foreground = Foreground,
                 SecondaryForeground = SecondaryForeground,
                 Background = Background,

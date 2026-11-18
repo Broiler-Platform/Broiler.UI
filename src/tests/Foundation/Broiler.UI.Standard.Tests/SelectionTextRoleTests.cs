@@ -199,6 +199,7 @@ public sealed class SelectionTextRoleTests
             Item = new UiListItem("a", "Alpha"),
             State = new UiListItemState(true, true, false, 3, UiDensity.Compact),
             Font = StandardThemeTokens.Light.FontBody,
+            Scale = 1.5,
             Foreground = BColor.Black,
             SecondaryForeground = BColor.Green,
             Background = BColor.White,
@@ -219,6 +220,7 @@ public sealed class SelectionTextRoleTests
         Assert.Equal(context.Bounds, copy.Bounds);
         Assert.Equal(context.State, copy.State);
         Assert.Equal(context.Font, copy.Font);
+        Assert.Equal(context.Scale, copy.Scale);
         Assert.Equal(
             [context.Foreground, context.SecondaryForeground, context.Background, context.SelectedBackground, context.SelectedForeground, context.SelectedSecondaryForeground, context.FocusRing, context.Accent, context.AccentText],
             [copy.Foreground, copy.SecondaryForeground, copy.Background, copy.SelectedBackground, copy.SelectedForeground, copy.SelectedSecondaryForeground, copy.FocusRing, copy.Accent, copy.AccentText]);

@@ -26,6 +26,41 @@ public static class StandardControlPaint
         return new BTextRun(text, font, color) { Baseline = baseline };
     }
 
+    /// <summary>Centers a caption's own ink, including its accents and descenders, within its line box.</summary>
+    public static BTextRun CaptionTextRun(string text, BFontStyle font, BColor color)
+    {
+        BTextVerticalMetrics metrics = StandardCaptionMetrics.Measure(text, font);
+        double baseline = (BTextMeasurer.GetLineHeight(font) + metrics.Ascent - metrics.Descent) / 2;
+        return new BTextRun(text, font, color) { Baseline = baseline };
+    }
+
+    /// <summary>Draws control text with a baseline rounded once in device pixels.</summary>
+    public static void DrawText(BRenderList renderList, string text, BFontStyle font, BColor color, BPoint origin, double scale)
+    {
+        BTextRun run = CaptionTextRun(text, font, color);
+        DrawText(renderList, run, origin, scale);
+    }
+
+    /// <summary>Centers the visible weight of a single-line caption within its line box.</summary>
+    public static void DrawOpticallyCenteredText(BRenderList renderList, string text, BFontStyle font, BColor color, BPoint origin, double scale)
+    {
+        double baseline = BTextMeasurer.GetLineHeight(font) / 2 - StandardCaptionMetrics.MeasureOpticalCenter(text, font);
+        DrawText(renderList, new BTextRun(text, font, color) { Baseline = baseline }, origin, scale);
+    }
+
+    private static void DrawText(BRenderList renderList, BTextRun run, BPoint origin, double scale)
+    {
+        if (!double.IsFinite(scale) || scale <= 0)
+            scale = 1;
+
+        // Round the absolute baseline, rather than the line origin and the font offset
+        // independently. In particular, half-pixel ties must not alternate with the
+        // parity of the row's Y coordinate (Math.Round's default is ties-to-even).
+        double baseline = run.Baseline!.Value;
+        double y = Math.Floor((origin.Y + baseline) * scale + 0.5) / scale - baseline;
+        renderList.DrawText(run, new BPoint(origin.X, y));
+    }
+
     private static readonly ConditionalWeakTable<UiSession, StandardThemeTokens> _sessionThemes = new();
     private static StandardThemeTokens _theme = StandardThemeTokens.Light;
 

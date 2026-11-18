@@ -551,11 +551,12 @@ public sealed class StandardToolbar : UiToolbar, IStandardThemedControl
             StandardControlPaint.FillRounded(renderList, _overflowButtonBounds, OverflowOpenBackground, CornerRadius);
 
         BSize glyph = BTextMeasurer.Measure(OverflowGlyph, Font).Size;
-        renderList.DrawText(
-            StandardControlPaint.TextRun(OverflowGlyph, Font, foreground),
+        StandardControlPaint.DrawText(
+            renderList, OverflowGlyph, Font, foreground,
             new BPoint(
                 _overflowButtonBounds.Left + Math.Max(0, (_overflowButtonBounds.Width - glyph.Width) / 2),
-                _overflowButtonBounds.Top + Math.Max(0, (_overflowButtonBounds.Height - glyph.Height) / 2)));
+                _overflowButtonBounds.Top + Math.Max(0, (_overflowButtonBounds.Height - glyph.Height) / 2)),
+            Session?.Host.Scale ?? 1);
     }
 
     private void RenderOverflowPopup(UiRenderContext context)

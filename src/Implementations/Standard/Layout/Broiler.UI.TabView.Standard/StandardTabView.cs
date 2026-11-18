@@ -265,7 +265,7 @@ public sealed class StandardTabView : UiTabView, IStandardThemedControl
                 StandardControlPaint.FillRounded(context.RenderList, header, headerBackground, CornerRadius);
 
             BColor headerForeground = selected ? SelectedHeaderForeground : Foreground;
-            context.RenderList.DrawText(StandardControlPaint.TextRun(Tabs[index].Header, Font, headerForeground), new BPoint(header.Left + HeaderPaddingX, header.Top + Math.Max(0, (header.Height - BTextMeasurer.GetLineHeight(Font)) / 2)));
+            StandardControlPaint.DrawText(context.RenderList, Tabs[index].Header, Font, headerForeground, new BPoint(header.Left + HeaderPaddingX, header.Top + Math.Max(0, (header.Height - BTextMeasurer.GetLineHeight(Font)) / 2)), context.Host.Scale);
 
             BRect indicator = selected ? GetSelectedIndicatorBounds(header) : BRect.Empty;
             if (!indicator.IsEmpty)

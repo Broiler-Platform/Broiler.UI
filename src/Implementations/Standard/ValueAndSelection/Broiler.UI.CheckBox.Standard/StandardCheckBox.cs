@@ -97,7 +97,7 @@ public sealed class StandardCheckBox : UiCheckBox, IStandardThemedControl
                 ? box.Left - Spacing - textSize.Width
                 : box.Right + Spacing;
             double y = Bounds.Top + Math.Max(0, (Bounds.Height - textSize.Height) / 2);
-            context.RenderList.DrawText(StandardControlPaint.TextRun(Text, Font, foreground), new BPoint(x, y));
+            StandardControlPaint.DrawText(context.RenderList, Text, Font, foreground, new BPoint(x, y), context.Host.Scale);
         }
 
         if (Session?.FocusedElement == this)
@@ -172,7 +172,7 @@ public sealed class StandardCheckBox : UiCheckBox, IStandardThemedControl
     private void DrawCenteredText(UiRenderContext context, BRect box, string text, BColor color)
     {
         BSize size = BTextMeasurer.Measure(text, Font).Size;
-        context.RenderList.DrawText(StandardControlPaint.TextRun(text, Font, color), new BPoint(box.Left + Math.Max(0, (box.Width - size.Width) / 2), box.Top + Math.Max(0, (box.Height - size.Height) / 2)));
+        StandardControlPaint.DrawText(context.RenderList, text, Font, color, new BPoint(box.Left + Math.Max(0, (box.Width - size.Width) / 2), box.Top + Math.Max(0, (box.Height - size.Height) / 2)), context.Host.Scale);
     }
 
     private static bool IsKey(UiInputEvent input, int nativeKeyCode, string name) =>
