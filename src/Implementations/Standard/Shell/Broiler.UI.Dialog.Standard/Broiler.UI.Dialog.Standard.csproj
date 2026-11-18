@@ -17,6 +17,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Commands\Broiler.UI.Button.Standard\Broiler.UI.Button.Standard.csproj" />
+    <ProjectReference Include="..\..\Content\Broiler.UI.Label.Standard\Broiler.UI.Label.Standard.csproj" />
+    <ProjectReference Include="..\..\Text\Broiler.UI.Edit.Standard\Broiler.UI.Edit.Standard.csproj" />
     <ProjectReference Include="..\..\..\..\Abstractions\Shell\Broiler.UI.Dialog\Broiler.UI.Dialog.csproj" />
     <ProjectReference Include="..\..\..\..\Foundation\Broiler.UI.Standard\Broiler.UI.Standard.csproj" />
   </ItemGroup>
