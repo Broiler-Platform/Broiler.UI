@@ -1,5 +1,3 @@
-using Broiler.UI.AboutDialog.Standard;
-using Broiler.UI.ColorDialog.Standard;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -480,14 +478,7 @@ internal sealed class Win32DemoWindow : Direct2DWindow
 
         commitButton.Clicked += (_, _) => CommitInput();
         resetButton.Clicked += (_, _) => ResetDemo();
-        dialogButton.Clicked += (_, _) => ShowColorDialog();
-        var colorDialogButton = new StandardButton
-        {
-            Text = "Show color dialog",
-            PreferredSize = new BSize(150, 34),
-            Font = new BFontStyle("Segoe UI", 14),
-        };
-        colorDialogButton.Clicked += (_, _) => ShowColorDialog();
+        dialogButton.Clicked += (_, _) => ShowDialog();
         
         input.Submitted += (_, _) => CommitInput();
         animateProgress.CheckStateChanged += (_, _) => ToggleProgressAnimation();
@@ -532,7 +523,6 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             nestedScroll,
             tooltipButton,
             dialogButton,
-            colorDialogButton,
             mediaRefreshButton,
             cameraPreviewButton,
             cameraStatus,
@@ -788,10 +778,34 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         if (_rootWindow.IsDisposed || _rootWindow.IsClosed)
             return;
 
-        var dialog = new StandardAboutDialog { ProductName = "Broiler.UI Control Gallery" };
+        var dialog = new StandardDialog
+        {
+            Title = "About Broiler.UI Control Gallery",
+            PreferredSize = new BSize(390, 180),
+            TitleFont = new BFontStyle("Segoe UI", 14, BFontWeight.SemiBold),
+        };
+
+        var body = new StandardPanel
+        {
+            LayoutMode = UiPanelLayoutMode.Stack,
+            Spacing = 12,
+            Background = BColor.Transparent,
+        };
+        body.AddChild(new StandardLabel
+        {
+            Text = "Broiler.UI Core Win32 Control Gallery (retained-mode UI on Broiler.Graphics).",
+            Wrapping = UiTextWrapping.Wrap,
+            Font = new BFontStyle("Segoe UI", 14),
+            Foreground = DemoColors.Text,
+        });
+        var ok = new StandardButton { Text = "OK", IsDefault = true, PreferredSize = new BSize(90, 32) };
+        ok.Clicked += (_, _) => dialog.Accept();
+        body.AddChild(ok);
+        dialog.AddChild(body);
+
         BSize viewport = _host.ViewportSize;
-        double width = Math.Min(dialog.PreferredSize.Width, Math.Max(0, viewport.Width - 32));
-        double height = Math.Min(dialog.PreferredSize.Height, Math.Max(0, viewport.Height - 32));
+        double width = Math.Min(390, Math.Max(260, viewport.Width - 32));
+        double height = Math.Min(180, Math.Max(140, viewport.Height - 32));
         _ = dialog.ShowModal(_rootWindow, new BRect(
             Math.Max(0, (viewport.Width - width) / 2),
             Math.Max(0, (viewport.Height - height) / 2), width, height));
@@ -852,28 +866,6 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         SetStatus(dialog.IsBrokenOut
             ? "Dialog opened in its own OS window. Close it to dismiss the dialog."
             : "Dialog opened as a logical subwindow (no host window support).");
-        Invalidate();
-    }
-
-    private void ShowColorDialog()
-    {
-        if (_rootWindow.IsDisposed || _rootWindow.IsClosed)
-            return;
-
-        var dialog = new StandardColorDialog
-        {
-            Title = "Choose a color",
-        };
-        dialog.ResultCompleted += (_, e) => SetStatus(e.Result.Value is { } value
-            ? "Selected color " + value
-            : "Color dialog " + e.Result.Kind);
-
-        BSize viewport = _host.ViewportSize;
-        double width = Math.Min(dialog.PreferredSize.Width, Math.Max(0, viewport.Width - 32));
-        double height = Math.Min(dialog.PreferredSize.Height, Math.Max(0, viewport.Height - 32));
-        _ = dialog.ShowModal(_rootWindow, new BRect(
-            Math.Max(0, (viewport.Width - width) / 2),
-            Math.Max(0, (viewport.Height - height) / 2), width, height));
         Invalidate();
     }
 
@@ -2039,7 +2031,6 @@ internal sealed class Win32DemoWindow : Direct2DWindow
         private readonly StandardScrollView _nestedScroll;
         private readonly StandardButton _tooltipButton;
         private readonly StandardButton _dialogButton;
-        private readonly StandardButton _colorDialogButton;
         private readonly StandardButton _mediaRefreshButton;
         private readonly StandardButton _cameraPreviewButton;
         private readonly StandardLabel _cameraStatus;
@@ -2071,7 +2062,6 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             StandardScrollView nestedScroll,
             StandardButton tooltipButton,
             StandardButton dialogButton,
-            StandardButton colorDialogButton,
             StandardButton mediaRefreshButton,
             StandardButton cameraPreviewButton,
             StandardLabel cameraStatus,
@@ -2100,7 +2090,6 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             _nestedScroll = nestedScroll;
             _tooltipButton = tooltipButton;
             _dialogButton = dialogButton;
-            _colorDialogButton = colorDialogButton;
             _mediaRefreshButton = mediaRefreshButton;
             _cameraPreviewButton = cameraPreviewButton;
             _cameraStatus = cameraStatus;
@@ -2129,7 +2118,6 @@ internal sealed class Win32DemoWindow : Direct2DWindow
             AddChild(_nestedScroll);
             AddChild(_tooltipButton);
             AddChild(_dialogButton);
-            AddChild(_colorDialogButton);
             AddChild(_mediaRefreshButton);
             AddChild(_cameraPreviewButton);
             AddChild(_cameraStatus);

@@ -1,4 +1,3 @@
-using Broiler.UI.AboutDialog.Standard;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -862,10 +861,34 @@ internal sealed class BrowserGalleryDemo : IDisposable
         if (_rootWindow.IsDisposed || _rootWindow.IsClosed)
             return;
 
-        var dialog = new StandardAboutDialog { ProductName = "Broiler.UI Control Gallery" };
+        var dialog = new StandardDialog
+        {
+            Title = "About Broiler.UI Control Gallery",
+            PreferredSize = new BSize(390, 180),
+            TitleFont = new BFontStyle("Segoe UI", 14, BFontWeight.SemiBold),
+        };
+
+        var body = new StandardPanel
+        {
+            LayoutMode = UiPanelLayoutMode.Stack,
+            Spacing = 12,
+            Background = BColor.Transparent,
+        };
+        body.AddChild(new StandardLabel
+        {
+            Text = "Broiler.UI Core WebAssembly Control Gallery (retained-mode UI on Broiler.Graphics).",
+            Wrapping = UiTextWrapping.Wrap,
+            Font = new BFontStyle("Segoe UI", 14),
+            Foreground = DemoColors.Text,
+        });
+        var ok = new StandardButton { Text = "OK", IsDefault = true, PreferredSize = new BSize(90, 32) };
+        ok.Clicked += (_, _) => dialog.Accept();
+        body.AddChild(ok);
+        dialog.AddChild(body);
+
         BSize viewport = _host.ViewportSize;
-        double width = Math.Min(dialog.PreferredSize.Width, Math.Max(0, viewport.Width - 32));
-        double height = Math.Min(dialog.PreferredSize.Height, Math.Max(0, viewport.Height - 32));
+        double width = Math.Min(390, Math.Max(260, viewport.Width - 32));
+        double height = Math.Min(180, Math.Max(140, viewport.Height - 32));
         _ = dialog.ShowModal(_rootWindow, new BRect(
             Math.Max(0, (viewport.Width - width) / 2),
             Math.Max(0, (viewport.Height - height) / 2), width, height));
