@@ -5,7 +5,6 @@ using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.Input;
 using Broiler.Input.Mouse;
-using Broiler.UI.CodeEditor.Standard;
 using Broiler.UI.SpinBox.Standard;
 using Xunit;
 
@@ -197,14 +196,6 @@ public sealed class StateFillRoleTests
         (BRenderList list, BRect up) = fixture.HoverUpArrow();
 
         AssertHoveredArrowReads(list, up, (theme.AccentSoft, theme.SelectionText));
-    }
-
-    [Fact]
-    public void A_Matching_Bracket_Is_Marked_With_The_State_Fill()
-    {
-        Assert.Equal(DistinctStates().StateFill, StandardCodeEditorPalette.FromTokens(DistinctStates()).BracketMatch);
-        foreach (StandardThemeTokens preset in new[] { StandardThemeTokens.Light, StandardThemeTokens.Dark, StandardThemeTokens.HighContrastLight, StandardThemeTokens.HighContrastDark })
-            Assert.Equal(preset.AccentSoft, StandardCodeEditorPalette.FromTokens(preset).BracketMatch);
     }
 
     /// <summary>

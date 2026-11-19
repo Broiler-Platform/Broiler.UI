@@ -4,15 +4,10 @@ using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.Graphics.Text;
 using Broiler.Graphics.Rendering;
-using Broiler.UI.AboutDialog.Standard;
 using Broiler.UI.Button.Standard;
 using Broiler.UI.Dialog.Standard;
-using Broiler.UI.FileDialog.Standard;
-using Broiler.UI.FontDialog.Standard;
 using Broiler.UI.Label.Standard;
 using Broiler.UI.Label;
-using Broiler.UI.PrintDialog.Standard;
-using Broiler.UI.ScanDialog.Standard;
 using Broiler.UI.Window.Standard;
 using Broiler.UI.ListView.Standard;
 using Broiler.UI.ListView;
@@ -107,70 +102,21 @@ public sealed class VerticalTextArrangementTests
     }
 
     [Theory]
-    [InlineData("About", 30)]
-    [InlineData("Dialog", 30)]
-    [InlineData("Dialog", 50)]
-    [InlineData("File", 34)]
-    [InlineData("File", 50)]
-    [InlineData("Font", 30)]
-    [InlineData("Font", 50)]
-    [InlineData("Print", 30)]
-    [InlineData("Print", 50)]
-    [InlineData("Scan", 30)]
-    [InlineData("Scan", 50)]
-    public void Every_Dialog_Title_Is_Centered_In_Its_Title_Bar(string kind, double height)
+    [InlineData(30)]
+    [InlineData(50)]
+    public void Every_Dialog_Title_Is_Centered_In_Its_Title_Bar(double height)
     {
         using var session = new StandardUiSessionBuilder().Build(new Host(new BSize(900, 700)));
         var owner = new StandardWindow();
         session.AddRoot(owner);
         const string title = "Title with gy";
-        UiElement dialog;
-        BRect titleBounds;
         var bounds = new BRect(20, 25, 800, 600);
-        switch (kind)
-        {
-            case "About":
-                var about = new StandardAboutDialog { Title = title };
-                _ = about.ShowModal(owner, bounds);
-                dialog = about;
-                session.RenderFrame();
-                titleBounds = about.ChromeLayout.Title;
-                break;
-            case "Dialog":
-                var standard = new StandardDialog { Title = title, TitleBarHeight = height };
-                _ = standard.ShowModal(owner, bounds);
-                dialog = standard;
-                session.RenderFrame();
-                titleBounds = standard.ChromeLayout.Title;
-                break;
-            case "File":
-                var file = new StandardFileDialog { Title = title, TitleBarHeight = height };
-                _ = file.ShowModal(owner, bounds);
-                dialog = file;
-                titleBounds = new(bounds.Left, bounds.Top, bounds.Width, height);
-                break;
-            case "Font":
-                var font = new StandardFontDialog { Title = title, TitleBarHeight = height };
-                _ = font.ShowModal(owner, bounds);
-                dialog = font;
-                titleBounds = new(bounds.Left, bounds.Top, bounds.Width, height);
-                break;
-            case "Scan":
-                var scan = new StandardScanDialog { Title = title, TitleBarHeight = height };
-                _ = scan.ShowModal(owner, bounds);
-                dialog = scan;
-                titleBounds = new(bounds.Left, bounds.Top, bounds.Width, height);
-                break;
-            default:
-                var print = new StandardPrintDialog { Title = title, TitleBarHeight = height };
-                _ = print.ShowModal(owner, bounds);
-                dialog = print;
-                titleBounds = new(bounds.Left, bounds.Top, bounds.Width, height);
-                break;
-        }
+        using var dialog = new StandardDialog { Title = title, TitleBarHeight = height };
+        _ = dialog.ShowModal(owner, bounds);
+        session.RenderFrame();
+        BRect titleBounds = dialog.ChromeLayout.Title;
         var command = Assert.Single(session.RenderFrame().Commands.OfType<BRenderCommand.DrawText>(), c => c.Text.Text == title);
         AssertCentered(command, titleBounds);
-        dialog.Dispose();
     }
 
     [Theory]

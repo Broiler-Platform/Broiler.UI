@@ -5,7 +5,6 @@ using Broiler.Graphics.RenderList;
 using Broiler.Graphics.Rendering;
 using Broiler.Graphics.Text;
 using Broiler.Graphics.Windows;
-using Broiler.UI.AboutDialog.Standard;
 using Broiler.UI.ListView;
 using Broiler.UI.ListView.Standard;
 using Broiler.UI.Menu;
@@ -21,28 +20,6 @@ namespace Broiler.UI.Standard.Windows.Tests;
 public sealed class NativeCaptionAlignmentTests
 {
     public static bool IsWindows => OperatingSystem.IsWindows();
-
-    [Theory(Skip = "Requires DirectWrite on Windows.", SkipUnless = nameof(IsWindows))]
-    [InlineData(1)]
-    [InlineData(1.25)]
-    [InlineData(1.5)]
-    [InlineData(2)]
-    public void About_Dialog_Captions_Are_Visually_Centered(double scale)
-    {
-        using var renderer = new Direct2DRenderer();
-        using var session = new StandardUiSessionBuilder().Build(new Host(new BSize(620, 416), scale));
-        using var owner = new StandardWindow();
-        session.AddRoot(owner);
-        using var dialog = new StandardAboutDialog { Title = "About", ProductName = "Broiler.UI Control Gallery" };
-        _ = dialog.ShowModal(owner, new BRect(0, 0, dialog.PreferredSize.Width, dialog.PreferredSize.Height));
-        var commands = session.RenderFrame().Commands.OfType<BRenderCommand.DrawText>().ToArray();
-        AssertCentered(renderer, Assert.Single(commands, c => c.Text.Text == "About"), dialog.ChromeLayout.Title, scale);
-        AssertCentered(renderer, Assert.Single(commands, c => c.Text.Text == "OK"), dialog.OkButton.Bounds, scale);
-        var list = dialog.ComponentList;
-        Assert.Equal(8 * list.EffectiveItemHeight, list.Bounds.Height, 8);
-        var row = new BRect(list.ContentBounds.Left, list.ContentBounds.Top, list.ContentBounds.Width, list.EffectiveItemHeight);
-        AssertCentered(renderer, commands.First(c => c.Origin.Y >= row.Top && c.Origin.Y < row.Bottom), row, scale, optical: true);
-    }
 
     [Theory(Skip = "Requires DirectWrite on Windows.", SkipUnless = nameof(IsWindows))]
     [InlineData(1, 26)]

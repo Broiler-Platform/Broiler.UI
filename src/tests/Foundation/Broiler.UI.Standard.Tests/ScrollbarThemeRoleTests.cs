@@ -1,16 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using Broiler.Documents.FormatCodes;
-using Broiler.Documents.Model;
 using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
-using Broiler.UI.CodeEditor;
-using Broiler.UI.CodeEditor.Standard;
-using Broiler.UI.FormatCodeView.Standard;
 using Broiler.UI.ListView;
 using Broiler.UI.ListView.Standard;
-using Broiler.UI.RichEdit.Standard;
 using Broiler.UI.ScrollView.Standard;
 using Broiler.UI.TreeView;
 using Broiler.UI.TreeView.Standard;
@@ -222,7 +216,7 @@ public sealed class ScrollbarThemeRoleTests
         StandardThemeTokens.HighContrastDark,
     ];
 
-    public static TheoryData<string> Controls => new() { "scroll view", "rich edit", "format code view", "list", "tree", "code editor" };
+    public static TheoryData<string> Controls => new() { "scroll view", "list", "tree" };
 
     /// <summary>
     /// The high-contrast presets, and palettes shaped like the one Broiler.Hosting builds from a Windows contrast
@@ -237,7 +231,7 @@ public sealed class ScrollbarThemeRoleTests
         SystemPalette(StandardThemeTokens.HighContrastLight, BColor.FromArgb(0xFF, 0xFF, 0xFA, 0xEF), BColor.FromArgb(0xFF, 0x3D, 0x3D, 0x3D)),
     };
 
-    public static TheoryData<string> TranslucentControls => new() { "scroll view", "rich edit", "format code view" };
+    public static TheoryData<string> TranslucentControls => new() { "scroll view" };
 
     /// <summary>
     /// The four-color palette in black and white, which does not say it is high contrast: its roles follow the
@@ -247,7 +241,7 @@ public sealed class ScrollbarThemeRoleTests
         new(BColor.Black, BColor.White, BColor.FromArgb(0xFF, 0x00, 0x78, 0xD7), BColor.White);
 
     internal static bool HasTranslucentBars(string control) =>
-        control is "scroll view" or "rich edit" or "format code view";
+        control is "scroll view";
 
     private static void SetScrollbarThumb(UiElement element, BColor thumb)
     {
@@ -255,12 +249,6 @@ public sealed class ScrollbarThemeRoleTests
         {
             case StandardScrollView scrollView:
                 scrollView.ScrollbarThumb = thumb;
-                break;
-            case StandardRichEdit edit:
-                edit.ScrollbarThumb = thumb;
-                break;
-            case StandardFormatCodeView view:
-                view.ScrollbarThumb = thumb;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(element), element, null);
@@ -277,27 +265,18 @@ public sealed class ScrollbarThemeRoleTests
     /// <summary>A control of the kind named, with more content than <see cref="ControlBounds"/> shows.</summary>
     internal static UiElement Create(string control)
     {
-        string lines = string.Join('\n', Enumerable.Range(0, 60).Select(line => $"line {line}"));
         switch (control)
         {
             case "scroll view":
                 var scrollView = new StandardScrollView();
                 scrollView.AddChild(new TallContent());
                 return scrollView;
-            case "rich edit":
-                var edit = new StandardRichEdit();
-                edit.SetPlainText(lines);
-                return edit;
-            case "format code view":
-                return new StandardFormatCodeView { Projection = FormatCodeProjector.Project(RichTextDocument.FromPlainText(lines)) };
             case "list":
                 var list = new StandardListView();
                 list.SetItems(Enumerable.Range(0, 60).Select(index => new UiListItem($"item{index}", $"Item {index}")).ToArray());
                 return list;
             case "tree":
                 return new StandardTreeView { DataSource = new FlatTreeSource(60) };
-            case "code editor":
-                return new StandardCodeEditor { Document = new LinesDocument(60) };
             default:
                 throw new ArgumentOutOfRangeException(nameof(control), control, null);
         }
@@ -359,45 +338,6 @@ public sealed class ScrollbarThemeRoleTests
         public TreeNodeId GetChild(TreeNodeId node, int index) => new($"/node{index}");
         public bool CanExpand(TreeNodeId node) => GetChildCount(node) > 0;
         public TreeNodePresentation GetPresentation(TreeNodeId node) => new(node, node.Value[1..]);
-    }
-
-    /// <summary>A read-only document of short, numbered lines.</summary>
-    internal sealed class LinesDocument(int count) : ICodeDocument
-    {
-        public ICodeTextSnapshot Snapshot { get; } = new LinesSnapshot(count);
-        public bool IsReadOnly => true;
-        public string LineEnding => "\n";
-        public bool CanUndo => false;
-        public bool CanRedo => false;
-
-        public event Action<ICodeTextSnapshot>? SnapshotChanged
-        {
-            add { }
-            remove { }
-        }
-
-        public CodeEditOutcome Submit(CodeEditIntent intent) => new(false, Snapshot, CodeEditRejection.ReadOnly);
-        public bool Undo() => false;
-        public bool Redo() => false;
-        public void BreakUndoGroup() { }
-    }
-
-    /// <summary>Lines "line 00" to "line NN", each eight characters with its line break.</summary>
-    private sealed class LinesSnapshot(int count) : ICodeTextSnapshot
-    {
-        private const int Stride = 8;
-        private readonly string _text = string.Join('\n', Enumerable.Range(0, count).Select(line => $"line {line:00}"));
-
-        public int Version => 1;
-        public int Length => _text.Length;
-        public int LineCount => count;
-        public int GetLineStart(int line) => line * Stride;
-        public int GetLineLength(int line) => Stride - 1;
-        public int GetLineFromPosition(int position) => Math.Min(count - 1, position / Stride);
-        public string GetText(int start, int length) => _text.Substring(start, length);
-        public void CopyTo(int start, int length, Span<char> destination) => _text.AsSpan(start, length).CopyTo(destination);
-        public int GetNextCaretPosition(int position) => Math.Min(_text.Length, position + 1);
-        public int GetPreviousCaretPosition(int position) => Math.Max(0, position - 1);
     }
 
     /// <summary>Arranges each child into its own fixed rectangle.</summary>

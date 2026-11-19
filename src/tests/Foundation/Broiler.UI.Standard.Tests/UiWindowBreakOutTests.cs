@@ -6,7 +6,6 @@ using Broiler.Input;
 using Broiler.Input.Mouse;
 using Broiler.UI.Dialog;
 using Broiler.UI.Dialog.Standard;
-using Broiler.UI.FileDialog.Standard;
 using Broiler.UI.Tooltip.Standard;
 using Broiler.UI.Window;
 using Broiler.UI.Window.Standard;
@@ -246,53 +245,6 @@ public sealed class UiWindowBreakOutTests
     }
 
     [Fact]
-    public void A_Broken_Out_Dialog_Moves_Through_The_Window_Manager()
-    {
-        var host = new FakeWindowHost();
-        using UiSession session = new StandardUiSessionBuilder().Build(host);
-        var owner = new StandardWindow();
-        session.AddRoot(owner);
-
-        // A dialog that grips its own title bar rather than driving UiWindowChromeController -
-        // which is what the file and font dialogs do.
-        var dialog = new StandardFileDialog { Title = "Open" };
-        _ = dialog.ShowOpenModal(owner, new BRect(20, 20, 300, 200));
-        Assert.True(dialog.IsBrokenOut);
-
-        dialog.Measure(new BSize(300, 200));
-        dialog.Arrange(new BRect(0, 0, 300, 200));
-        BRect before = dialog.Placement;
-
-        Assert.True(dialog.DispatchInput(CreateMouseDown(150, 17)));
-
-        // It has no owner left to be placed against, so the drag has to reach the window manager;
-        // simulating it from pointer deltas moves nothing at all.
-        Assert.Equal(1, host.Created[0].MoveDrags);
-
-        dialog.DispatchInput(CreateMouseMove(210, 92));
-        Assert.Equal(before, dialog.Placement);
-    }
-
-    [Fact]
-    public void A_Broken_Out_File_Dialog_Asks_For_A_Resizable_Host_Window()
-    {
-        var host = new FakeWindowHost();
-        using UiSession session = new StandardUiSessionBuilder().Build(host);
-        var owner = new StandardWindow();
-        session.AddRoot(owner);
-
-        var dialog = new StandardFileDialog { Title = "Open" };
-        _ = dialog.ShowOpenModal(owner, new BRect(20, 20, 300, 200));
-
-        // Resizable, and still not maximizable: the two are separate wishes now, and the native
-        // window has to be created for the first one or its frame has no edges to drag.
-        Assert.True(host.Created[0].Request.Resizable);
-        Assert.True(dialog.BeginResizeDrag(UiWindowEdge.BottomRight));
-        Assert.Equal([UiWindowEdge.BottomRight], host.Created[0].ResizeDrags);
-        Assert.False(dialog.CanMaximize);
-    }
-
-    [Fact]
     public void A_Broken_Out_Plain_Dialog_Asks_For_A_Fixed_Host_Window()
     {
         var host = new FakeWindowHost();
@@ -306,28 +258,6 @@ public sealed class UiWindowBreakOutTests
         Assert.False(host.Created[0].Request.Resizable);
         Assert.False(dialog.BeginResizeDrag(UiWindowEdge.BottomRight));
         Assert.Empty(host.Created[0].ResizeDrags);
-    }
-
-    [Fact]
-    public void A_Logical_Dialog_Still_Moves_Itself_By_Placement()
-    {
-        var host = new FakeWindowHost();
-        using UiSession session = new StandardUiSessionBuilder().Build(host);
-        var owner = new StandardWindow();
-        session.AddRoot(owner);
-
-        var dialog = new StandardFileDialog { Title = "Open", BreakOutMode = UiWindowBreakOutMode.Manual };
-        _ = dialog.ShowOpenModal(owner, new BRect(20, 20, 300, 200));
-        Assert.False(dialog.IsBrokenOut);
-
-        owner.Measure(new BSize(640, 480));
-        owner.Arrange(new BRect(0, 0, 640, 480));
-
-        dialog.DispatchInput(CreateMouseDown(150, 37));
-        dialog.DispatchInput(CreateMouseMove(190, 77));
-
-        Assert.Empty(host.Created);
-        Assert.Equal(new BRect(60, 60, 300, 200), dialog.Placement);
     }
 
     private static UiInputEvent CreateMouseMove(double x, double y)

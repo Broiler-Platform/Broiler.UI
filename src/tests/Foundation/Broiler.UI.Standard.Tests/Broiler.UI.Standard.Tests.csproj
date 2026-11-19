@@ -11,14 +11,9 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../Implementations/Standard/Layout/Broiler.UI.Forms.Standard/Broiler.UI.Forms.Standard.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.AboutDialog.Standard\Broiler.UI.AboutDialog.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Window.Standard\Broiler.UI.Window.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Dialog.Standard\Broiler.UI.Dialog.Standard.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.FileDialog.Standard\Broiler.UI.FileDialog.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.Tooltip.Standard\Broiler.UI.Tooltip.Standard.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.FontDialog.Standard\Broiler.UI.FontDialog.Standard.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.PrintDialog.Standard\Broiler.UI.PrintDialog.Standard.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Shell\Broiler.UI.ScanDialog.Standard\Broiler.UI.ScanDialog.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Content\Broiler.UI.PrintPreview.Standard\Broiler.UI.PrintPreview.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Layout\Broiler.UI.ScrollView.Standard\Broiler.UI.ScrollView.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Layout\Broiler.UI.TabView.Standard\Broiler.UI.TabView.Standard.csproj" />
@@ -31,17 +26,10 @@
     <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.Edit.Standard\Broiler.UI.Edit.Standard.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\Commands\Broiler.UI.Menu\Broiler.UI.Menu.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\Commands\Broiler.UI.Menu.Standard\Broiler.UI.Menu.Standard.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.CodeEditor.Standard\Broiler.UI.CodeEditor.Standard.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.CheckBox\Broiler.UI.CheckBox.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.RadioButton\Broiler.UI.RadioButton.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.Slider\Broiler.UI.Slider.csproj" />
     <ProjectReference Include="..\..\..\Abstractions\ValueAndSelection\Broiler.UI.TreeView\Broiler.UI.TreeView.csproj" />
-    <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.RichEdit\Broiler.UI.RichEdit.csproj" />
-    <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.CodeEditor\Broiler.UI.CodeEditor.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.CodeEditor.Standard\Broiler.UI.CodeEditor.Standard.csproj" />
-    <ProjectReference Include="..\..\..\Abstractions\Text\Broiler.UI.FormatCodeView\Broiler.UI.FormatCodeView.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.FormatCodeView.Standard\Broiler.UI.FormatCodeView.Standard.csproj" />
-    <ProjectReference Include="..\..\..\Implementations\Standard\Text\Broiler.UI.RichEdit.Standard\Broiler.UI.RichEdit.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.TreeView.Standard\Broiler.UI.TreeView.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.CheckBox.Standard\Broiler.UI.CheckBox.Standard.csproj" />
     <ProjectReference Include="..\..\..\Implementations\Standard\ValueAndSelection\Broiler.UI.RadioButton.Standard\Broiler.UI.RadioButton.Standard.csproj" />

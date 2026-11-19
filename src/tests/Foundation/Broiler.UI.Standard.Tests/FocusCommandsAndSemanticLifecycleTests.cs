@@ -6,14 +6,11 @@ using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.UI.Button.Standard;
 using Broiler.UI.CheckBox;
-using Broiler.UI.CodeEditor;
 using Broiler.UI.ComboBox.Standard;
 using Broiler.UI.Edit.Standard;
-using Broiler.UI.FormatCodeView;
 using Broiler.UI.ListView.Standard;
 using Broiler.UI.Menu;
 using Broiler.UI.RadioButton;
-using Broiler.UI.RichEdit;
 using Broiler.UI.ScrollView.Standard;
 using Broiler.UI.Slider;
 using Broiler.UI.SpinBox.Standard;
@@ -38,10 +35,7 @@ public sealed class FocusCommandsAndSemanticLifecycleTests
         using var check = new TestCheckBox();
         using var radio = new TestRadioButton();
         using var slider = new TestSlider();
-        using var richEdit = new TestRichEdit();
         using var tree = new TestTreeView();
-        using var codeEditor = new TestCodeEditor();
-        using var formatCode = new TestFormatCodeView();
 
         Assert.True(button.Focusable);
         Assert.True(button.IsTabStop);
@@ -70,17 +64,8 @@ public sealed class FocusCommandsAndSemanticLifecycleTests
         Assert.True(slider.Focusable);
         Assert.True(slider.IsTabStop);
 
-        Assert.True(richEdit.Focusable);
-        Assert.True(richEdit.IsTabStop);
-
         Assert.True(tree.Focusable);
         Assert.True(tree.IsTabStop);
-
-        Assert.True(codeEditor.Focusable);
-        Assert.True(codeEditor.IsTabStop);
-
-        Assert.True(formatCode.Focusable);
-        Assert.True(formatCode.IsTabStop);
     }
 
     [Fact]
@@ -700,19 +685,7 @@ public sealed class FocusCommandsAndSemanticLifecycleTests
     {
     }
 
-    private sealed class TestRichEdit : UiRichEdit
-    {
-    }
-
     private sealed class TestTreeView : UiTreeView
-    {
-    }
-
-    private sealed class TestCodeEditor : UiCodeEditor
-    {
-    }
-
-    private sealed class TestFormatCodeView : UiFormatCodeView
     {
     }
 }
